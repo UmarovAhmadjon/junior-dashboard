@@ -1,0 +1,34 @@
+name: update-dashboard
+
+on:
+  schedule:
+    - cron: "7 * * * *"     # har soat (UTC bo'yicha, daqiqa 7)
+  workflow_dispatch: {}      # qo'lda ishga tushirish tugmasi
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dashboard
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate dashboard from Google Sheets
+        run: python3 live_update.py
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "dashboard-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html weeks.html cashiers.html
+          if git diff --cached --quiet; then
+            echo "No changes — skip commit"
+          else
+            git commit -m "auto-update dashboard"
+            git push
+          fi
