@@ -1,0 +1,441 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="14400"><title>Junior · План продаж</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700;800&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+body{
+--bg:#0a0c10;--stripe:rgba(255,255,255,.016);--panel:#12151c;--panel2:#181c26;--line:#242a36;
+--txt:#f2f5fa;--mut:#7f8a9e;--dim:#5b6474;
+--volt:#ff4f28;--voltdk:#e62e00;--voltink:#fff;--volttx:#ff6b47;
+--gold:#ffd21e;--goldtx:#ffd21e;--red:#ff4d6d;--redtx:#ff5f7c;--green:#3dffa2;--greentx:#3dffa2;
+--trackbg:#070a0e;--markc:#fff;--baridle:#262d3b;
+--heathi:#fff;--heatlo:#f2c9b4;--heatz:#39404e;--rowline:rgba(255,255,255,.05);
+--goldplate:linear-gradient(100deg,#ffd21e,#f0a400);--silvplate:linear-gradient(100deg,#e2e8f2,#aeb9cb);--voltplate:linear-gradient(100deg,#ff7a4d,#ff2e00);
+--plateink:#141000;--missf:linear-gradient(90deg,#39424f,#57637a);
+color-scheme:dark}
+body.light{
+--bg:#f1efe9;--stripe:rgba(12,16,24,.04);--panel:#ffffff;--panel2:#f4f2ec;--line:#d3d9e1;
+--txt:#10151d;--mut:#59626f;--dim:#7c8695;
+--volt:#ff4f28;--voltdk:#e62e00;--voltink:#fff;--volttx:#e63912;
+--gold:#eab308;--goldtx:#a16207;--red:#e11d48;--redtx:#be123c;--green:#059669;--greentx:#047857;
+--trackbg:#ece8df;--markc:#10151d;--baridle:#e2ddd1;
+--heathi:#4a1104;--heatlo:#8a3a1a;--heatz:#c0c7b8;--rowline:rgba(12,16,24,.07);
+--goldplate:linear-gradient(100deg,#ffd21e,#f0a400);--silvplate:linear-gradient(100deg,#e7ecf4,#b9c3d4);--voltplate:linear-gradient(100deg,#ff7a4d,#ff2e00);
+--plateink:#141000;--missf:linear-gradient(90deg,#c2cbd8,#9aa7ba);
+color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;color:var(--txt);font:15px/1.5 Manrope,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 32px 24px;min-height:100vh;
+background:repeating-linear-gradient(115deg,transparent 0 54px,var(--stripe) 54px 57px),radial-gradient(1000px 420px at 0% -10%,rgba(255,79,40,.10),transparent 55%),var(--bg)}
+@media(min-width:1500px){body{font-size:17px;padding:26px 44px 28px}}
+.cnd{font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif}
+.panel{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--volt);clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%);position:relative}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 26px 6px 20px;flex-wrap:wrap}
+.ptitle{font:italic 800 1.5em/1 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;letter-spacing:.02em}
+.sl{color:var(--volttx);font-style:italic;margin:0 2px}
+.pday,.lbleg,.wnow{color:var(--mut);font-size:.82em;font-weight:700}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:0;margin-right:auto}
+.b-volt{background:var(--volt);color:var(--voltink);font:italic 800 24px/1 'Barlow Condensed',Arial,sans-serif;padding:10px 16px 10px 14px;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%);text-transform:uppercase;letter-spacing:.02em}
+.b-dark{background:var(--panel);border:1px solid var(--line);color:var(--txt);font:italic 800 24px/1 'Barlow Condensed',Arial,sans-serif;padding:9px 18px 9px 20px;margin-left:-8px;clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);text-transform:uppercase;letter-spacing:.03em}
+.upd{color:var(--dim);font-size:12px;font-weight:700;margin-left:12px;align-self:flex-end;padding-bottom:2px}
+.rnav{display:flex;gap:2px}
+.rnav a{padding:8px 16px;font:700 13px Manrope,Arial,sans-serif;color:var(--mut);text-decoration:none;background:var(--panel);border:1px solid var(--line);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.rnav a.on{background:var(--panel2);color:var(--txt);border-color:var(--volt)}
+.mswitch{display:flex;gap:2px}
+.mbtn{padding:8px 16px;border:1px solid var(--line);background:var(--panel);font:italic 800 14px 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;color:var(--mut);cursor:pointer;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.mbtn.on{background:var(--volt);color:var(--voltink);border-color:var(--volt)}
+.tbtn{width:40px;height:38px;border:1px solid var(--line);background:var(--panel);font-size:16px;cursor:pointer;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);display:grid;place-items:center;padding:0}
+.clkwrap{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05}
+.clk{font:italic 800 30px/1 'Barlow Condensed',Arial,sans-serif;color:var(--txt)}
+.cdate{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.hero{display:grid;grid-template-columns:1.7fr 1fr;gap:14px;margin:0 0 14px}
+@media(max-width:1100px){.hero{grid-template-columns:1fr}}
+.heropanel.hdone{border-left-color:var(--gold)}
+.hp-main{display:flex;align-items:baseline;gap:22px;padding:2px 26px 0 20px;flex-wrap:wrap}
+.hp-pct{font:italic 800 4.6em/1 'Barlow Condensed',Arial,sans-serif;letter-spacing:-.01em}
+.hp-nums{font:italic 800 2.1em/1 'Barlow Condensed',Arial,sans-serif;color:var(--volttx)}
+.hp-nums i{font-style:italic;color:var(--mut);font-size:.62em;font-weight:700;margin-left:6px}
+.hdone .hp-nums{color:var(--goldtx)}
+.hp-fin{font:italic 800 1.4em 'Barlow Condensed',Arial,sans-serif;color:var(--goldtx)}
+.gauge{position:relative;height:30px;margin:12px 20px 0;background:var(--trackbg);border:1px solid var(--line);overflow:hidden}
+.gfill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,var(--voltdk),var(--volt));transition:width 1.5s cubic-bezier(.22,1,.36,1)}
+.gfill.gdone{background:var(--goldplate)}
+.go .gfill{width:var(--w)}
+.gseg{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(4% - 2px),var(--panel) calc(4% - 2px) 4%);pointer-events:none}
+.gfin{position:absolute;right:0;top:0;bottom:0;width:16px;background:conic-gradient(#fff 25%,#111 0 50%,#fff 0 75%,#111 0) 0 0/8px 8px;opacity:.85}
+.mark{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--markc);z-index:3;box-shadow:0 0 6px rgba(0,0,0,.4)}
+.markleg{display:inline-block;width:3px;height:11px;background:var(--markc);margin:0 3px;vertical-align:middle}
+.hp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px 20px 18px}
+.heropanel:not(.iscur) .hp-stats{grid-template-columns:repeat(2,1fr)}
+@media(max-width:900px){.hp-stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--panel2);border-left:3px solid var(--volt);padding:9px 13px;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.stat b{font:italic 800 1.75em/1 'Barlow Condensed',Arial,sans-serif}
+.st-l{font-size:10px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+.st-s{font-size:11px;color:var(--dim);font-weight:700}
+.week{display:flex;flex-direction:column}
+.wnow b{color:var(--txt)}.wnow b.vt{color:var(--volttx);font-size:1.3em}
+.tdy{display:flex;align-items:center;gap:16px;padding:2px 20px 0}
+.tdy-n{font:italic 800 4.6em/1 'Barlow Condensed',Arial,sans-serif;color:var(--volttx);text-shadow:0 0 30px rgba(255,79,40,.45)}
+.tdy-cap{font:800 12px Manrope,Arial,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);line-height:1.35}
+.bars{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;height:96px;padding:6px 20px 12px;flex:1}
+.bcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
+.bv{font:800 .95em 'Barlow Condensed',Arial,sans-serif;color:var(--dim)}
+.bar{width:100%;max-width:38px;height:4px;background:var(--baridle);border:1px solid var(--line);border-bottom:none;transition:height 1.1s cubic-bezier(.22,1,.36,1);clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
+.go .bar{height:var(--h)}
+.bcol.now .bar{background:var(--volt);border-color:var(--volt);box-shadow:0 0 14px rgba(255,79,40,.5)}
+.bcol.now .bv{color:var(--volttx)}
+.bd{font-size:10px;font-weight:800;color:var(--dim);text-transform:uppercase}
+.bcol.now .bd{color:var(--volttx)}
+.champs{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0 0 14px}
+.champs.one{grid-template-columns:1fr}
+@media(max-width:1100px){.champs{grid-template-columns:1fr}}
+.cplate{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 22px;min-height:86px;clip-path:polygon(0 0,calc(100% - 18px) 0,100% 100%,0 100%)}
+.cplate.gold{background:var(--goldplate);color:var(--plateink)}
+.cplate.silver{background:var(--silvplate);color:#10151d}
+.cplate.volt{background:var(--voltplate);color:#fff}
+.cplate.none{background:var(--panel);border:1px solid var(--line);color:var(--mut)}
+.cplate::before{content:"";position:absolute;top:0;left:-70%;width:45%;height:100%;background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.5) 50%,transparent 75%);transform:skewX(-18deg);animation:shine 4.2s ease-in-out infinite;pointer-events:none}
+.cplate.none::before{display:none}
+.cplate>*{position:relative;z-index:1}
+@keyframes shine{0%{left:-70%}45%,100%{left:150%}}
+.cp-lab{font:italic 800 13px 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;letter-spacing:.1em;opacity:.75}
+.cp-nm{font:800 1.35em/1.2 Barlow,Manrope,Arial,sans-serif;margin-top:4px}
+.cp-nm.many{font-size:1em;line-height:1.3}
+.cp-n{text-align:center;flex-shrink:0}
+.cp-n b{display:block;font:italic 800 3.2em/1 'Barlow Condensed',Arial,sans-serif}
+.cp-n span{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;opacity:.7}
+.lbcard{margin:0 0 14px;padding-bottom:4px}
+.lhead,.lrow{display:grid;grid-template-columns:64px minmax(230px,.5fr) 1fr 108px 96px 100px;gap:14px;align-items:center;padding:7px 26px 7px 20px}
+.lhead{font-size:10px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;padding-bottom:2px}
+.lrow{border-top:1px solid var(--rowline)}
+.lrow.rise{position:relative;z-index:3;background:linear-gradient(90deg,rgba(255,79,40,.30),transparent 70%)}
+.lrow.sink{opacity:.55}
+.lrow.tp1{background:linear-gradient(90deg,rgba(255,210,30,.10),transparent 60%)}
+.lrow.tp2{background:linear-gradient(90deg,rgba(190,200,215,.08),transparent 60%)}
+.lrow.tp3{background:linear-gradient(90deg,rgba(255,157,92,.08),transparent 60%)}
+.pos{width:52px;height:38px;clip-path:polygon(22% 0,100% 0,78% 100%,0 100%);display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line)}
+.pos i{font:italic 800 21px 'Barlow Condensed',Arial,sans-serif;font-style:italic;color:var(--mut)}
+.pos.p1{background:var(--goldplate);border:none}.pos.p2{background:var(--silvplate);border:none}.pos.p3{background:linear-gradient(100deg,#ffb37c,#ff8b47);border:none}
+.pos.p1 i,.pos.p2 i,.pos.p3 i{color:#141000}
+.lnm{font:700 1.13em/1.2 Barlow,Manrope,Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini{display:inline-block;margin-left:10px;padding:2px 9px;font:800 11px Manrope,Arial,sans-serif;clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);vertical-align:middle}
+.voltm{background:var(--volt);color:var(--voltink)}
+.goldm{background:var(--gold);color:#141000}
+.track{position:relative;height:18px;background:var(--trackbg);border:1px solid var(--line)}
+.track::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),var(--rowline) calc(10% - 1px) 10%)}
+.tfin{position:absolute;right:0;top:0;bottom:0;width:10px;background:conic-gradient(#fff 25%,#111 0 50%,#fff 0 75%,#111 0) 0 0/5px 5px;opacity:.8}
+.fill{position:absolute;left:0;top:0;bottom:0;width:0;overflow:hidden;transition:width 1.3s cubic-bezier(.22,1,.36,1)}
+.go .fill{width:var(--w)}
+.fill.okf{background:linear-gradient(90deg,var(--voltdk),var(--volt));box-shadow:0 0 12px rgba(255,79,40,.45)}
+.fill.lagf{background:var(--missf)}
+.fill.goldf{background:var(--goldplate)}
+.fill.missf{background:var(--missf)}
+.fill::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);transform:translateX(-100%);animation:sweep 3.2s ease-in-out infinite}
+@keyframes sweep{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
+.fact{white-space:nowrap;font:italic 800 1.7em/1 'Barlow Condensed',Arial,sans-serif}
+.fact i{font-size:.55em;color:var(--dim);font-weight:700;margin-left:2px}
+.gap{justify-self:start;padding:4px 12px;font:italic 800 .95em 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);white-space:nowrap}
+.okg{background:rgba(61,255,162,.16);color:var(--greentx)}
+.badg{background:rgba(255,77,109,.16);color:var(--redtx)}
+.goldg{background:rgba(255,210,30,.18);color:var(--goldtx)}
+body.light .okg{background:rgba(5,150,105,.12)}body.light .badg{background:rgba(225,29,72,.10)}body.light .goldg{background:rgba(234,179,8,.16)}
+.wk{color:var(--dim);font:800 .95em 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;text-align:right;white-space:nowrap}
+.ltot{padding:12px 20px 10px;color:var(--mut);font-weight:600;font-size:.9em}.ltot b{color:var(--txt)}
+.heatcard{margin:0 0 14px;overflow:hidden}
+.wrap{overflow-x:auto;padding-bottom:4px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 12px;text-align:center;border-bottom:1px solid var(--rowline);white-space:nowrap;font:800 1.05em 'Barlow Condensed',Arial,sans-serif}
+th{color:var(--dim);font:800 11px Manrope,Arial,sans-serif;text-transform:uppercase;letter-spacing:.07em}
+th.curh{color:var(--volttx)}
+td.nm,th.nm{text-align:left;font-family:Barlow,Manrope,Arial,sans-serif;font-style:normal;text-transform:none;font-weight:700;font-size:1em}
+th.nm{font:800 11px Manrope,Arial,sans-serif;font-style:normal}
+tr{border-bottom:1px solid var(--rowline)}
+.hc.hi{color:var(--heathi)}.hc.lo{color:var(--heatlo)}.hc.z{color:var(--heatz)}
+td.curm{box-shadow:inset 0 0 0 1px rgba(255,79,40,.4)}
+body.light td.curm{box-shadow:inset 0 0 0 1px rgba(230,57,18,.45)}
+td.avg{color:var(--goldtx)}
+.tup{color:var(--greentx);font-size:.7em}.tdn{color:var(--redtx);font-size:.7em}
+tr.tot td{border-top:2px solid var(--line);color:var(--txt);background:var(--panel2)}
+.ticker{display:flex;align-items:stretch;border:1px solid var(--line);background:var(--panel);height:46px;overflow:hidden;margin:0 0 14px}
+.tk-lab{flex-shrink:0;display:flex;align-items:center;background:var(--volt);color:var(--voltink);font:italic 800 17px 'Barlow Condensed',Arial,sans-serif;padding:0 20px 0 16px;clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%);text-transform:uppercase;letter-spacing:.05em}
+.tk-view{flex:1;display:flex;overflow:hidden;align-items:center}
+.tk-inner{display:inline-flex;align-items:center;gap:0;white-space:nowrap;animation:crawl 55s linear infinite;flex-shrink:0}
+.tk-i{font:700 15px Manrope,Arial,sans-serif;padding:0 22px}
+.tk-sep{color:var(--volttx);font:italic 800 15px 'Barlow Condensed',Arial,sans-serif}
+@keyframes crawl{to{transform:translateX(-100%)}}
+#confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
+#confetti i{position:absolute;top:-14px;width:8px;height:14px;opacity:.9;animation:fall linear infinite}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
+#sndbtn{position:fixed;right:20px;bottom:20px;z-index:70;background:var(--volt);color:#fff;border:none;font:800 14px Manrope,Arial,sans-serif;padding:12px 20px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);cursor:pointer;box-shadow:0 6px 24px rgba(255,79,40,.5)}
+#boom{position:fixed;inset:0;z-index:99;display:grid;place-items:center;background:rgba(5,6,10,.92);animation:bmfade .4s ease}
+#boom::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 180px rgba(255,79,40,.6);animation:bmpulse 1.1s ease-in-out infinite;pointer-events:none}
+#boom.out{opacity:0;transition:opacity .6s}
+.bm-in{text-align:center;position:relative;z-index:2;padding:20px}
+.bm-big{font:italic 800 6.5em/1 'Barlow Condensed',Arial,sans-serif;color:#fff;text-shadow:0 0 46px rgba(255,79,40,.95);animation:bmpop .6s cubic-bezier(.34,1.56,.64,1)}
+.bm-chips{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+.bm-chip{background:var(--volt);color:#fff;font:800 1.25em Barlow,Manrope,Arial,sans-serif;padding:10px 22px;clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+.bm-over{font:italic 800 2em 'Barlow Condensed',Arial,sans-serif;color:var(--gold);margin-top:18px;text-transform:uppercase}
+.bm-cf{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.bm-cf i{position:absolute;top:-16px;width:9px;height:15px;opacity:.95;animation:fall linear infinite}
+@keyframes bmpop{0%{transform:scale(.2)}70%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes bmpulse{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes bmfade{0%{opacity:0}100%{opacity:1}}
+@media(max-width:900px){.bm-big{font-size:3.2em}}
+@media(prefers-reduced-motion:reduce){.cplate::before,.fill::after,#confetti i,.tk-inner,#boom::after,.bm-cf i{animation:none}}
+@media(max-width:760px){body{padding:14px 12px}.lhead,.lrow{grid-template-columns:40px 1fr 76px;gap:8px;padding:7px 12px}
+.track,.gap,.wk{display:none}.lhead span:nth-child(3),.lhead span:nth-child(5),.lhead span:nth-child(6){display:none}
+.clkwrap{display:none}.hp-pct{font-size:3.2em}}
+</style></head><body>
+<script>try{var _q=new URLSearchParams(location.search).get('theme');var _t=_q||localStorage.getItem('planTheme')||'dark';if(_q)localStorage.setItem('planTheme',_q);if(_t==='light')document.body.classList.add('light');}catch(e){}</script>
+<script id="pstate" type="application/json">{"v":"v8","day":"2026-07-06","total":14,"by":{"Sodiq Anarbayev":3,"Asilbek Fozilov":3,"Bahromjon Xoliqov":2,"Javohir Ne'matov":2,"Shohrux Ismatov":2,"Isakulova Shahzoda":1,"Saloxiddin Isroilov":1},"order":["Isakulova Shahzoda","Saloxiddin Isroilov","Asilbek Fozilov","Farrux Adxamov","Sodiq Anarbayev","Javohir Ne'matov","Bahromjon Xoliqov","Javohir Shokirjonov","Shohrux Ismatov","Abdulaziz Numonjonov"],"facts":{"Isakulova Shahzoda":17,"Saloxiddin Isroilov":15,"Asilbek Fozilov":13,"Farrux Adxamov":13,"Sodiq Anarbayev":10,"Javohir Ne'matov":10,"Bahromjon Xoliqov":9,"Javohir Shokirjonov":8,"Shohrux Ismatov":8,"Abdulaziz Numonjonov":8},"act":111}</script>
+
+<header><div class="brand"><span class="b-volt">⚡ План продаж</span><span class="b-dark">Junior</span><span class="upd">обновлено 06.07 · ⟳ 10 мин</span></div>
+<nav class="rnav"><a href="index.html">Test</a><a href="scale.html">Target</a><a href="managers.html">Sales</a><a class="on" href="plan.html">План</a></nav>
+<div class="mswitch"><button class="mbtn on" data-view="cur">Июл 26 · live</button><button class="mbtn" data-view="prev">Июн 26</button></div>
+<button class="tbtn" id="tbtn" title="Тема">☀️</button>
+<span class="clkwrap"><span class="clk" id="clk">--:--</span><span class="cdate" id="cdate"></span></span></header>
+<div class="mview" data-view="cur">
+  <div class="hero"><div class="panel heropanel iscur">
+      <div class="ph"><span class="ptitle">ИЮЛЬ 2026 <i class="sl">//</i> закрытие плана</span><span class="pday">день 6 / 31</span></div>
+      <div class="hp-main">
+        <span class="hp-pct" data-cnt="22" data-suf="%">0%</span>
+        <span class="hp-nums"><b data-cnt="111">0</b><i>/ 500</i></span>
+        
+      </div>
+      <div class="gauge"><span class="gfill" style="--w:22%"></span><span class="gseg"></span><i class="mark" style="left:20%"></i><span class="gfin"></span></div>
+      <div class="hp-stats"><div class="stat"><span class="st-l">До плана</span><b>389</b></div>
+        <div class="stat"><span class="st-l">План на сегодня</span><b>100</b><span class="gap okg">▲ +11</span></div>
+        <div class="stat"><span class="st-l">Нужно в день</span><b>≈15</b><span class="st-s">ещё 26 дн.</span></div>
+        <div class="stat"><span class="st-l">Прогноз месяца</span><b>574</b><span class="st-s">по темпу</span></div></div>
+    </div><div class="panel week"><div class="ph"><span class="ptitle">Сегодня <i class="sl">//</i> продажи</span><span class="wnow">вчера <b>9</b> · неделя <b>153</b></span></div>
+    <div class="tdy"><span class="tdy-n" data-cnt="14">0</span><span class="tdy-cap">продаж<br>сегодня</span></div>
+    <div class="bars"><div class="bcol"><div class="bv">42</div><div class="bar" style="--h:100%"></div><div class="bd">Вт</div></div><div class="bcol"><div class="bv">14</div><div class="bar" style="--h:33%"></div><div class="bd">Ср</div></div><div class="bcol"><div class="bv">17</div><div class="bar" style="--h:40%"></div><div class="bd">Чт</div></div><div class="bcol"><div class="bv">31</div><div class="bar" style="--h:74%"></div><div class="bd">Пт</div></div><div class="bcol"><div class="bv">26</div><div class="bar" style="--h:62%"></div><div class="bd">Сб</div></div><div class="bcol"><div class="bv">9</div><div class="bar" style="--h:21%"></div><div class="bd">Вс</div></div><div class="bcol now"><div class="bv">14</div><div class="bar" style="--h:33%"></div><div class="bd">Пн</div></div></div></div></div>
+  <div class="champs"><div class="cplate gold"><div class="cp-l"><div class="cp-lab">🥇 Лучший месяца</div><div class="cp-nm">Isakulova Shahzoda</div></div><div class="cp-n"><b>17</b><span>продаж</span></div></div><div class="cplate silver"><div class="cp-l"><div class="cp-lab">🥈 Лучший вчера</div><div class="cp-nm many">Abdulaziz Numonjonov<br>Shohrux Ismatov<br>Javohir Shokirjonov</div></div><div class="cp-n"><b>2</b><span>продаж</span></div></div><div class="cplate volt"><div class="cp-l"><div class="cp-lab">🔥 Лучшие сегодня</div><div class="cp-nm">Sodiq Anarbayev<br>Asilbek Fozilov</div></div><div class="cp-n"><b>3</b><span>продаж</span></div></div></div>
+  <div class="ticker"><span class="tk-lab">Live //</span><div class="tk-view"><div class="tk-inner"><span class="tk-i">🎯 До плана 389 продаж</span><i class="tk-sep">//</i><span class="tk-i">Har bir lead — yangi imkoniyat!</span><i class="tk-sep">//</i><span class="tk-i">⚡ Нужно ≈15 в день</span><i class="tk-sep">//</i><span class="tk-i">Bugungi harakat — ertangi natija!</span><i class="tk-sep">//</i><span class="tk-i">📈 Прогноз месяца: 574</span><i class="tk-sep">//</i><span class="tk-i">Chempionlar telefonda tug'iladi!</span><i class="tk-sep">//</i><span class="tk-i">🔥 Сегодня уже 14 продаж</span><i class="tk-sep">//</i><span class="tk-i">Plan — minimum. Rekord — maqsad!</span><i class="tk-sep">//</i><span class="tk-i">🥈 Лучший вчера: Abdulaziz Numonjonov, Shohrux Ismatov, Javohir Shokirjonov — 2</span><i class="tk-sep">//</i><span class="tk-i">Birinchi qo'ng'iroq — birinchi sotuv!</span><i class="tk-sep">//</i><span class="tk-i">🥇 Лидер месяца: Isakulova Shahzoda — 17</span><i class="tk-sep">//</i><span class="tk-i">Каждый звонок приближает к цели!</span><i class="tk-sep">//</i><span class="tk-i">🏆 Июнь закрыт на 107% — 587 из 550</span><i class="tk-sep">//</i><span class="tk-i">Fokus: bitta lead, bitta g'alaba!</span><i class="tk-sep">//</i></div><div class="tk-inner" aria-hidden="true"><span class="tk-i">🎯 До плана 389 продаж</span><i class="tk-sep">//</i><span class="tk-i">Har bir lead — yangi imkoniyat!</span><i class="tk-sep">//</i><span class="tk-i">⚡ Нужно ≈15 в день</span><i class="tk-sep">//</i><span class="tk-i">Bugungi harakat — ertangi natija!</span><i class="tk-sep">//</i><span class="tk-i">📈 Прогноз месяца: 574</span><i class="tk-sep">//</i><span class="tk-i">Chempionlar telefonda tug'iladi!</span><i class="tk-sep">//</i><span class="tk-i">🔥 Сегодня уже 14 продаж</span><i class="tk-sep">//</i><span class="tk-i">Plan — minimum. Rekord — maqsad!</span><i class="tk-sep">//</i><span class="tk-i">🥈 Лучший вчера: Abdulaziz Numonjonov, Shohrux Ismatov, Javohir Shokirjonov — 2</span><i class="tk-sep">//</i><span class="tk-i">Birinchi qo'ng'iroq — birinchi sotuv!</span><i class="tk-sep">//</i><span class="tk-i">🥇 Лидер месяца: Isakulova Shahzoda — 17</span><i class="tk-sep">//</i><span class="tk-i">Каждый звонок приближает к цели!</span><i class="tk-sep">//</i><span class="tk-i">🏆 Июнь закрыт на 107% — 587 из 550</span><i class="tk-sep">//</i><span class="tk-i">Fokus: bitta lead, bitta g'alaba!</span><i class="tk-sep">//</i></div></div></div>
+  <div class="panel lbcard"><div class="ph"><span class="ptitle">Гонка менеджеров <i class="sl">//</i> ИЮЛЬ 2026</span><span class="lbleg">план 50/чел · <i class="markleg"></i> график сегодня (10) · 🏁 финиш = план · 💵 предоплата</span></div>
+    <div class="lhead"><span>Поз</span><span>Менеджер</span><span>Трасса к плану</span><span>Факт</span><span>Отрыв</span><span>В работе</span></div>
+    <div class="lrow tp1">
+        <span class="pos p1"><i>1</i></span>
+        <span class="lnm">Isakulova Shahzoda<span class="mini voltm">🔥 +1 сегодня</span><span class="mini goldm">💵 1</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill okf" style="--w:34%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="17">0</b><i>/50</i></span>
+        <span class="gap okg">+7</span><span class="wk">298 лидов</span></div><div class="lrow tp2">
+        <span class="pos p2"><i>2</i></span>
+        <span class="lnm">Saloxiddin Isroilov<span class="mini voltm">🔥 +1 сегодня</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill okf" style="--w:30%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="15">0</b><i>/50</i></span>
+        <span class="gap okg">+5</span><span class="wk">229 лидов</span></div><div class="lrow tp3">
+        <span class="pos p3"><i>3</i></span>
+        <span class="lnm">Asilbek Fozilov<span class="mini voltm">🔥 +3 сегодня</span><span class="mini goldm">💵 1</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill okf" style="--w:26%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="13">0</b><i>/50</i></span>
+        <span class="gap okg">+3</span><span class="wk">261 лидов</span></div><div class="lrow">
+        <span class="pos "><i>4</i></span>
+        <span class="lnm">Farrux Adxamov</span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill okf" style="--w:26%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="13">0</b><i>/50</i></span>
+        <span class="gap okg">+3</span><span class="wk">239 лидов</span></div><div class="lrow">
+        <span class="pos "><i>5</i></span>
+        <span class="lnm">Sodiq Anarbayev<span class="mini voltm">🔥 +3 сегодня</span><span class="mini goldm">💵 1</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill okf" style="--w:20%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="10">0</b><i>/50</i></span>
+        <span class="gap okg">+0</span><span class="wk">262 лидов</span></div><div class="lrow">
+        <span class="pos "><i>6</i></span>
+        <span class="lnm">Javohir Ne'matov<span class="mini voltm">🔥 +2 сегодня</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill okf" style="--w:20%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="10">0</b><i>/50</i></span>
+        <span class="gap okg">+0</span><span class="wk">304 лидов</span></div><div class="lrow">
+        <span class="pos "><i>7</i></span>
+        <span class="lnm">Bahromjon Xoliqov<span class="mini voltm">🔥 +2 сегодня</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill lagf" style="--w:18%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="9">0</b><i>/50</i></span>
+        <span class="gap badg">−1</span><span class="wk">185 лидов</span></div><div class="lrow">
+        <span class="pos "><i>8</i></span>
+        <span class="lnm">Javohir Shokirjonov</span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill lagf" style="--w:16%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="8">0</b><i>/50</i></span>
+        <span class="gap badg">−2</span><span class="wk">195 лидов</span></div><div class="lrow">
+        <span class="pos "><i>9</i></span>
+        <span class="lnm">Shohrux Ismatov<span class="mini voltm">🔥 +2 сегодня</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill lagf" style="--w:16%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="8">0</b><i>/50</i></span>
+        <span class="gap badg">−2</span><span class="wk">231 лидов</span></div><div class="lrow">
+        <span class="pos "><i>10</i></span>
+        <span class="lnm">Abdulaziz Numonjonov<span class="mini goldm">💵 5</span></span>
+        <span class="track"><i class="mark" style="left:20%"></i><span class="fill lagf" style="--w:16%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="8">0</b><i>/50</i></span>
+        <span class="gap badg">−2</span><span class="wk">268 лидов</span></div>
+    <div class="ltot">Итого <b>111</b> из 500 · в работе <b>2472</b> лидов · предоплат <b>8</b></div></div>
+</div>
+<div class="mview" data-view="prev" style="display:none">
+  <div class="hero" style="grid-template-columns:1fr"><div class="panel heropanel hdone">
+      <div class="ph"><span class="ptitle">ИЮНЬ 2026 <i class="sl">//</i> закрытие плана</span></div>
+      <div class="hp-main">
+        <span class="hp-pct" data-cnt="107" data-suf="%">0%</span>
+        <span class="hp-nums"><b data-cnt="587">0</b><i>/ 550</i></span>
+        <span class="hp-fin">🎉 ПЛАН ВЫПОЛНЕН</span>
+      </div>
+      <div class="gauge"><span class="gfill gdone" style="--w:100%"></span><span class="gseg"></span><span class="gfin"></span></div>
+      <div class="hp-stats"><div class="stat"><span class="st-l">Итог месяца</span><b>587 / 550</b><span class="gap goldg">🏁 +37 сверх плана</span></div>
+        <div class="stat"><span class="st-l">Средний темп</span><b>19.6</b><span class="st-s">/ день</span></div></div>
+    </div></div>
+  <div class="champs one"><div class="cplate gold"><div class="cp-l"><div class="cp-lab">🥇 Лучший месяца</div><div class="cp-nm">Isakulova Shahzoda</div></div><div class="cp-n"><b>78</b><span>продаж</span></div></div></div>
+  <div class="panel lbcard"><div class="ph"><span class="ptitle">Гонка менеджеров <i class="sl">//</i> ИЮНЬ 2026</span><span class="lbleg">план 50/чел · 🏁 финиш = план · 💵 предоплата</span></div>
+    <div class="lhead"><span>Поз</span><span>Менеджер</span><span>Трасса к плану</span><span>Факт</span><span>Отрыв</span><span>В работе</span></div>
+    <div class="lrow tp1">
+        <span class="pos p1"><i>1</i></span>
+        <span class="lnm">Isakulova Shahzoda<span class="mini goldm">💵 6</span></span>
+        <span class="track"><span class="fill goldf" style="--w:100%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="78">0</b><i>/50</i></span>
+        <span class="gap goldg">🏁 план</span><span class="wk">298 лидов</span></div><div class="lrow tp2">
+        <span class="pos p2"><i>2</i></span>
+        <span class="lnm">Abdulaziz Numonjonov<span class="mini goldm">💵 5</span></span>
+        <span class="track"><span class="fill goldf" style="--w:100%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="64">0</b><i>/50</i></span>
+        <span class="gap goldg">🏁 план</span><span class="wk">268 лидов</span></div><div class="lrow tp3">
+        <span class="pos p3"><i>3</i></span>
+        <span class="lnm">Asilbek Fozilov</span>
+        <span class="track"><span class="fill goldf" style="--w:100%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="59">0</b><i>/50</i></span>
+        <span class="gap goldg">🏁 план</span><span class="wk">261 лидов</span></div><div class="lrow">
+        <span class="pos "><i>4</i></span>
+        <span class="lnm">Bahromjon Xoliqov<span class="mini goldm">💵 1</span></span>
+        <span class="track"><span class="fill goldf" style="--w:100%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="53">0</b><i>/50</i></span>
+        <span class="gap goldg">🏁 план</span><span class="wk">185 лидов</span></div><div class="lrow">
+        <span class="pos "><i>5</i></span>
+        <span class="lnm">Farrux Adxamov</span>
+        <span class="track"><span class="fill goldf" style="--w:100%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="51">0</b><i>/50</i></span>
+        <span class="gap goldg">🏁 план</span><span class="wk">239 лидов</span></div><div class="lrow">
+        <span class="pos "><i>6</i></span>
+        <span class="lnm">Saloxiddin Isroilov</span>
+        <span class="track"><span class="fill goldf" style="--w:100%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="50">0</b><i>/50</i></span>
+        <span class="gap goldg">🏁 план</span><span class="wk">229 лидов</span></div><div class="lrow">
+        <span class="pos "><i>7</i></span>
+        <span class="lnm">Javohir Shokirjonov</span>
+        <span class="track"><span class="fill missf" style="--w:98%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="49">0</b><i>/50</i></span>
+        <span class="gap badg">−1</span><span class="wk">195 лидов</span></div><div class="lrow">
+        <span class="pos "><i>8</i></span>
+        <span class="lnm">A'zamjon Usanov<span class="mini goldm">💵 1</span></span>
+        <span class="track"><span class="fill missf" style="--w:98%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="49">0</b><i>/50</i></span>
+        <span class="gap badg">−1</span><span class="wk">0 лидов</span></div><div class="lrow">
+        <span class="pos "><i>9</i></span>
+        <span class="lnm">Shohrux Ismatov</span>
+        <span class="track"><span class="fill missf" style="--w:96%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="48">0</b><i>/50</i></span>
+        <span class="gap badg">−2</span><span class="wk">231 лидов</span></div><div class="lrow">
+        <span class="pos "><i>10</i></span>
+        <span class="lnm">Javohir Ne'matov<span class="mini goldm">💵 2</span></span>
+        <span class="track"><span class="fill missf" style="--w:90%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="45">0</b><i>/50</i></span>
+        <span class="gap badg">−5</span><span class="wk">304 лидов</span></div><div class="lrow">
+        <span class="pos "><i>11</i></span>
+        <span class="lnm">Sodiq Anarbayev<span class="mini goldm">💵 1</span></span>
+        <span class="track"><span class="fill missf" style="--w:82%"></span><span class="tfin"></span></span>
+        <span class="fact"><b data-cnt="41">0</b><i>/50</i></span>
+        <span class="gap badg">−9</span><span class="wk">262 лидов</span></div>
+    <div class="ltot">Итого <b>587</b> из 550 · в работе <b>2472</b> лидов · предоплат <b>16</b></div></div>
+</div>
+<div class="panel heatcard"><div class="ph"><span class="ptitle">Динамика <i class="sl">//</i> активации по месяцам</span><span class="lbleg">сортировка по среднему за 3 мес · ▲▼ тренд к пред. 3 мес</span></div>
+<div class="wrap"><table><thead><tr><th class="nm">Менеджер</th><th>Фев 26</th><th>Мар 26</th><th>Апр 26</th><th>Май 26</th><th>Июн 26</th><th class="curh">Июл 26</th><th>Сред. 3м</th></tr></thead>
+<tbody><tr><td class="nm">Isakulova Shahzoda</td><td class="hc lo" style="background:rgba(255,84,40,0.38)">32</td><td class="hc lo" style="background:rgba(255,84,40,0.38)">33</td><td class="hc hi" style="background:rgba(255,84,40,0.47)">42</td><td class="hc hi" style="background:rgba(255,84,40,0.44)">39</td><td class="hc hi" style="background:rgba(255,84,40,0.80)">78</td><td class="hc lo curm" style="background:rgba(255,84,40,0.24)">17</td><td class="avg">45 <span class="tup">▲</span></td></tr><tr><td class="nm">Abdulaziz Numonjonov</td><td class="hc lo" style="background:rgba(255,84,40,0.26)">19</td><td class="hc lo" style="background:rgba(255,84,40,0.28)">22</td><td class="hc lo" style="background:rgba(255,84,40,0.39)">34</td><td class="hc hi" style="background:rgba(255,84,40,0.43)">38</td><td class="hc hi" style="background:rgba(255,84,40,0.67)">64</td><td class="hc lo curm" style="background:rgba(255,84,40,0.15)">8</td><td class="avg">37 <span class="tup">▲</span></td></tr><tr><td class="nm">Saloxiddin Isroilov</td><td class="hc lo" style="background:rgba(255,84,40,0.10)">2</td><td class="hc lo" style="background:rgba(255,84,40,0.30)">24</td><td class="hc lo" style="background:rgba(255,84,40,0.18)">11</td><td class="hc hi" style="background:rgba(255,84,40,0.43)">38</td><td class="hc hi" style="background:rgba(255,84,40,0.54)">50</td><td class="hc lo curm" style="background:rgba(255,84,40,0.22)">15</td><td class="avg">34 <span class="tup">▲</span></td></tr><tr><td class="nm">Asilbek Fozilov</td><td class="hc hi" style="background:rgba(255,84,40,0.45)">40</td><td class="hc hi" style="background:rgba(255,84,40,0.41)">36</td><td class="hc lo" style="background:rgba(255,84,40,0.31)">25</td><td class="hc lo" style="background:rgba(255,84,40,0.34)">28</td><td class="hc hi" style="background:rgba(255,84,40,0.62)">59</td><td class="hc lo curm" style="background:rgba(255,84,40,0.20)">13</td><td class="avg">33 <span class="tdn">▼</span></td></tr><tr><td class="nm">Bahromjon Xoliqov</td><td class="hc hi" style="background:rgba(255,84,40,0.53)">49</td><td class="hc lo" style="background:rgba(255,84,40,0.34)">28</td><td class="hc lo" style="background:rgba(255,84,40,0.33)">27</td><td class="hc lo" style="background:rgba(255,84,40,0.37)">31</td><td class="hc hi" style="background:rgba(255,84,40,0.57)">53</td><td class="hc lo curm" style="background:rgba(255,84,40,0.16)">9</td><td class="avg">31 <span class="tdn">▼</span></td></tr><tr><td class="nm">Farrux Adxamov</td><td class="hc lo" style="background:rgba(255,84,40,0.31)">25</td><td class="hc lo" style="background:rgba(255,84,40,0.29)">23</td><td class="hc lo" style="background:rgba(255,84,40,0.26)">20</td><td class="hc lo" style="background:rgba(255,84,40,0.28)">22</td><td class="hc hi" style="background:rgba(255,84,40,0.55)">51</td><td class="hc lo curm" style="background:rgba(255,84,40,0.20)">13</td><td class="avg">29 <span class="tup">▲</span></td></tr><tr><td class="nm">Javohir Ne'matov</td><td class="hc lo" style="background:rgba(255,84,40,0.17)">10</td><td class="hc lo" style="background:rgba(255,84,40,0.27)">21</td><td class="hc lo" style="background:rgba(255,84,40,0.38)">33</td><td class="hc lo" style="background:rgba(255,84,40,0.35)">29</td><td class="hc hi" style="background:rgba(255,84,40,0.50)">45</td><td class="hc lo curm" style="background:rgba(255,84,40,0.17)">10</td><td class="avg">28 <span class="tup">▲</span></td></tr><tr><td class="nm">Javohir Shokirjonov</td><td class="hc hi" style="background:rgba(255,84,40,0.56)">52</td><td class="hc lo" style="background:rgba(255,84,40,0.35)">29</td><td class="hc lo" style="background:rgba(255,84,40,0.17)">10</td><td class="hc lo" style="background:rgba(255,84,40,0.31)">25</td><td class="hc hi" style="background:rgba(255,84,40,0.53)">49</td><td class="hc lo curm" style="background:rgba(255,84,40,0.15)">8</td><td class="avg">27 <span class="tdn">▼</span></td></tr><tr><td class="nm">Shohrux Ismatov</td><td class="hc lo" style="background:rgba(255,84,40,0.35)">29</td><td class="hc lo" style="background:rgba(255,84,40,0.30)">24</td><td class="hc lo" style="background:rgba(255,84,40,0.19)">12</td><td class="hc lo" style="background:rgba(255,84,40,0.29)">23</td><td class="hc hi" style="background:rgba(255,84,40,0.52)">48</td><td class="hc lo curm" style="background:rgba(255,84,40,0.15)">8</td><td class="avg">26 <span class="tup">▲</span></td></tr><tr><td class="nm">Sodiq Anarbayev</td><td class="hc lo" style="background:rgba(255,84,40,0.31)">25</td><td class="hc lo" style="background:rgba(255,84,40,0.30)">24</td><td class="hc lo" style="background:rgba(255,84,40,0.23)">16</td><td class="hc lo" style="background:rgba(255,84,40,0.33)">27</td><td class="hc hi" style="background:rgba(255,84,40,0.46)">41</td><td class="hc lo curm" style="background:rgba(255,84,40,0.17)">10</td><td class="avg">26 <span class="tup">▲</span></td></tr><tr><td class="nm">A'zamjon Usanov</td><td class="hc hi" style="background:rgba(255,84,40,0.49)">44</td><td class="hc lo" style="background:rgba(255,84,40,0.17)">10</td><td class="hc lo" style="background:rgba(255,84,40,0.27)">21</td><td class="hc lo" style="background:rgba(255,84,40,0.30)">24</td><td class="hc hi" style="background:rgba(255,84,40,0.53)">49</td><td class="hc lo curm" style="background:rgba(255,84,40,0.09)">1</td><td class="avg">25</td></tr><tr><td class="nm">Xojiakbar Tuxtasinov</td><td class="hc lo" style="background:rgba(255,84,40,0.20)">13</td><td class="hc lo" style="background:rgba(255,84,40,0.21)">14</td><td class="hc lo" style="background:rgba(255,84,40,0.14)">7</td><td class="hc lo" style="background:rgba(255,84,40,0.21)">14</td><td class="hc z">·</td><td class="hc z curm">·</td><td class="avg">5 <span class="tdn">▼</span></td></tr></tbody><tfoot><tr class="tot"><td class="nm">Итого</td><td>340</td><td>288</td><td>258</td><td>338</td><td>587</td><td>112</td><td class="avg">346</td></tr></tfoot></table></div></div>
+<button id="sndbtn" hidden>🔊 включить звук</button>
+<script>
+(function(){
+ var QS=new URLSearchParams(location.search);
+ var IV=[];            // интервалы текущей "страницы" (сбрасываются при мягком обновлении)
+ var AC=null;
+ function esc2(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+ function acState(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();}catch(e){return 'na';}return AC.state;}
+ function showSnd(){var b=document.getElementById('sndbtn');if(!b)return;var st=acState();b.hidden=(st==='running'||st==='na');}
+ function unlock(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();AC.resume().then(showSnd);}catch(e){}}
+ function tone(f,t0,d,type,g){var o=AC.createOscillator(),v=AC.createGain();o.type=type;o.frequency.value=f;
+  v.gain.setValueAtTime(0.0001,t0);v.gain.linearRampToValueAtTime(g,t0+0.02);v.gain.exponentialRampToValueAtTime(0.001,t0+d);
+  o.connect(v);v.connect(AC.destination);o.start(t0);o.stop(t0+d+0.05);}
+ function fanfare(){if(!AC||AC.state!=='running')return;var t=AC.currentTime+0.05,N=[523,659,784,1047],i;
+  for(i=0;i<N.length;i++){tone(N[i],t+i*0.12,0.5,'triangle',0.22);tone(N[i]/2,t+i*0.12,0.4,'square',0.05);}
+  tone(1319,t+0.55,0.9,'triangle',0.25);}
+ function plural(n){return n===1?'ПРОДАЖА':(n<5?'ПРОДАЖИ':'ПРОДАЖ');}
+ function burst(el){var CL=['#ffd21e','#ff4f28','#3dffa2','#ffffff','#b26bff'],i;
+  for(i=0;i<90;i++){var d=document.createElement('i');d.style.left=(Math.random()*100)+'%';d.style.background=CL[i%5];
+   d.style.animationDelay=(Math.random()*1.2)+'s';d.style.animationDuration=(2.2+Math.random()*2)+'s';el.appendChild(d);}}
+ function celebrate(ev){if(document.getElementById('boom'))return;
+  var o=document.createElement('div');o.id='boom';
+  var h='<div class="bm-cf"></div><div class="bm-in"><div class="bm-big">🔥 +'+ev.d+' '+plural(ev.d)+'</div>';
+  if(ev.who&&ev.who.length){h+='<div class="bm-chips">';for(var i=0;i<ev.who.length;i++){h+='<span class="bm-chip">'+esc2(ev.who[i].n)+' <b>+'+ev.who[i].inc+'</b></span>';}h+='</div>';}
+  if(ev.over&&ev.over.length){for(var j=0;j<ev.over.length;j++){h+='<div class="bm-over">▲ '+esc2(ev.over[j].n)+' — теперь на '+ev.over[j].p+'-м месте!</div>';}}
+  h+='</div>';
+  o.innerHTML=h;document.body.appendChild(o);burst(o.querySelector('.bm-cf'));fanfare();
+  setTimeout(function(){var glide=raceShufflePrep(ev.moves);o.classList.add('out');
+  setTimeout(function(){if(o.parentNode)o.remove();setTimeout(glide,350);},700);},9000);}
+ // фаза 1 (пока оверлей виден): строки ставятся на СТАРЫЕ позиции; возвращает фазу 2 — медленное скольжение на новые
+ function raceShufflePrep(moves){
+  var noop=function(){};
+  if(!moves||!moves.length)return noop;
+  var view=document.querySelector('.mview[data-view="cur"]');if(!view||view.style.display==='none')return noop;
+  var rows=view.querySelectorAll('.lrow');if(!rows.length)return noop;
+  var ok=moves.filter(function(m){return m.from<rows.length&&m.to<rows.length;});
+  if(!ok.length)return noop;
+  ok.forEach(function(m){var r=rows[m.to],dy=rows[m.from].offsetTop-rows[m.to].offsetTop;
+   r.style.transition='none';r.style.transform='translateY('+dy+'px)';r.classList.add(m.to<m.from?'rise':'sink');});
+  return function(){
+   // стартовые позиции применены фазой раньше (отдельная задача) — отпускаем напрямую, без rAF (замирает на скрытой вкладке)
+   ok.forEach(function(m){var r=rows[m.to];r.style.transition='transform 1.6s cubic-bezier(.22,1,.36,1)';r.style.transform='translateY(0)';});
+   setTimeout(function(){ok.forEach(function(m){var r=rows[m.to];r.style.transition='';r.style.transform='';r.classList.remove('rise');r.classList.remove('sink');});},2600);
+  };}
+ function stateNow(){var e=document.getElementById('pstate');if(!e)return null;try{return JSON.parse(e.textContent);}catch(x){return null;}}
+ // события между сборками: новые продажи сегодня + обгоны в гонке
+ function diffEvents(C,S){if(!C||!S||S.day!==C.day)return null;var d=(S.total||0)-(C.total||0);if(d<=0)return null;
+  var who=[],k;for(k in (S.by||{})){var inc=(S.by[k]||0)-((C.by||{})[k]||0);if(inc>0)who.push({n:k,inc:inc});}
+  who.sort(function(a,b){return b.inc-a.inc;});
+  var over=[],moves=[];(S.order||[]).forEach(function(n,i){var pi=(C.order||[]).indexOf(n);if(pi>-1&&pi!==i){moves.push({from:pi,to:i});if(i<pi)over.push({n:n,p:i+1});}});
+  return {d:d,who:who.slice(0,6),over:over.slice(0,3),moves:moves};}
+ function applyDoc(doc){IV.forEach(clearInterval);IV=[];document.body.classList.remove('go');
+  document.body.innerHTML=doc.body.innerHTML;initPage();}
+ var lastOk=Date.now();
+ function checkUpdate(){fetch(location.pathname+'?ts='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(html){
+   lastOk=Date.now();
+   var doc=new DOMParser().parseFromString(html,'text/html');
+   var ne=doc.getElementById('pstate');if(!ne)return;
+   var S;try{S=JSON.parse(ne.textContent);}catch(x){return;}
+   var C=stateNow();if(!C)return;
+   if(S.v!==C.v){location.reload();return;}            // новая версия дизайна — полная перезагрузка
+   if(JSON.stringify(S)===JSON.stringify(C))return;    // данные не изменились
+   var ev=diffEvents(C,S);
+   applyDoc(doc);
+   if(ev)celebrate(ev);
+ }).catch(function(x){if(Date.now()-lastOk>3*3600*1000)location.reload();});}
+ function initPage(){
+  function clk(){var e=document.getElementById('clk');if(e)e.textContent=new Date().toLocaleTimeString('ru-RU',{timeZone:'Asia/Tashkent',hour:'2-digit',minute:'2-digit'});}
+  clk();IV.push(setInterval(clk,10000));
+  var cd=document.getElementById('cdate');
+  if(cd)cd.textContent=new Date().toLocaleDateString('ru-RU',{timeZone:'Asia/Tashkent',weekday:'short',day:'numeric',month:'long'});
+  var tb=document.getElementById('tbtn');
+  function ticon(){if(tb)tb.textContent=document.body.classList.contains('light')?'🌙':'☀️';}
+  ticon();
+  if(tb)tb.onclick=function(){document.body.classList.toggle('light');
+   try{localStorage.setItem('planTheme',document.body.classList.contains('light')?'light':'dark');history.replaceState(null,'',location.pathname);}catch(e){}
+   ticon();};
+  document.querySelectorAll('[data-cnt]').forEach(function(el){var v=+el.getAttribute('data-cnt'),suf=el.getAttribute('data-suf')||'',t0=null;
+   function st(ts){if(!t0)t0=ts;var p=Math.min(1,(ts-t0)/1200),e2=1-Math.pow(1-p,3);el.textContent=Math.round(v*e2)+suf;if(p<1)requestAnimationFrame(st);}
+   requestAnimationFrame(st);});
+  requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('go');});});
+  document.querySelectorAll('.mbtn').forEach(function(b){b.onclick=function(){var v=b.getAttribute('data-view');
+   document.querySelectorAll('.mbtn').forEach(function(x){x.classList.toggle('on',x.getAttribute('data-view')===v);});
+   document.querySelectorAll('.mview').forEach(function(x){x.style.display=(x.getAttribute('data-view')===v?'':'none');});};});
+  var cf=document.getElementById('confetti');
+  if(cf&&!cf.children.length){var CL=['#ffd21e','#ff4f28','#3dffa2','#ff4d6d','#b26bff'];for(var i=0;i<70;i++){var d=document.createElement('i');d.style.left=(Math.random()*100)+'%';d.style.background=CL[i%5];d.style.animationDelay=(Math.random()*6)+'s';d.style.animationDuration=(5+Math.random()*4)+'s';cf.appendChild(d);}}
+  var sb=document.getElementById('sndbtn');
+  if(sb)sb.onclick=unlock;
+  showSnd();
+  if(QS.get('demo')&&!window.__demo){window.__demo=1;setTimeout(function(){celebrate({d:3,who:[{n:'Isakulova Shahzoda',inc:2},{n:'Farrux Adxamov',inc:1}],over:[{n:'Isakulova Shahzoda',p:1}],moves:[{from:3,to:0},{from:0,to:1},{from:1,to:2},{from:2,to:3}]});},1500);}
+ }
+ document.addEventListener('pointerdown',function(){unlock();},true);
+ initPage();
+ var TICK=Math.max(10,+(QS.get('refresh')||240))*1000;   // мягкая проверка обновлений, по умолчанию раз в 4 мин
+ setInterval(checkUpdate,TICK);
+}());
+</script>
+</body></html>
