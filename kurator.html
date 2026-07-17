@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Junior Online — Kurator Tahlili</title>
+<style>
+  :root{
+    --bg:#eef1f6; --card:#fff; --ink:#141a26; --muted:#7d8698; --line:#e6e9f0;
+    --good:#2e9e64; --goodbg:#e5f5ec; --warn:#c9962b; --warnbg:#faf3df; --bad:#d24a35; --badbg:#fbe9e5;
+    --blue:#3564c4; --bluebg:#e8effc; --newc:#6c5ce7; --hero:#141b2e; --hero2:#1d2742;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5;padding:22px 14px 60px}
+  .page{max-width:1220px;margin:0 auto}
+
+  .hero{background:radial-gradient(900px 400px at 85% -20%,rgba(84,110,255,.25),transparent),linear-gradient(135deg,var(--hero),var(--hero2));color:#fff;border-radius:22px;padding:30px 34px 30px;margin-bottom:18px}
+  .hero h1{font-size:25px;font-weight:750;letter-spacing:-.3px}
+  .hero .desc{font-size:13.5px;opacity:.75;max-width:760px;margin-top:8px}
+  .hero .desc b{opacity:1}
+  .srcbadge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:7px 14px;border-radius:10px;font-size:12.5px;margin-top:14px}
+  .srcbadge .dot{width:8px;height:8px;border-radius:50%;background:#43d17c;box-shadow:0 0 8px #43d17c}
+  .hcards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px}
+  .hc{background:#fff;color:var(--ink);border-radius:14px;padding:14px 16px}
+  .hc .l{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .hc .v{font-size:25px;font-weight:750;margin-top:5px;letter-spacing:-.5px}
+  .hc .v.red{color:var(--bad)} .hc .v.orange{color:#d78a1e} .hc .v.green{color:var(--good)}
+  .hc .n{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+  .davr{display:flex;align-items:center;gap:10px;margin:16px 2px 14px;flex-wrap:wrap}
+  .davr .lbl{font-size:13px;color:var(--muted);font-weight:600}
+  .seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px}
+  .seg button{font-family:var(--font);font-size:12.5px;font-weight:650;padding:8px 15px;border:none;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+  .seg button.on{background:var(--hero);color:#fff}
+  .davr .showing{margin-left:auto;font-size:12.5px;color:var(--muted)}
+
+  .panel{background:#fff;border-radius:18px;padding:24px 28px;margin-bottom:18px;box-shadow:0 1px 3px rgba(16,22,40,.05)}
+  .panel h2{font-size:16.5px;font-weight:750;letter-spacing:-.2px}
+  .panel .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .chartwrap{margin-top:16px;overflow-x:auto}
+  svg text{font-family:var(--font)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:14px}
+  thead th{text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;padding:10px 10px;border-bottom:1px solid var(--line)}
+  thead th.num{text-align:right}
+  tbody td{padding:12px 10px;border-top:1px solid var(--line);vertical-align:middle}
+  tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr:hover{background:#fafbfd}
+  tr.jami td{background:#f4f6fa;font-weight:750;border-top:2px solid var(--line)}
+  .rk{display:inline-flex;width:24px;height:24px;border-radius:7px;background:#f0f2f7;color:var(--muted);font-size:12px;font-weight:700;align-items:center;justify-content:center}
+  .nm{font-weight:700}
+  .tm{display:inline-block;font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:6px;margin-left:7px;vertical-align:1px}
+  .tm.A{background:var(--bluebg);color:var(--blue)} .tm.B{background:#fdeee4;color:#c4703d}
+  .chbadge{display:inline-block;font-size:12px;font-weight:750;padding:3px 10px;border-radius:16px}
+  .z-good{background:var(--goodbg);color:var(--good)} .z-warn{background:var(--warnbg);color:var(--warn)} .z-bad{background:var(--badbg);color:var(--bad)} .z-na{background:#f0f2f7;color:var(--muted)}
+  .cbar{display:block;height:8px;background:#f0f2f7;border-radius:6px;overflow:hidden;width:130px;margin-top:5px}
+  .cbar i{display:block;height:100%;border-radius:6px;background:var(--bad)}
+  .up{color:var(--bad);font-weight:750} .down{color:var(--good);font-weight:750}
+  .dim{color:var(--muted)}
+  .strong{font-weight:700}
+
+  .cardsgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .kk{background:#fff;border-radius:18px;padding:22px 24px;box-shadow:0 1px 3px rgba(16,22,40,.05)}
+  .kk .top{display:flex;justify-content:space-between;align-items:flex-start}
+  .kk .who .n1{font-size:17px;font-weight:750}
+  .kk .who .n2{font-size:12px;color:var(--muted)}
+  .kk .cnt{text-align:right}
+  .kk .cnt b{font-size:24px;font-weight:750;letter-spacing:-.5px}
+  .kk .cnt span{display:block;font-size:11.5px;color:var(--muted);margin-top:-3px}
+  .churnrow{display:flex;gap:16px;align-items:center;margin-top:16px}
+  .donut{position:relative;width:86px;height:86px;flex:none}
+  .donut svg{transform:rotate(-90deg)}
+  .donut .dl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .donut .dl b{font-size:15.5px;font-weight:800;color:var(--bad)}
+  .donut .dl small{font-size:8.5px;color:var(--muted)}
+  .churninfo{flex:1}
+  .churninfo .t{font-size:12px;color:var(--muted)}
+  .churninfo .big{font-size:15px;margin-top:2px}
+  .churninfo .big b{font-size:21px;color:var(--bad);font-weight:800}
+  .wboxes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .wb{border:1px solid var(--line);border-radius:10px;padding:8px 11px}
+  .wb.hl{border-color:var(--hero);box-shadow:0 0 0 1px var(--hero)}
+  .wb .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .wb .v{font-size:16.5px;font-weight:750;margin-top:1px}
+  .stt{font-size:12px;font-weight:700;color:var(--muted);margin:16px 0 7px}
+  .stack{display:flex;height:24px;border-radius:7px;overflow:hidden;font-size:11px;font-weight:700;color:#fff}
+  .stack i{display:flex;align-items:center;justify-content:center;min-width:0}
+  .stlegend{display:flex;gap:13px;font-size:11.5px;color:var(--muted);margin-top:7px;flex-wrap:wrap}
+  .stlegend .d{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px}
+  .boxes3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+  .b3{border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+  .b3 .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .b3 .v{font-size:19px;font-weight:800;margin-top:1px}
+  .b3 .v.or{color:#d78a1e} .b3 .v.rd{color:var(--bad)}
+  .b3 .n{font-size:10.5px;color:var(--muted)}
+  .tavs{background:#fdf9ef;border:1px solid #eee0b8;border-radius:12px;padding:13px 16px;margin-top:14px}
+  .tavs .th{font-size:11px;letter-spacing:.07em;font-weight:800;color:#a5802a;text-transform:uppercase;margin-bottom:7px}
+  .tavs ul{list-style:none}
+  .tavs li{font-size:12.5px;padding:3px 0;color:#4c4632}
+  .tavs li b{color:var(--ink)}
+  .extras{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:13px;padding-top:12px;border-top:1px dashed var(--line);flex-wrap:wrap}
+  .extras b{color:var(--ink)}
+
+  .foot{font-size:12px;color:var(--muted);line-height:1.7;margin-top:20px;padding:0 6px}
+  .foot b{color:#5a6272}
+
+  /* detail view */
+  tbody tr[data-k]{cursor:pointer}
+  .kk .who .n1{cursor:pointer}
+  .kk .who .n1:hover,.nm:hover{color:var(--blue)}
+  #detail{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none;padding:22px 14px 60px}
+  #detail.open{display:block}
+  .dpage{max-width:980px;margin:0 auto}
+  .backbtn{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 18px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;font-family:var(--font);margin-bottom:14px}
+  .backbtn:hover{border-color:var(--blue);color:var(--blue)}
+  .dhero{background:radial-gradient(700px 300px at 85% -20%,rgba(84,110,255,.25),transparent),linear-gradient(135deg,var(--hero),var(--hero2));color:#fff;border-radius:20px;padding:26px 30px;margin-bottom:16px}
+  .dhero .row{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px}
+  .dhero h1{font-size:23px;font-weight:750}
+  .dhero .meta{font-size:13px;opacity:.75;margin-top:4px}
+  .dhero .bigb{text-align:right}
+  .dhero .bigb b{font-size:34px;font-weight:800;letter-spacing:-1px}
+  .dhero .bigb span{display:block;font-size:12px;opacity:.7;margin-top:-4px}
+  .dcards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+  .dgrid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .wtable{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+  .wtable th{text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;padding:9px 8px;border-bottom:1px solid var(--line)}
+  .wtable th.num,.wtable td.num{text-align:right}
+  .wtable td{padding:10px 8px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+  .wtable tr.cur td{background:#f4f6fa;font-weight:700}
+  @media(max-width:920px){.hcards{grid-template-columns:repeat(2,1fr)}.cardsgrid{grid-template-columns:1fr}.hide-sm{display:none}.dcards{grid-template-columns:repeat(2,1fr)}.dgrid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Junior Online — Kurator Tahlili</h1>
+    <div class="desc">Har bir kurator bo'yicha o'quvchilar soni, churn darajasi, status taqsimoti (Aktiv/Passiv/Noaktiv), qarzdorlik, kassa va faollashtirish. <b>Churn = tanlangan davrda ketgan o'quvchilar ÷ aktiv baza. Oylik plan: ≤ 14%.</b></div>
+    <div class="srcbadge"><span class="dot"></span> Ma'lumot manbasi: <b>CRM Analitika moduli</b> (jonli API) · Snapshot: <b>16.07.2026</b> · Iyul, oy boshidan</div>
+    <div class="hcards">
+      <div class="hc"><div class="l">Aktiv baza</div><div class="v">2 126</div><div class="n">10 kurator · 51 guruh</div></div>
+      <div class="hc"><div class="l" id="hChuL">Churn — Iyul</div><div class="v red" id="hChuV">12.6%</div><div class="n" id="hChuN">266 o'quvchi ketgan · plan ≤14%</div></div>
+      <div class="hc"><div class="l" id="hTrL">Iyunga nisbatan</div><div class="v green" id="hTrV">▼ 4.6p</div><div class="n" id="hTrN">iyun 17.2% → iyul 12.6%</div></div>
+      <div class="hc"><div class="l">Faollashtirish</div><div class="v orange">45.7%</div><div class="n">344 ta noaktivdan qaytarildi</div></div>
+      <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange">238</div><div class="n">muzlatilganlar: 215 ta</div></div>
+    </div>
+  </div>
+
+  <!-- DAVR -->
+  <div class="davr">
+    <span class="lbl">Davr:</span>
+    <div class="seg" id="seg">
+      <button class="on" data-w="ALL">Oy boshidan</button>
+      <button data-w="W1">1-hafta</button>
+      <button data-w="W2">2-hafta</button>
+      <button data-w="W3">Joriy hafta</button>
+    </div>
+    <span class="showing" id="showing">Ko'rsatilmoqda: Oy boshidan (01–16.07)</span>
+  </div>
+
+  <!-- CHART -->
+  <div class="panel">
+    <h2>Haftalik churn dinamikasi</h2>
+    <div class="sub">Haftada noaktivga o'tgan o'quvchilar (% baza). Qizil chiziq — haftalik plan chegarasi (14%/oy ≈ 3.5%/hafta). Jonli status-hodisalar bo'yicha.</div>
+    <div class="chartwrap"><svg id="chart" width="900" height="230" viewBox="0 0 900 230"></svg></div>
+  </div>
+
+  <!-- RATING -->
+  <div class="panel">
+    <h2 id="rtTitle">Kurator reytingi — churn bo'yicha</h2>
+    <div class="sub" id="rtSub">Yuqorida — eng yuqori churn (harakat talab qiladi).</div>
+    <table>
+      <thead><tr>
+        <th style="width:34px"></th><th>Kurator</th>
+        <th class="num">Baza</th>
+        <th class="num" style="width:180px" id="thChurn">Churn · iyul</th>
+        <th class="num">Ketgan</th>
+        <th class="num" id="thTrend">Trend</th>
+        <th class="num hide-sm">Noaktiv %</th>
+        <th class="num">Qarzdor</th>
+        <th class="num hide-sm">Muzlatilgan</th>
+      </tr></thead>
+      <tbody id="rt"></tbody>
+    </table>
+  </div>
+
+  <!-- CURATOR CARDS -->
+  <div class="panel" style="background:transparent;box-shadow:none;padding:4px 6px 0">
+    <h2>Kurator kartalari</h2>
+    <div class="sub">Har bir kurator bo'yicha to'liq kesim: churn plan bilan, status taqsimoti, qarzdorlik, kassa va tavsiyalar.</div>
+  </div>
+  <div class="cardsgrid" id="cards"></div>
+
+  <div class="foot">
+    <b>Manba.</b> Oy kesimi — CRM Analitika modulining jonli API'sidan (crm.junior-it.uz, month=2026-07-01, kurator=admin_id):
+    status-student, churn/activate/cashier/new-student-plan-card, debtors/frozen/active-parent/active-student-card.
+    Haftalik kesim — student_status_logs jonli hodisalari (haftalar: 1–7, 8–14, 15–21 iyul; haftalik plan ≈3.5%). Guruhlar soni — group_list.<br>
+    <b>Izoh.</b> Dilshoda Parpiyeva — yangi kurator (Munisa o'rniga). Dilshoda, Sabrina, Maryam uchun churn bazasi CRMda hali 0 — oylik churn % hisoblanmaydi.
+    Dilshoda va Aziza uchun haftalik log hali yig'ilmagan. Joriy hafta (15–21) tugallanmagan — raqamlar to'liq emas.
+  </div>
+</div>
+
+<!-- KURATOR DETAIL SAHIFASI -->
+<div id="detail"><div class="dpage" id="dcontent"></div></div>
+
+<script>
+// ================== JONLI MA'LUMOT · 16.07.2026 ==================
+const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
+const M={
+ Xal:{name:"Xalima Ismoiljonova",team:"B",grp:6,a:[124,59.3],p:[25,12],x:[56,26.8],y:[4,1.9],chu:[245,19.18,47],fao:[94.73,18],b:209,cj:17.14,kassa:29641000,yangi:12,ota:[160,77],froz:30,qarz:23},
+ Dil:{name:"Dilafruz Shokirova",team:"A",grp:6,a:[162,57.1],p:[50,17.6],x:[66,23.2],y:[6,2.1],chu:[274,14.23,39],fao:[74.35,58],b:284,cj:14.22,kassa:35295600,yangi:54,ota:[170,59],froz:31,qarz:23},
+ Azi:{name:"Aziza Qurvonaliyeva",team:"B",grp:4,a:[80,49.7],p:[30,18.6],x:[51,31.7],y:[0,0],chu:[176,14.2,25],fao:[95.74,45],b:161,cj:47.19,kassa:21310000,yangi:36,ota:[141,87],froz:22,qarz:16},
+ Jas:{name:"Jasmina Tolibova",team:"A",grp:4,a:[121,57.4],p:[34,16.1],x:[56,26.5],y:[0,0],chu:[246,12.2,30],fao:[100,3],b:211,cj:23.26,kassa:34242000,yangi:1,ota:[142,68],froz:21,qarz:26},
+ Mar:{name:"Marjona Pardayeva",team:"B",grp:5,a:[139,65.2],p:[27,12.7],x:[47,22.1],y:[0,0],chu:[235,8.51,20],fao:[100,9],b:213,cj:14.98,kassa:27151000,yangi:1,ota:[153,72],froz:19,qarz:46},
+ Fot:{name:"Fotimabonu Abdulkhakova",team:"A",grp:6,a:[130,70.6],p:[18,9.8],x:[36,19.6],y:[0,0],chu:[169,8.28,14],fao:[71.73,33],b:184,cj:12.35,kassa:18327000,yangi:30,ota:[156,84],froz:9,qarz:18},
+ Mad:{name:"Madina Normatova",team:"A",grp:5,a:[163,67.1],p:[28,11.5],x:[52,21.4],y:[0,0],chu:[221,5.43,12],fao:[91.93,57],b:243,cj:13.08,kassa:30069000,yangi:37,ota:[172,71],froz:12,qarz:18},
+ Dsh:{name:"Dilshoda Parpiyeva",team:"A",grp:4,a:[135,64.9],p:[25,12],x:[47,22.6],y:[1,0.5],chu:[0,null,31],fao:[84.84,56],b:208,cj:null,kassa:34427000,yangi:53,ota:[181,88],froz:35,qarz:15},
+ Sab:{name:"Sabrina Salimova",team:"B",grp:6,a:[95,54.3],p:[31,17.7],x:[48,27.4],y:[1,0.6],chu:[0,null,21],fao:[0,0],b:175,cj:null,kassa:23900000,yangi:1,ota:[150,88],froz:25,qarz:25},
+ Mrm:{name:"Maryam Safarova",team:"B",grp:5,a:[78,45.1],p:[28,16.2],x:[60,34.7],y:[7,4],chu:[0,null,27],fao:[60.34,35],b:173,cj:null,kassa:16635000,yangi:29,ota:[122,69],froz:2,qarz:26},
+};
+// haftalik hodisalar [faollashdi, passivga, noaktivga(churn)]
+const W={
+ all:{W1:[449,403,215],W2:[344,379,240],W3:[128,50,14]},
+ Fot:{W1:[11,17,12],W2:[8,10,8],W3:[3,2,0]},
+ Dil:{W1:[3,1,2],W2:[5,3,1],W3:[2,1,1]},
+ Mad:{W1:[2,2,0],W2:[11,4,3],W3:[4,1,0]},
+ Jas:{W1:[0,0,0],W2:[3,0,0],W3:[4,1,0]},
+ Dsh:null,
+ Mar:{W1:[10,11,7],W2:[11,16,9],W3:[4,1,4]},
+ Xal:{W1:[8,2,1],W2:[6,5,1],W3:[2,1,0]},
+ Azi:null,
+ Sab:{W1:[7,4,1],W2:[4,5,5],W3:[0,0,0]},
+ Mrm:{W1:[4,2,1],W2:[2,2,2],W3:[0,1,0]},
+};
+const WLBL={ALL:"Oy boshidan (01–16.07)",W1:"1-hafta (01–07.07)",W2:"2-hafta (08–14.07)",W3:"Joriy hafta (15–21.07)"};
+const WSHORT={ALL:"iyul",W1:"1-hafta",W2:"2-hafta",W3:"joriy hafta"};
+const TOTAL=2126;
+const fmt=n=>n==null?'—':n.toLocaleString('ru-RU').replace(/,/g,' ');
+const mln=n=>(n/1e6).toFixed(1).replace('.',',')+' mln';
+let WEEK='ALL';
+
+// tanlangan davr uchun kurator churn'i: {pct,cnt,plan,prev:{pct,cnt,lbl},has}
+function pchurn(k){
+  const r=M[k], w=W[k];
+  if(WEEK==='ALL'){
+    return {pct:r.chu[1], cnt:r.chu[2], plan:PLAN.churnM, has:true,
+      prev:(r.cj!=null&&r.chu[1]!=null)?{pct:r.cj,lbl:'iyun'}:null};
+  }
+  if(!w) return {pct:null,cnt:null,plan:PLAN.churnW,has:false,prev:null};
+  const cnt=w[WEEK][2], pct=cnt/r.b*100;
+  const prevKey={W1:null,W2:'W1',W3:'W2'}[WEEK];
+  const prev=prevKey?{pct:w[prevKey][2]/r.b*100,cnt:w[prevKey][2],lbl:WSHORT[prevKey]}:null;
+  return {pct,cnt,plan:PLAN.churnW,has:true,prev};
+}
+function pzone(pct,plan){
+  if(pct==null)return 'na';
+  return pct<=plan*0.72?'good':pct<=plan?'warn':'bad';
+}
+function orgChurn(){
+  if(WEEK==='ALL')return {pct:12.55,cnt:266,plan:PLAN.churnM,prev:{pct:17.2,lbl:'iyun'}};
+  const cnt=W.all[WEEK][2], pct=cnt/TOTAL*100;
+  const prevKey={W1:null,W2:'W1',W3:'W2'}[WEEK];
+  const prev=prevKey?{pct:W.all[prevKey][2]/TOTAL*100,cnt:W.all[prevKey][2],lbl:WSHORT[prevKey]}:null;
+  return {pct,cnt,plan:PLAN.churnW,prev};
+}
+
+// ---------- HERO ----------
+function hero(){
+  const o=orgChurn();
+  document.getElementById('hChuL').textContent='Churn — '+WSHORT[WEEK][0].toUpperCase()+WSHORT[WEEK].slice(1);
+  document.getElementById('hChuV').textContent=o.pct.toFixed(1)+'%';
+  document.getElementById('hChuN').textContent=`${o.cnt} o'quvchi ketgan · plan ≤${o.plan}%`;
+  const tl=document.getElementById('hTrL'),tv=document.getElementById('hTrV'),tn=document.getElementById('hTrN');
+  if(o.prev){
+    const d=o.pct-o.prev.pct, up=d>0;
+    tl.textContent=o.prev.lbl.charAt(0).toUpperCase()+o.prev.lbl.slice(1)+'ga nisbatan';
+    tv.textContent=(up?'▲ ':'▼ ')+Math.abs(d).toFixed(1)+'p';
+    tv.className='v '+(up?'red':'green');
+    tn.textContent=`${o.prev.lbl} ${o.prev.pct.toFixed(1)}% → ${WSHORT[WEEK]} ${o.pct.toFixed(1)}%`;
+  } else {
+    tl.textContent='Trend'; tv.textContent='—'; tv.className='v'; tn.textContent="oldingi davr yo'q";
+  }
+}
+
+// ---------- CHART ----------
+function drawChart(){
+  const svg=document.getElementById('chart');
+  const pts=[
+    {x:'1-hafta\n01–07',v:W.all.W1[2]/TOTAL*100,n:W.all.W1[2]},
+    {x:'2-hafta\n08–14',v:W.all.W2[2]/TOTAL*100,n:W.all.W2[2]},
+    {x:'Joriy\n15–21*',v:W.all.W3[2]/TOTAL*100,n:W.all.W3[2]},
+  ];
+  const L=70,R=40,T=24,B=44,Wd=900-L-R,H=230-T-B,maxV=14;
+  const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-(Math.min(v,maxV)/maxV)*H;
+  let s='';
+  [0,5,10].forEach(g=>{s+=`<line x1="${L}" y1="${Y(g)}" x2="${900-R}" y2="${Y(g)}" stroke="#eef0f5"/><text x="${L-10}" y="${Y(g)+4}" font-size="11" fill="#a7aec0" text-anchor="end">${g}%</text>`});
+  const planY=Y(3.5);
+  s+=`<line x1="${L}" y1="${planY}" x2="${900-R}" y2="${planY}" stroke="#d24a35" stroke-dasharray="6 5" stroke-width="1.6"/><text x="${900-R}" y="${planY-8}" font-size="11.5" fill="#d24a35" font-weight="700" text-anchor="end">Haftalik plan ≈3.5%</text>`;
+  const path=pts.map((p,i)=>`${i?'L':'M'}${X(i)},${Y(p.v)}`).join(' ');
+  const area=`M${X(0)},${Y(pts[0].v)} `+pts.map((p,i)=>`L${X(i)},${Y(p.v)}`).join(' ')+` L${X(pts.length-1)},${T+H} L${X(0)},${T+H} Z`;
+  s+=`<path d="${area}" fill="rgba(53,100,196,.09)"/>`;
+  s+=`<path d="${path}" fill="none" stroke="#3564c4" stroke-width="2.6" stroke-linecap="round"/>`;
+  const selIdx={ALL:-1,W1:0,W2:1,W3:2}[WEEK];
+  pts.forEach((p,i)=>{
+    const hl=i===selIdx;
+    s+=`<circle cx="${X(i)}" cy="${Y(p.v)}" r="${hl?8:5.5}" fill="#fff" stroke="#3564c4" stroke-width="${hl?3.4:2.4}"/>`;
+    s+=`<text x="${X(i)}" y="${Y(p.v)-14}" font-size="13" font-weight="800" fill="#141a26" text-anchor="middle">${p.v.toFixed(1)}%</text>`;
+    s+=`<text x="${X(i)}" y="${Y(p.v)+24}" font-size="10.5" fill="#7d8698" text-anchor="middle">${p.n} ta</text>`;
+    const [l1,l2]=p.x.split('\n');
+    s+=`<text x="${X(i)}" y="${230-22}" font-size="11.5" fill="#7d8698" text-anchor="middle" font-weight="600">${l1}</text>`;
+    s+=`<text x="${X(i)}" y="${230-8}" font-size="10" fill="#a7aec0" text-anchor="middle">${l2}</text>`;
+  });
+  svg.innerHTML=s;
+}
+
+// ---------- RATING ----------
+function rating(){
+  const keys=Object.keys(M);
+  const sorted=keys.slice().sort((a,b)=>{
+    const A=pchurn(a),B2=pchurn(b);
+    if(A.pct==null&&B2.pct==null)return (B2.cnt||0)-(A.cnt||0);
+    if(A.pct==null)return 1; if(B2.pct==null)return -1; return B2.pct-A.pct;
+  });
+  document.getElementById('thChurn').textContent='Churn · '+WSHORT[WEEK];
+  document.getElementById('rtTitle').textContent=`Kurator reytingi — churn bo'yicha (${WSHORT[WEEK]})`;
+  const barScale=WEEK==='ALL'?4.5:18;
+  const rt=document.getElementById('rt'); rt.innerHTML='';
+  sorted.forEach((k,i)=>{
+    const r=M[k], c=pchurn(k), z=pzone(c.pct,c.plan);
+    let trend='<span class="dim">—</span>';
+    if(c.prev&&c.pct!=null){
+      const d=c.pct-c.prev.pct;
+      trend=d>0?`<span class="up">▲ ${d.toFixed(1)}p</span>`:`<span class="down">▼ ${Math.abs(d).toFixed(1)}p</span>`;
+    }
+    const pctTxt=c.has?(c.pct==null?'—':c.pct.toFixed(1)+'%'):'log yo\'q';
+    rt.insertAdjacentHTML('beforeend',`<tr data-k="${k}" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">
+      <td><span class="rk">${i+1}</span></td>
+      <td><span class="nm">${r.name}</span><span class="tm ${r.team}">${r.team}</span></td>
+      <td class="num">${r.b}</td>
+      <td class="num"><span class="chbadge z-${z}">${pctTxt}</span><span class="cbar" style="margin-left:auto"><i style="width:${Math.min((c.pct||0)*barScale,100)}%"></i></span></td>
+      <td class="num strong">${c.cnt==null?'—':c.cnt}</td>
+      <td class="num">${trend}</td>
+      <td class="num hide-sm">${r.x[1].toFixed(1)}%</td>
+      <td class="num">${r.qarz}</td>
+      <td class="num hide-sm">${r.froz}</td>
+    </tr>`);
+  });
+  const o=orgChurn();
+  const oTrend=o.prev?((o.pct-o.prev.pct)>0?`<span class="up">▲ ${(o.pct-o.prev.pct).toFixed(1)}p</span>`:`<span class="down">▼ ${(o.prev.pct-o.pct).toFixed(1)}p</span>`):'<span class="dim">—</span>';
+  rt.insertAdjacentHTML('beforeend',`<tr class="jami">
+    <td></td><td>JAMI</td><td class="num">2 126</td>
+    <td class="num"><span class="chbadge z-${pzone(o.pct,o.plan)}">${o.pct.toFixed(1)}%</span></td>
+    <td class="num">${o.cnt}</td><td class="num">${oTrend}</td>
+    <td class="num hide-sm">25.7%</td><td class="num">238</td><td class="num hide-sm">215</td></tr>`);
+}
+
+// ---------- CARDS ----------
+function donut(pct,plan){
+  const r=34,c=2*Math.PI*r,cap=plan*3,val=pct==null?0:Math.min(pct,cap)/cap;
+  return `<div class="donut"><svg width="86" height="86">
+    <circle cx="43" cy="43" r="${r}" fill="none" stroke="#f0f2f7" stroke-width="9"/>
+    <circle cx="43" cy="43" r="${r}" fill="none" stroke="#d24a35" stroke-width="9" stroke-linecap="round" stroke-dasharray="${c*val} ${c}"/>
+  </svg><div class="dl"><b>${pct==null?'—':pct.toFixed(1)+'%'}</b><small>plan ≤${plan}%</small></div></div>`;
+}
+function tavsiyalar(r,k){
+  const t=[],c=pchurn(k),w=W[k];
+  if(c.has&&c.pct!=null){
+    if(c.pct>c.plan) t.push(`⚠️ <b>Churn ${c.pct.toFixed(1)}%</b> (${WSHORT[WEEK]}) — plandan ${(c.pct-c.plan).toFixed(1)}p yuqori. Ketishni kamaytirish ustuvor.`);
+    else t.push(`✅ <b>Churn ${c.pct.toFixed(1)}%</b> (${WSHORT[WEEK]}) — plan ichida (≤${c.plan}%).`);
+    if(c.prev){const d=c.pct-c.prev.pct;
+      t.push(d>0?`📈 ${c.prev.lbl}ga nisbatan <b>oshgan</b> (${c.prev.pct.toFixed(1)}% → ${c.pct.toFixed(1)}%). Yangi ketganlar bilan bugun bog'laning.`
+               :`📉 ${c.prev.lbl}ga nisbatan <b>yaxshilanish</b> (${c.prev.pct.toFixed(1)}% → ${c.pct.toFixed(1)}%).`)}
+  } else if(!c.has) t.push(`ℹ️ Haftalik log hali yig'ilmagan (yangi baza) — oylik ketganlar: <b>${r.chu[2]} ta</b>.`);
+  else t.push(`ℹ️ Churn bazasi CRMda kiritilmagan — ketganlar soni: <b>${r.chu[2]} ta</b>.`);
+  if(r.x[1]>25) t.push(`🔴 Noaktiv ulush yuqori — <b>${r.x[0]} ta (${r.x[1]}%)</b>. Qo'ng'iroq qilib darsga qaytarish rejasini tuzing.`);
+  t.push(`💳 <b>${r.qarz} qarzdor</b> (${(r.qarz/r.b*100).toFixed(1)}% baza) — to'lov eslatmasi talab qiladi.`);
+  if(r.ota[1]<PLAN.ota) t.push(`🤖 Ota-ona bot <b>${r.ota[1]}%</b> — plan ${PLAN.ota}%. Ulanmagan ota-onalar bilan ishlash kerak.`);
+  return t;
+}
+function cards(){
+  const keys=Object.keys(M);
+  const sorted=keys.slice().sort((a,b)=>{
+    const A=pchurn(a),B2=pchurn(b);
+    if(A.pct==null&&B2.pct==null)return (B2.cnt||0)-(A.cnt||0);
+    if(A.pct==null)return 1; if(B2.pct==null)return -1; return B2.pct-A.pct;
+  });
+  const el=document.getElementById('cards'); el.innerHTML='';
+  sorted.forEach(k=>{
+    const r=M[k], w=W[k], c=pchurn(k);
+    let wk1='—',wk2='—',wk3='—';
+    if(w){wk1=(w.W1[2]/r.b*100).toFixed(1)+'%';wk2=(w.W2[2]/r.b*100).toFixed(1)+'%';wk3=(w.W3[2]/r.b*100).toFixed(1)+'%'}
+    const wkm=M[k].chu[1]==null?'—':M[k].chu[1].toFixed(1)+'%';
+    const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
+    const segsum=segs.reduce((s,x)=>s+x[1],0);
+    const ketgan=c.cnt!=null?c.cnt:(c.has?0:r.chu[2]);
+    el.insertAdjacentHTML('beforeend',`
+    <div class="kk">
+      <div class="top">
+        <div class="who"><div class="n1" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">${r.name} <span class="tm ${r.team}">TEAM ${r.team}</span></div><div class="n2">Kurator · ${r.grp} guruh</div></div>
+        <div class="cnt"><b>${r.b}</b><span>o'quvchi</span></div>
+      </div>
+      <div class="churnrow">
+        ${donut(c.pct,c.plan)}
+        <div class="churninfo">
+          <div class="t">Churn — ${WLBL[WEEK]}${c.has?'':' · log yo\'q (oylik son)'}</div>
+          <div class="big"><b>${ketgan}</b> o'quvchi ketgan</div>
+          <div class="wboxes">
+            <div class="wb ${WEEK==='W1'?'hl':''}"><div class="l">1-hafta</div><div class="v">${wk1}</div></div>
+            <div class="wb ${WEEK==='W2'?'hl':''}"><div class="l">2-hafta</div><div class="v">${wk2}</div></div>
+            <div class="wb ${WEEK==='ALL'?'hl':(WEEK==='W3'?'hl':'')}"><div class="l">${WEEK==='W3'?'Joriy':'Oylik'}</div><div class="v">${WEEK==='W3'?wk3:wkm}</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="stt">Status taqsimoti</div>
+      <div class="stack">${segs.map(s=>`<i style="background:${s[2]};width:${s[1]/segsum*100}%">${s[1]/segsum>0.09?s[1]:''}</i>`).join('')}</div>
+      <div class="stlegend">${segs.map(s=>`<span><i class="d" style="background:${s[2]}"></i>${s[0]} ${s[1]}</span>`).join('')}</div>
+      <div class="boxes3">
+        <div class="b3"><div class="l">Qarzdorlar</div><div class="v or">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza</div></div>
+        <div class="b3"><div class="l">Muzlatilgan</div><div class="v or">${r.froz}</div><div class="n">${(r.froz/r.b*100).toFixed(1)}% baza</div></div>
+        <div class="b3"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza</div></div>
+      </div>
+      <div class="tavs"><div class="th">💡 Tavsiyalar — churnni kamaytirish</div><ul>${tavsiyalar(r,k).map(t=>`<li>• ${t}</li>`).join('')}</ul></div>
+      <div class="extras">
+        <span>💰 Kassa: <b>${mln(r.kassa)}</b></span>
+        <span>🆕 Yangi: <b>${r.yangi}</b></span>
+        <span>♻️ Faollashtirish: <b>${r.fao[0]?r.fao[0].toFixed(0)+'%':'—'} (${r.fao[1]})</b></span>
+        <span>🤖 Ota-ona bot: <b>${r.ota[1]}%</b></span>
+      </div>
+    </div>`);
+  });
+}
+
+// ---------- KURATOR DETAIL ----------
+function miniChart(k){
+  const r=M[k], w=W[k];
+  if(!w) return `<div style="padding:30px 10px;color:var(--muted);font-size:13px">⏳ Haftalik log hali yig'ilmagan (yangi biriktirilgan baza). Oylik ko'rsatkichlar yuqorida.</div>`;
+  const pts=[
+    {x:'1-hafta',x2:'01–07',v:w.W1[2]/r.b*100,n:w.W1[2]},
+    {x:'2-hafta',x2:'08–14',v:w.W2[2]/r.b*100,n:w.W2[2]},
+    {x:'Joriy',x2:'15–21*',v:w.W3[2]/r.b*100,n:w.W3[2]},
+  ];
+  const Wd0=440,H0=190,L=44,R=26,T=22,B=40,Wd=Wd0-L-R,H=H0-T-B;
+  const maxV=Math.max(5,...pts.map(p=>p.v))*1.25;
+  const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-(Math.min(v,maxV)/maxV)*H;
+  let s='';
+  const planY=Y(3.5);
+  if(3.5<maxV) s+=`<line x1="${L}" y1="${planY}" x2="${Wd0-R}" y2="${planY}" stroke="#d24a35" stroke-dasharray="5 4" stroke-width="1.4"/><text x="${Wd0-R}" y="${planY-6}" font-size="10" fill="#d24a35" font-weight="700" text-anchor="end">plan ≈3.5%</text>`;
+  const path=pts.map((p,i)=>`${i?'L':'M'}${X(i)},${Y(p.v)}`).join(' ');
+  s+=`<path d="${path}" fill="none" stroke="#3564c4" stroke-width="2.4" stroke-linecap="round"/>`;
+  pts.forEach((p,i)=>{
+    s+=`<circle cx="${X(i)}" cy="${Y(p.v)}" r="5" fill="#fff" stroke="#3564c4" stroke-width="2.2"/>`;
+    s+=`<text x="${X(i)}" y="${Y(p.v)-11}" font-size="12" font-weight="800" fill="#141a26" text-anchor="middle">${p.v.toFixed(1)}%</text>`;
+    s+=`<text x="${X(i)}" y="${H0-24}" font-size="11" fill="#7d8698" text-anchor="middle" font-weight="600">${p.x}</text>`;
+    s+=`<text x="${X(i)}" y="${H0-11}" font-size="9.5" fill="#a7aec0" text-anchor="middle">${p.x2} · ${p.n} ta</text>`;
+  });
+  return `<svg width="100%" viewBox="0 0 ${Wd0} ${H0}">${s}</svg>`;
+}
+function showDetail(k){
+  const r=M[k], w=W[k];
+  const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
+  const segsum=segs.reduce((s,x)=>s+x[1],0);
+  const chuTxt=r.chu[1]==null?'—':r.chu[1].toFixed(1)+'%';
+  const trend=(r.cj!=null&&r.chu[1]!=null)
+    ? (r.chu[1]<=r.cj?`<span style="color:#43d17c">▼ ${(r.cj-r.chu[1]).toFixed(1)}p iyunga nisbatan</span>`:`<span style="color:#ff8a75">▲ ${(r.chu[1]-r.cj).toFixed(1)}p iyunga nisbatan</span>`)
+    : `<span style="opacity:.6">iyun bazasi yo'q</span>`;
+  let wrows='';
+  if(w){
+    [['1-hafta (01–07.07)','W1'],['2-hafta (08–14.07)','W2'],['Joriy hafta (15–21.07)','W3']].forEach(([lbl,wk])=>{
+      const d=w[wk];
+      wrows+=`<tr class="${WEEK===wk?'cur':''}"><td>${lbl}</td><td class="num" style="color:var(--good)">${d[0]}</td><td class="num" style="color:var(--warn)">${d[1]}</td><td class="num" style="color:var(--bad);font-weight:700">${d[2]}</td><td class="num">${(d[2]/r.b*100).toFixed(1)}%</td></tr>`;
+    });
+    const t=[w.W1,w.W2,w.W3].reduce((s,x)=>[s[0]+x[0],s[1]+x[1],s[2]+x[2]],[0,0,0]);
+    wrows+=`<tr class="cur"><td>Oy boshidan</td><td class="num" style="color:var(--good)">${t[0]}</td><td class="num" style="color:var(--warn)">${t[1]}</td><td class="num" style="color:var(--bad);font-weight:700">${t[2]}</td><td class="num">${(t[2]/r.b*100).toFixed(1)}%</td></tr>`;
+  } else wrows=`<tr><td colspan="5" style="color:var(--muted)">Haftalik log hali yig'ilmagan</td></tr>`;
+  document.getElementById('dcontent').innerHTML=`
+    <button class="backbtn" onclick="hideDetail()">← Orqaga · umumiy dashboard</button>
+    <div class="dhero">
+      <div class="row">
+        <div><h1>${r.name} <span class="tm ${r.team}" style="font-size:11px;vertical-align:4px">TEAM ${r.team}</span></h1>
+        <div class="meta">Kurator · ${r.grp} guruh · Iyul 2026, oy boshidan · yangilangan 16.07.2026</div></div>
+        <div class="bigb"><b>${r.b}</b><span>faol o'quvchi</span></div>
+      </div>
+      <div class="dcards">
+        <div class="hc"><div class="l">Churn — Iyul</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
+        <div class="hc"><div class="l">Faollashtirish</div><div class="v orange">${r.fao[0]?r.fao[0].toFixed(1)+'%':'—'}</div><div class="n">${r.fao[1]} ta noaktivdan qaytarildi</div></div>
+        <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz}</div></div>
+        <div class="hc"><div class="l">Kassa — Iyul</div><div class="v">${mln(r.kassa)}</div><div class="n">yangi o'quvchi: ${r.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Status taqsimoti</h2>
+      <div class="stack" style="margin-top:12px">${segs.map(s=>`<i style="background:${s[2]};width:${s[1]/segsum*100}%">${s[1]/segsum>0.07?s[1]:''}</i>`).join('')}</div>
+      <div class="stlegend">${segs.map(s=>`<span><i class="d" style="background:${s[2]}"></i>${s[0]} ${s[1]} (${(s[1]/segsum*100).toFixed(1)}%)</span>`).join('')}</div>
+    </div>
+    <div class="dgrid2">
+      <div class="panel"><h2>Haftalik churn dinamikasi</h2><div class="sub">Noaktivga o'tganlar, % baza (jonli log)</div>${miniChart(k)}</div>
+      <div class="panel"><h2>Haftalik hodisalar</h2><div class="sub">Jonli status-o'zgarishlar</div>
+        <table class="wtable"><thead><tr><th>Davr</th><th class="num">Faollashdi</th><th class="num">Passivga</th><th class="num">Churn</th><th class="num">%</th></tr></thead><tbody>${wrows}</tbody></table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>💡 Tavsiyalar — churnni kamaytirish</h2>
+      <ul style="list-style:none;margin-top:10px">${tavsiyalar(r,k).map(t=>`<li style="font-size:13px;padding:4px 0">• ${t}</li>`).join('')}</ul>
+    </div>`;
+  document.getElementById('detail').classList.add('open');
+  document.body.style.overflow='hidden';
+  document.getElementById('detail').scrollTop=0;
+}
+function hideDetail(){
+  document.getElementById('detail').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ---------- PERIOD SWITCH ----------
+function renderAll(){
+  document.getElementById('showing').textContent='Ko\'rsatilmoqda: '+WLBL[WEEK];
+  hero(); drawChart(); rating(); cards();
+}
+document.getElementById('seg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  WEEK=b.dataset.w;
+  document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x===b));
+  renderAll();
+});
+renderAll();
+</script>
+</body>
+</html>
