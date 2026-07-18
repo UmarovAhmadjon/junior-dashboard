@@ -138,13 +138,13 @@
   <div class="hero">
     <h1>Junior Online — Kurator Tahlili</h1>
     <div class="desc">Har bir kurator bo'yicha o'quvchilar soni, churn darajasi, status taqsimoti (Aktiv/Passiv/Noaktiv), qarzdorlik, kassa va faollashtirish. <b>Churn = tanlangan davrda ketgan o'quvchilar ÷ aktiv baza. Oylik plan: ≤ 14%.</b></div>
-    <div class="srcbadge"><span class="dot"></span> Ma'lumot manbasi: <b>CRM Analitika moduli</b> (jonli API) · Snapshot: <b>16.07.2026</b> · Iyul, oy boshidan</div>
+    <div class="srcbadge"><span class="dot"></span> Ma'lumot manbasi: <b>CRM Analitika moduli</b> (jonli API) · Snapshot: <b id="snapdate">16.07.2026</b> · Iyul, oy boshidan</div>
     <div class="hcards">
-      <div class="hc"><div class="l">Aktiv baza</div><div class="v">2 126</div><div class="n">10 kurator · 51 guruh</div></div>
+      <div class="hc"><div class="l">Aktiv baza</div><div class="v" id="hBaseV">2 126</div><div class="n" id="hBaseN">10 kurator · 51 guruh</div></div>
       <div class="hc"><div class="l" id="hChuL">Churn — Iyul</div><div class="v red" id="hChuV">12.6%</div><div class="n" id="hChuN">266 o'quvchi ketgan · plan ≤14%</div></div>
       <div class="hc"><div class="l" id="hTrL">Iyunga nisbatan</div><div class="v green" id="hTrV">▼ 4.6p</div><div class="n" id="hTrN">iyun 17.2% → iyul 12.6%</div></div>
-      <div class="hc"><div class="l">Faollashtirish</div><div class="v orange">45.7%</div><div class="n">344 ta noaktivdan qaytarildi</div></div>
-      <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange">238</div><div class="n">muzlatilganlar: 215 ta</div></div>
+      <div class="hc"><div class="l">Faollashtirish</div><div class="v orange" id="hFaoV">45.7%</div><div class="n" id="hFaoN">344 ta noaktivdan qaytarildi</div></div>
+      <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange" id="hQarzV">238</div><div class="n" id="hQarzN">muzlatilganlar: 215 ta</div></div>
     </div>
   </div>
 
@@ -208,35 +208,10 @@
 <script>
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
-const M={
- Xal:{name:"Xalima Ismoiljonova",team:"B",grp:6,a:[124,59.3],p:[25,12],x:[56,26.8],y:[4,1.9],chu:[245,19.18,47],fao:[94.73,18],b:209,cj:17.14,kassa:29641000,yangi:12,ota:[160,77],froz:30,qarz:23},
- Dil:{name:"Dilafruz Shokirova",team:"A",grp:6,a:[162,57.1],p:[50,17.6],x:[66,23.2],y:[6,2.1],chu:[274,14.23,39],fao:[74.35,58],b:284,cj:14.22,kassa:35295600,yangi:54,ota:[170,59],froz:31,qarz:23},
- Azi:{name:"Aziza Qurvonaliyeva",team:"B",grp:4,a:[80,49.7],p:[30,18.6],x:[51,31.7],y:[0,0],chu:[176,14.2,25],fao:[95.74,45],b:161,cj:47.19,kassa:21310000,yangi:36,ota:[141,87],froz:22,qarz:16},
- Jas:{name:"Jasmina Tolibova",team:"A",grp:4,a:[121,57.4],p:[34,16.1],x:[56,26.5],y:[0,0],chu:[246,12.2,30],fao:[100,3],b:211,cj:23.26,kassa:34242000,yangi:1,ota:[142,68],froz:21,qarz:26},
- Mar:{name:"Marjona Pardayeva",team:"B",grp:5,a:[139,65.2],p:[27,12.7],x:[47,22.1],y:[0,0],chu:[235,8.51,20],fao:[100,9],b:213,cj:14.98,kassa:27151000,yangi:1,ota:[153,72],froz:19,qarz:46},
- Fot:{name:"Fotimabonu Abdulkhakova",team:"A",grp:6,a:[130,70.6],p:[18,9.8],x:[36,19.6],y:[0,0],chu:[169,8.28,14],fao:[71.73,33],b:184,cj:12.35,kassa:18327000,yangi:30,ota:[156,84],froz:9,qarz:18},
- Mad:{name:"Madina Normatova",team:"A",grp:5,a:[163,67.1],p:[28,11.5],x:[52,21.4],y:[0,0],chu:[221,5.43,12],fao:[91.93,57],b:243,cj:13.08,kassa:30069000,yangi:37,ota:[172,71],froz:12,qarz:18},
- Dsh:{name:"Dilshoda Parpiyeva",team:"A",grp:4,a:[135,64.9],p:[25,12],x:[47,22.6],y:[1,0.5],chu:[0,null,31],fao:[84.84,56],b:208,cj:null,kassa:34427000,yangi:53,ota:[181,88],froz:35,qarz:15},
- Sab:{name:"Sabrina Salimova",team:"B",grp:6,a:[95,54.3],p:[31,17.7],x:[48,27.4],y:[1,0.6],chu:[0,null,21],fao:[0,0],b:175,cj:null,kassa:23900000,yangi:1,ota:[150,88],froz:25,qarz:25},
- Mrm:{name:"Maryam Safarova",team:"B",grp:5,a:[78,45.1],p:[28,16.2],x:[60,34.7],y:[7,4],chu:[0,null,27],fao:[60.34,35],b:173,cj:null,kassa:16635000,yangi:29,ota:[122,69],froz:2,qarz:26},
-};
-// haftalik hodisalar [faollashdi, passivga, noaktivga(churn)]
-const W={
- all:{W1:[449,403,215],W2:[344,379,240],W3:[128,50,14]},
- Fot:{W1:[11,17,12],W2:[8,10,8],W3:[3,2,0]},
- Dil:{W1:[3,1,2],W2:[5,3,1],W3:[2,1,1]},
- Mad:{W1:[2,2,0],W2:[11,4,3],W3:[4,1,0]},
- Jas:{W1:[0,0,0],W2:[3,0,0],W3:[4,1,0]},
- Dsh:null,
- Mar:{W1:[10,11,7],W2:[11,16,9],W3:[4,1,4]},
- Xal:{W1:[8,2,1],W2:[6,5,1],W3:[2,1,0]},
- Azi:null,
- Sab:{W1:[7,4,1],W2:[4,5,5],W3:[0,0,0]},
- Mrm:{W1:[4,2,1],W2:[2,2,2],W3:[0,1,0]},
-};
-const WLBL={ALL:"Oy boshidan (01–16.07)",W1:"1-hafta (01–07.07)",W2:"2-hafta (08–14.07)",W3:"Joriy hafta (15–21.07)"};
+const __DATA__={"M": {"Fot": {"a": [139, 76.0], "p": [18, 9.8], "x": [26, 14.2], "y": [0, 0.0], "chu": [169, 9.47, 16], "fao": [null, 80.95, 34], "b": 183, "kassa": 191670000, "yangi": 0, "qayta": 0, "ota": [155, 85.0], "froz": 11, "qarz": 18, "cj": 12.94, "name": "Fotimabonu Abdulkhakova", "team": "A", "grp": 6}, "Mad": {"a": [162, 68.1], "p": [29, 12.2], "x": [47, 19.7], "y": [0, 0.0], "chu": [221, 7.24, 16], "fao": [null, 93.54, 58], "b": 238, "kassa": 323190000, "yangi": 0, "qayta": 0, "ota": [171, 72.0], "froz": 14, "qarz": 15, "cj": 12.62, "name": "Madina Normatova", "team": "A", "grp": 5}, "Dil": {"a": [177, 61.5], "p": [40, 13.9], "x": [70, 24.3], "y": [1, 0.3], "chu": [274, 15.69, 43], "fao": [null, 84.61, 66], "b": 288, "kassa": 371156000, "yangi": 0, "qayta": 0, "ota": [168, 58.0], "froz": 37, "qarz": 26, "cj": 13.24, "name": "Dilafruz Shokirova", "team": "A", "grp": 6}, "Jas": {"a": [128, 63.0], "p": [32, 15.8], "x": [43, 21.2], "y": [0, 0.0], "chu": [246, 13.82, 34], "fao": [null, 100.0, 3], "b": 203, "kassa": 352320000, "yangi": 0, "qayta": 0, "ota": [139, 68.0], "froz": 25, "qarz": 25, "cj": 23.26, "name": "Jasmina Tolibova", "team": "A", "grp": 4}, "Dsh": {"a": [129, 62.9], "p": [27, 13.2], "x": [49, 23.9], "y": [0, 0.0], "chu": [0, 0.0, 34], "fao": [null, 86.36, 57], "b": 205, "kassa": 366870000, "yangi": 0, "qayta": 0, "ota": [180, 88.0], "froz": 37, "qarz": 15, "cj": 0.0, "name": "Dilshoda Parpiyeva", "team": "A", "grp": 4}, "Mar": {"a": [115, 54.5], "p": [44, 20.9], "x": [52, 24.6], "y": [0, 0.0], "chu": [235, 10.21, 24], "fao": [null, 100.0, 9], "b": 211, "kassa": 278410000, "yangi": 0, "qayta": 0, "ota": [153, 73.0], "froz": 21, "qarz": 54, "cj": 14.98, "name": "Marjona Pardayeva", "team": "B", "grp": 5}, "Xal": {"a": [119, 58.3], "p": [30, 14.7], "x": [53, 26.0], "y": [2, 1.0], "chu": [245, 20.82, 51], "fao": [null, 94.73, 18], "b": 204, "kassa": 303210000, "yangi": 0, "qayta": 0, "ota": [156, 76.0], "froz": 35, "qarz": 21, "cj": 17.14, "name": "Xalima Ismoiljonova", "team": "B", "grp": 6}, "Azi": {"a": [85, 42.9], "p": [37, 18.7], "x": [74, 37.4], "y": [2, 1.0], "chu": [176, 19.89, 35], "fao": [null, 94.82, 55], "b": 198, "kassa": 353024000, "yangi": 0, "qayta": 0, "ota": [139, 70.0], "froz": 35, "qarz": 13, "cj": 52.81, "name": "Aziza Qurvonaliyeva", "team": "B", "grp": 4}, "Sab": {"a": [98, 57.3], "p": [30, 17.5], "x": [43, 25.2], "y": [0, 0.0], "chu": [0, 0.0, 25], "fao": [null, 40.0, 2], "b": 171, "kassa": 254400000, "yangi": 0, "qayta": 0, "ota": [150, 88.0], "froz": 26, "qarz": 23, "cj": 0.0, "name": "Sabrina Salimova", "team": "B", "grp": 6}, "Mrm": {"a": [75, 42.1], "p": [30, 16.9], "x": [68, 38.2], "y": [5, 2.8], "chu": [0, 0.0, 30], "fao": [null, 71.18, 42], "b": 178, "kassa": 170550000, "yangi": 0, "qayta": 0, "ota": [121, 68.0], "froz": 5, "qarz": 24, "cj": 0.0, "name": "Maryam Safarova", "team": "B", "grp": 5}}, "W": {"Fot": {"W1": [67, 92, 62], "W2": [51, 60, 44], "W3": [30, 35, 18]}, "Mad": {"W1": [27, 25, 12], "W2": [33, 34, 24], "W3": [19, 17, 7]}, "Dil": {"W1": [43, 23, 20], "W2": [45, 34, 15], "W3": [32, 18, 10]}, "Jas": {"W1": [0, 0, 0], "W2": [16, 2, 0], "W3": [63, 12, 3]}, "Dsh": null, "Mar": {"W1": [96, 81, 34], "W2": [78, 70, 50], "W3": [34, 34, 29]}, "Xal": {"W1": [17, 6, 7], "W2": [7, 10, 4], "W3": [2, 5, 4]}, "Azi": {"W1": [13, 11, 5], "W2": [4, 6, 4], "W3": [8, 2, 1]}, "Sab": {"W1": [9, 7, 4], "W2": [4, 7, 3], "W3": [3, 2, 1]}, "Mrm": {"W1": [22, 11, 5], "W2": [11, 12, 10], "W3": [19, 9, 1]}, "all": {"W1": [294, 256, 149], "W2": [249, 235, 154], "W3": [210, 134, 74]}}, "all": {"a": [1249, 59.3], "p": [318, 15.1], "x": [528, 25.0], "y": [12, 0.6], "chu": [2120, 14.25, 302], "fao": [null, 46.68, 373], "b": 2107, "kassa": 2976000000, "yangi": 0, "qayta": 0, "ota": [1545, 73.0], "froz": 248, "qarz": 235, "cj": 17.15}, "TA": {"a": [757, 66.1], "p": [147, 12.8], "x": [238, 20.8], "y": [3, 0.3], "chu": [1095, 12.69, 139], "fao": [null, 83.68, 241], "b": 1145, "kassa": 1605206000, "yangi": 0, "qayta": 0, "ota": [826, 72.0], "froz": 124, "qarz": 100}, "TB": {"a": [492, 51.1], "p": [171, 17.8], "x": [290, 30.2], "y": [9, 0.9], "chu": [656, 24.7, 162], "fao": [null, 84.0, 126], "b": 962, "kassa": 1359594000, "yangi": 0, "qayta": 0, "ota": [719, 75.0], "froz": 122, "qarz": 135}, "snap": "2026-07-01"};
+const M=__DATA__.M, W=__DATA__.W, DALL=__DATA__.all||{};
 const WSHORT={ALL:"iyul",W1:"1-hafta",W2:"2-hafta",W3:"joriy hafta"};
-const TOTAL=2126;
+const TOTAL=(__DATA__.all&&__DATA__.all.b)||2126;
 const fmt=n=>n==null?'—':n.toLocaleString('ru-RU').replace(/,/g,' ');
 const mln=n=>(n/1e6).toFixed(1).replace('.',',')+' mln';
 let WEEK='ALL';
@@ -259,7 +234,7 @@ function pzone(pct,plan){
   return pct<=plan*0.72?'good':pct<=plan?'warn':'bad';
 }
 function orgChurn(){
-  if(WEEK==='ALL')return {pct:12.55,cnt:266,plan:PLAN.churnM,prev:{pct:17.2,lbl:'iyun'}};
+  if(WEEK==='ALL')return {pct:DALL.chu?DALL.chu[1]:0,cnt:DALL.chu?DALL.chu[2]:0,plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
   const cnt=W.all[WEEK][2], pct=cnt/TOTAL*100;
   const prevKey={W1:null,W2:'W1',W3:'W2'}[WEEK];
   const prev=prevKey?{pct:W.all[prevKey][2]/TOTAL*100,cnt:W.all[prevKey][2],lbl:WSHORT[prevKey]}:null;
@@ -514,7 +489,21 @@ function hideDetail(){
 }
 
 // ---------- PERIOD SWITCH ----------
+
+function applyLive(){
+  var grp=Object.values(M).reduce(function(s,r){return s+(r.grp||0)},0);
+  var ncur=Object.keys(M).length;
+  var set=function(id,v){var e=document.getElementById(id); if(e)e.textContent=v;};
+  set('hBaseV', fmt(TOTAL));
+  set('hBaseN', ncur+" kurator · "+grp+" guruh");
+  if(DALL.fao){ set('hFaoV', DALL.fao[1].toFixed(1)+'%'); set('hFaoN', DALL.fao[2]+" ta noaktivdan qaytarildi"); }
+  if(DALL.qarz!=null){ set('hQarzV', DALL.qarz); }
+  if(DALL.froz!=null){ set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta"); }
+  if(__DATA__.snap){ set('snapdate', __DATA__.snap); }
+}
+
 function renderAll(){
+  applyLive();
   document.getElementById('showing').textContent='Ko\'rsatilmoqda: '+WLBL[WEEK];
   hero(); drawChart(); rating(); cards();
 }
