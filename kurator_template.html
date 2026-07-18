@@ -325,11 +325,15 @@ function rating(){
   });
   const o=orgChurn();
   const oTrend=o.prev?((o.pct-o.prev.pct)>0?`<span class="up">▲ ${(o.pct-o.prev.pct).toFixed(1)}p</span>`:`<span class="down">▼ ${(o.prev.pct-o.pct).toFixed(1)}p</span>`):'<span class="dim">—</span>';
+  const jBase=(typeof DALL!=='undefined'&&DALL.b)?DALL.b:TOTAL;
+  const jNoa=(typeof DALL!=='undefined'&&DALL.x)?DALL.x[1].toFixed(1)+'%':'—';
+  const jQarz=(typeof DALL!=='undefined'&&DALL.qarz!=null)?DALL.qarz:'—';
+  const jFroz=(typeof DALL!=='undefined'&&DALL.froz!=null)?DALL.froz:'—';
   rt.insertAdjacentHTML('beforeend',`<tr class="jami">
-    <td></td><td>JAMI</td><td class="num">2 126</td>
+    <td></td><td>JAMI</td><td class="num">${fmt(jBase)}</td>
     <td class="num"><span class="chbadge z-${pzone(o.pct,o.plan)}">${o.pct.toFixed(1)}%</span></td>
     <td class="num">${o.cnt}</td><td class="num">${oTrend}</td>
-    <td class="num hide-sm">25.7%</td><td class="num">238</td><td class="num hide-sm">215</td></tr>`);
+    <td class="num hide-sm">${jNoa}</td><td class="num">${jQarz}</td><td class="num hide-sm">${jFroz}</td></tr>`);
 }
 
 // ---------- CARDS ----------
