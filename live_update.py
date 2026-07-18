@@ -145,6 +145,46 @@ def read_weeks(WB, c_start, c_end):
                     break
     return agg
 
+def read_deadline(WB, c_start, c_end, today):
+    """Grafik bo'yicha holat: muddati (A-ustun) o'tgan studentlar soni (reja) va ulardan to'laganlar (fakt)."""
+    cut = min(today, c_end)
+    from collections import Counter
+    due_total=due_paid=0; per={}
+    for team,short,_full in CUR:
+        rows=WB.get(short,[])
+        cc=Counter()
+        for r in rows:
+            for ci,v in enumerate(r):
+                if norm(v)=="qarzdor": cc[ci]+=1
+        sc=cc.most_common(1)[0][0] if cc else 2
+        dt=0
+        for r in rows:
+            st=norm(r[sc]) if len(r)>sc else ""
+            ok_paid = st in ("to'lagan","to'ladi","bitirdi") or st.startswith("sarafan")
+            if not ok_paid and st not in ("qarzdor","muzlagan","arxiv"): continue
+            d=pdate(r[0] if r else "")
+            if not d or not (c_start<=d<=cut): continue
+            due_total+=1; dt+=1
+            if ok_paid: due_paid+=1
+        per[short]=dt
+    return due_total, due_paid, per
+
+def deadline_section(due_total, due_paid, today, c_end):
+    overdue = due_total-due_paid
+    pct = round(due_paid/due_total*100) if due_total else 0
+    on_track = pct>=90
+    if pct>=100: verdict, vcol = "ИДЁМ ПО ПЛАНУ ✓", "#3dffa2"
+    elif pct>=90: verdict, vcol = f"почти по плану · не хватает {overdue}", "#ffd21e"
+    else: verdict, vcol = f"ОТСТАЁМ на {overdue} оплат", "#ff4f28"
+    fill="goldf" if pct>=100 else ("okf" if pct>=90 else "lagf")
+    return f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Дедлайн <i class="sl">//</i> идём ли по графику</span><span class="lbleg">срок оплаты уже прошёл → должны были оплатить · факт · просрочка</span></div>
+  <div class="sbwrap">
+    <div class="sbrow"><span class="sbl" style="width:180px">План к {today.strftime('%d.%m')}</span><span class="sbtrack"><span class="sbfill" style="width:100%;background:var(--baridle)"></span></span><span class="sbn" style="width:70px">{due_total}</span></div>
+    <div class="sbrow"><span class="sbl" style="width:180px">Факт оплатили</span><span class="sbtrack"><span class="sbfill" style="width:{pct if pct<=100 else 100}%;background:#3dffa2"></span></span><span class="sbn" style="width:70px">{due_paid}</span></div>
+    <div class="sbrow"><span class="sbl" style="width:180px">Просрочка</span><span class="sbtrack"><span class="sbfill" style="width:{round(overdue/due_total*100) if due_total else 0}%;background:#ff4f28"></span></span><span class="sbn" style="width:70px">{overdue}</span></div>
+    <div class="sbrow"><span class="sbl" style="width:180px">Выполнение графика</span><b style="font:800 1.6em/1 'Barlow Condensed';color:{vcol}">{pct}%</b><span style="font:800 .95em/1.2 Manrope;color:{vcol};margin-left:14px">{verdict}</span></div>
+  </div></div>"""
+
 def week_section(weeks_agg, today):
     def lbl(a): return f"{a['ws'].strftime('%d.%m')}–{a['we'].strftime('%d.%m')}"
     def bar(pct):
@@ -342,9 +382,11 @@ def main():
             plan=plan_c, debt=max(0,plan_c-st['paid']), sob=st['collected'],
             pct=round(st['paid']/plan_c*100) if plan_c else 0))
     weeks_agg=read_weeks(WB, c_start, c_end)
-    render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg)
+    due_total,due_paid,due_per=read_deadline(WB, c_start, c_end, tnow.date())
+    for r in rows: r['due']=due_per.get(r['short'],0)
+    render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid)
 
-def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg):
+def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid):
     today=tnow.date()
     TOTAL_PAID=sum(r['paid'] for r in rows)
     TOTAL_PLAN=GPLAN                                   # JAMI Лист12 dan (1501)
@@ -366,7 +408,10 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg):
     with open(os.path.join(BASE,"plan_source.html"),encoding="utf-8") as f: src=f.read()
     CSS=re.search(r"<style>.*?</style>",src,re.S).group(0)
 
-    ALL=sorted(rows,key=lambda x:(-x['pct'],-x['paid']))
+    # VARIANT 3: reyting = grafik bajarilishi % (fakt / bugungacha muddati kelganlar)
+    for x in rows:
+        x['pace_pct'] = round(x['paid']/x['due']*100) if x.get('due',0)>0 else (100 if x['paid']>=0 else 0)
+    ALL=sorted(rows,key=lambda x:(-x['pace_pct'],-x['paid']))
     for i,x in enumerate(ALL,1): x['pos']=i
     def team_tot(t):
         rr=[x for x in rows if x['team']==t]
@@ -410,22 +455,32 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg):
 
     def row_html(r):
         posc=f"p{r['pos']}" if r['pos']<=3 else ""; tpc=f"tp{r['pos']}" if r['pos']<=3 else ""
+        pace=r.get('pace_pct',0)
         fill="goldf" if r['pct']>=100 else ("okf" if r['pct']>=40 else "lagf")
-        gap="goldg" if r['pct']>=100 else ("okg" if r['pct']>=40 else "badg")
+        gap="goldg" if pace>=100 else ("okg" if pace>=80 else "badg")
         badge=f'<span class="tbadge t{r["team"]}">{r["team"]}</span>'
+        # grafik: bugungacha muddati kelganlar (due) — oq marker; otryv = fakt - due
+        due=r.get('due',0); plan=max(1,r['plan'])
+        pacepct=min(100, round(due/plan*100))
+        marker=f'<span style="position:absolute;left:{pacepct}%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span>' if due>0 else ""
+        gapn=r['paid']-due
+        if gapn>0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(61,255,162,.16);color:var(--greentx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">+{gapn}</span>'
+        elif gapn<0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−{-gapn}</span>'
+        else: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';color:var(--mut)">0</span>'
         return f"""<div class="lrow {tpc}">
     <span class="pos {posc}"><i>{r['pos']}</i></span>
     <span class="lnm">{badge}{esc(r['short'])}</span>
-    <span class="track"><span class="fill {fill}" style="--w:{min(100,r['pct'])}%"></span><span class="tfin"></span></span>
-    <span class="fact"><b>{r['paid']}</b><i>/{r['plan']} чел</i></span>
-    <span class="gap {gap}">{r['pct']}%</span><span class="wk">{mln(r['sob'])}м</span></div>"""
-    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> оплатившие должники</span><span class="lbleg">оплатили / должников · % · собрано (2-й приоритет)</span></div>
-  <div class="lhead"><span>Поз</span><span>Куратор</span><span>Прогресс</span><span>Оплат./долж</span><span>%</span><span>Собр.</span></div>
+    <span class="track"><span class="fill {fill}" style="--w:{min(100,r['pct'])}%"></span>{marker}<span class="tfin"></span></span>
+    <span class="fact"><b>{r['paid']}</b><i>/{r['plan']} · {mln(r['sob'])}м</i></span>
+    <span class="gap {gap}">{pace}%</span><span class="wk">{chip}</span></div>"""
+    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению графика</span><span class="lbleg">% = факт ÷ график к сегодня · белая метка = график · отрыв = факт − график</span></div>
+  <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% граф.</span><span>Отрыв</span></div>
   {"".join(row_html(r) for r in ALL)}
-  <div class="ltot">Всего: оплатили <b>{TOTAL_PAID}</b> из <b>{TOTAL_PLAN}</b> · <b>{PCT}%</b> · собрано <b>{mln(TOTAL_SOB)} млн</b> из <b>{mln(TOTAL_PLANSUM)} млн</b> · ещё должны <b>{TOTAL_DEBT}</b></div></div>"""
+  <div class="ltot">Всего: оплатили <b>{TOTAL_PAID}</b> из <b>{TOTAL_PLAN}</b> · <b>{PCT}%</b> · по графику к {today.strftime('%d.%m')} должно быть <b>{due_total}</b> · отрыв <b>{TOTAL_PAID-due_total:+d}</b> · собрано <b>{mln(TOTAL_SOB)} млн</b></div></div>"""
 
     cashier_html = cashier_section(rows)
     week_html = week_section(weeks_agg, today)
+    deadline_html = ""   # alohida blok kerak emas — grafik/otryv kurator qatorlarida
 
     pstate=json.dumps({"v":"sheet1","upd":UPD,"paid":TOTAL_PAID,"debt":TOTAL_DEBT,"sob":TOTAL_SOB,"pct":PCT},ensure_ascii=False)
     JS=open_js(SRV_MS)
@@ -453,7 +508,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg):
 {JS}
 </body></html>"""
     FILES={
-      "index.html":    page("index.html",    f"{hero}\n{champ}\n{ticker}\n{boards}", "Кураторы"),
+      "index.html":    page("index.html",    f"{hero}\n{deadline_html}\n{champ}\n{ticker}\n{boards}", "Кураторы"),
       "weeks.html":    page("weeks.html",    f"{champ}\n{week_html}",                "Недели"),
       "cashiers.html": page("cashiers.html", f"{champ}\n{cashier_html}",             "Кассиры"),
     }
