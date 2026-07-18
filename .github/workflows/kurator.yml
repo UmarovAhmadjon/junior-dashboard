@@ -1,0 +1,32 @@
+name: Kurator Tahlili update
+on:
+  schedule:
+    - cron: '17 3 * * *'   # har kuni 03:17 UTC = 08:17 Toshkent
+  workflow_dispatch: {}     # qo'lda ham ishga tushirish mumkin
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run kurator update
+        env:
+          CRM_PHONE: ${{ secrets.CRM_PHONE }}
+          CRM_PASS: ${{ secrets.CRM_PASS }}
+        run: python kurator_update.py
+      - name: Commit if changed
+        run: |
+          git config user.name "dashboard-bot"
+          git config user.email "dashboard-bot@users.noreply.github.com"
+          if ! git diff --quiet kurator.html; then
+            git add kurator.html
+            git commit -m "Kurator tahlili auto-update"
+            git push
+            echo "kurator.html yangilandi va push qilindi"
+          else
+            echo "o'zgarish yo'q"
+          fi
