@@ -91,8 +91,17 @@ def cid_of(r):
     c = str(r.get("cid") or "0")
     return c if c in CASH else "0"
 
+CRM = "https://crm.junior-it.uz/account"
+def stu_url(sid): return "%s/student_list/detail/%s" % (CRM, sid)
+def grp_url(gid): return "%s/group_list/detail/%s" % (CRM, gid) if gid and str(gid) != "0" else None
+
 def task_row(r, kind):
     sid = esc(r["sid"]); nm = esc(r["nm"]); grp = esc(r.get("grp") or "—"); phd = tel(r["ph"])
+    gu = grp_url(r.get("gid"))
+    name_html = ('<a class="tnm" href="%s" target="_blank" rel="noopener" title="Открыть карточку в CRM">%s</a>'
+                 % (stu_url(sid), nm))
+    grp_html = (('<a class="grp" href="%s" target="_blank" rel="noopener">%s</a>' % (gu, grp))
+                if gu else ('<span class="grp">%s</span>' % grp))
     if kind in ("t3","t1","t0"):
         off = 0 if kind=="t0" else (1 if kind=="t1" else 3)
         mon = (TODAY + datetime.timedelta(days=off)).month
@@ -114,12 +123,12 @@ def task_row(r, kind):
                   '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
         key = "frozen_%s" % sid
     return ('<div class="trow" data-k="%s"><span class="dot d-%s"></span>'
-            '<div class="tmain"><div class="tnm">%s</div>'
-            '<div class="tmeta"><span class="grp">%s</span></div></div>'
+            '<div class="tmain">%s'
+            '<div class="tmeta">%s</div></div>'
             '<div class="tright">%s</div>'
             '<a class="call" href="tel:%s">Позвонить</a>'
             '<button class="done" title="Готово">✓</button></div>'
-            % (key, kind, nm, grp, metric, phd))
+            % (key, kind, name_html, grp_html, metric, phd))
 
 SECDEF = [
     ("t3","💳","3 дня до оплаты","баланс не покрывает списание · за 3 дня","b-t3", t3),
@@ -243,9 +252,13 @@ font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradien
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
 .d-t3{background:#eab308}.d-t1{background:#f97316}.d-t0{background:#ff4f28}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
 .tmain{flex:1;min-width:0}
-.tnm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tnm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+a.tnm{color:var(--txt);text-decoration:none}
+a.tnm:hover{color:var(--volttx);text-decoration:underline}
 .tmeta{font-size:12px;color:var(--mut);margin-top:1px}
-.grp{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:1px 8px;font-size:11.5px}
+.grp{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:1px 8px;font-size:11.5px;color:var(--mut)}
+a.grp{text-decoration:none}
+a.grp:hover{border-color:var(--volt);color:var(--txt)}
 .tright{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;flex:none}
 .m{font-size:11.5px;white-space:nowrap}
 .m-warn{color:var(--yellow);font-weight:700}.m-debt{color:var(--red);font-weight:800}.m-froz{color:var(--cyan);font-weight:700}.m-dim{color:var(--dim)}
