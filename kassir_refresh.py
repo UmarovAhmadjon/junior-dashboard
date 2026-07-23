@@ -13,6 +13,7 @@ Ishga tushirish: python3 refresh.py  ->  index.html hosil bo'ladi.
 import json, urllib.request, datetime, html, os
 
 GATEWAY = "https://myclinic.agc.uz/new_junior_mcp.php"
+
 ORG = 6
 HERE = os.path.dirname(os.path.abspath(__file__))
 
