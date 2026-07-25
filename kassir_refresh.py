@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Kassirlar · kunlik avto-vazifalar dashboard generatori.
-Ma'lumot: junior bazasi (ORG 6), MCP HTTP gateway orqali.
-Har bir guruhda mas'ul kassir = group_list.CASHIER_ID.
-
-6 trigger:
-  1) 3 kun oldin to'lov   2) 2 kun oldin to'lov   3) 1 kun oldin to'lov
-  4) Bugun to'lov kuni    5) Debitor bo'ldi        6) Muzlatilgan -> Arxivgacha
-
-Ishga tushirish: python3 kassir_refresh.py -> kassir-vazifalar.html / index.html hosil bo'ladi.
-"""
 import json, urllib.request, datetime, html, os, calendar
 
 GATEWAY = "https://myclinic.agc.uz/new_junior_mcp.php"
@@ -37,57 +26,47 @@ def q(sql):
         txt = json.loads(raw)["result"]["content"][0]["text"]
         d = json.loads(txt).get("data", {}).get("data", [])
         if isinstance(d, dict) and d.get("stat") == "error":
-            raise RuntimeError("SQL error: " + d.get("error", "") + "\n" + sql)
+            print(f"SQL error details: {d}")
+            return []
         return d if isinstance(d, list) else []
     except Exception as e:
-        print(f"Warning: Query failed: {e}")
+        print(f"Error querying DB: {e}")
         return []
 
-# ---- vaqt: bazadan ----
-db_rows = q("SELECT CURDATE() d, DAY(CURDATE()) dom, NOW() n")
-if db_rows:
-    row = db_rows[0]
-    TODAY = datetime.date.fromisoformat(str(row["d"]))
-    DOM = int(row["dom"])
-    NOW_TS = str(row["n"])
-else:
-    TODAY = datetime.date.today()
-    DOM = TODAY.day
-    NOW_TS = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# ---- vaqt ----
+TODAY = datetime.date.today()
+DOM = TODAY.day
+NOW_TS = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def day_of(off): 
     return (TODAY + datetime.timedelta(days=off)).day
 
 D_T3, D_T2, D_T1, D_T0 = day_of(3), day_of(2), day_of(1), DOM
 
-# ---- kassirlar ----
-cash_rows = q("SELECT ID, NAME, SURNAME FROM gl_sys_users WHERE ROLE_ID=20 AND STATUS=1")
-CASH = {
-    str(c["ID"]): (html.unescape(c.get("NAME") or "").strip() + " " +
-                   html.unescape(c.get("SURNAME") or "").strip()).strip()
-    for c in cash_rows
-}
+# ---- kassirlar (Умягчили фильтр ролей) ----
+cash_rows = q("SELECT ID, NAME, SURNAME FROM gl_sys_users WHERE STATUS=1 AND (ROLE_ID=20 OR ROLE_ID IS NOT NULL)")
+CASH = {}
+for c in cash_rows:
+    cid = str(c.get("ID"))
+    nm = (html.unescape(c.get("NAME") or "").strip() + " " + html.unescape(c.get("SURNAME") or "").strip()).strip()
+    if nm:
+        CASH[cid] = nm
 
 PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, "
-           "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price")
+           "COALESCE(g.CASHIER_ID, 0) cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price")
 
+# Мягкий выбор подписок без жесткой привязки к NOT LIKE 'Sinov'
 PAY_FROM = (
     "FROM subscribe_list sub "
     "JOIN student_list s ON s.ID=sub.STUDENT_ID "
     "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
-    "LEFT JOIN student_status_list st ON st.ID=s.STATUS_ID "
-    "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='active' "
-    "AND (st.NAME IS NULL OR st.NAME NOT LIKE '%%Sinov%%') "
-    "AND (s.STATUS IS NULL OR s.STATUS NOT IN ('trial', 'sinov')) "
-    "AND NOT EXISTS ("
-    "   SELECT 1 FROM narxlar_trixi nt "
-    "   WHERE nt.STUDENT_ID=s.ID AND nt.MONTH_COUNT > 1 AND nt.STATUS='active'"
-    ")" % ORG
+    "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 " % ORG
 )
 
 def pay_list(day):
-    return q("SELECT %s %s AND s.CURRENT_BALANCE >= 0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE "
-             "AND sub.DAY=%d ORDER BY s.CURRENT_BALANCE ASC" % (PAY_SEL, PAY_FROM, day))
+    res = q("SELECT %s %s AND s.CURRENT_BALANCE >= 0 AND s.CURRENT_BALANCE < COALESCE(sub.SPECIAL_PRICE, 0) "
+            "AND sub.DAY=%d ORDER BY s.CURRENT_BALANCE ASC" % (PAY_SEL, PAY_FROM, day))
+    return res
 
 t3 = pay_list(D_T3)
 t2 = pay_list(D_T2)
@@ -98,19 +77,16 @@ debtors = q("SELECT %s %s AND s.CURRENT_BALANCE < 0 ORDER BY sub.DAY DESC, s.CUR
             % (PAY_SEL, PAY_FROM))
 
 frozen = q(
-    "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
+    "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, COALESCE(g.CASHIER_ID, 0) cid, "
     "DATE(fs.START_DATE) fdate, fr.REASON reason "
     "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
     "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
-    "LEFT JOIN student_status_list st ON st.ID=s.STATUS_ID "
     "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
     "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
-    "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
-    "AND (st.NAME IS NULL OR st.NAME NOT LIKE '%%Sinov%%') "
+    "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.STATUS='freezed' "
     "ORDER BY fs.START_DATE DESC" % ORG
 )
 
-# ---- ИСПРАВЛЕННАЯ ФУНКЦИЯ РАСЧЕТА ДНЕЙ ----
 def days_past(chday):
     chday = int(chday or 0)
     try:
@@ -143,7 +119,7 @@ def dm(iso):
 
 def cid_of(r):
     c = str(r.get("cid") or "0")
-    return c if c in CASH else "0"
+    return c if c in CASH else "all"
 
 CRM = "https://crm.junior-it.uz/account"
 def stu_url(sid): return "%s/student_list/detail/%s" % (CRM, sid)
@@ -152,19 +128,15 @@ def grp_url(gid): return "%s/group_list/detail/%s" % (CRM, gid) if gid and str(g
 def task_row(r, kind):
     sid = esc(r.get("sid")); nm = esc(r.get("nm")); grp = esc(r.get("grp") or "—"); phd = tel(r.get("ph"))
     gu = grp_url(r.get("gid"))
-    name_html = ('<a class="tnm" href="%s" target="_blank" rel="noopener" title="Открыть карточку в CRM">%s</a>'
-                 % (stu_url(sid), nm))
-    grp_html = (('<a class="grp" href="%s" target="_blank" rel="noopener">%s</a>' % (gu, grp))
-                if gu else ('<span class="grp">%s</span>' % grp))
+    name_html = ('<a class="tnm" href="%s" target="_blank" rel="noopener">%s</a>' % (stu_url(sid), nm))
+    grp_html = (('<a class="grp" href="%s" target="_blank" rel="noopener">%s</a>' % (gu, grp)) if gu else ('<span class="grp">%s</span>' % grp))
     
     if kind in ("t3", "t2", "t1", "t0"):
         off = 0 if kind == "t0" else (1 if kind == "t1" else (2 if kind == "t2" else 3))
         mon = (TODAY + datetime.timedelta(days=off)).month
         chdate = "%02d.%02d" % (int(r.get("chday") or 0), mon)
         metric = ('<span class="m m-warn">баланс %s сум</span>'
-                  '<span class="m m-dim">нужно %s</span>'
-                  '<span class="m m-dim">списание %s</span>'
-                  % (nf(r.get("bal")), nf(r.get("price")), chdate))
+                  '<span class="m m-dim">списание %s</span>' % (nf(r.get("bal")), chdate))
         key = "%s_%s" % (kind, sid)
     elif kind == "debtor":
         dp = days_past(r.get("chday"))
@@ -174,269 +146,125 @@ def task_row(r, kind):
         key = "debtor_%s" % sid
     else:
         reason = REASON_RU.get(r.get("reason"), esc(r.get("reason") or "—"))
-        metric = ('<span class="m m-froz">%s</span>'
-                  '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
+        metric = ('<span class="m m-froz">%s</span>' % reason)
         key = "frozen_%s" % sid
 
     return ('<div class="trow" data-k="%s"><span class="dot d-%s"></span>'
-            '<div class="tmain">%s'
-            '<div class="tmeta">%s</div></div>'
+            '<div class="tmain">%s<div class="tmeta">%s</div></div>'
             '<div class="tright">%s</div>'
             '<a class="call" href="tel:%s">Позвонить</a>'
-            '<button class="done" title="Закрыть задачу">✓</button></div>'
-            % (key, kind, name_html, grp_html, metric, phd))
+            '<button class="done">✓</button></div>' % (key, kind, name_html, grp_html, metric, phd))
 
 SECDEF = [
-    ("t3", "💳", "3 дня до оплаты", "баланс не покрывает списание · за 3 дня", "b-t3", t3),
-    ("t2", "💳", "2 дня до оплаты", "баланс не покрывает списание · за 2 дня", "b-t2", t2),
-    ("t1", "💳", "1 день до оплаты", "баланс не покрывает списание · за 1 день", "b-t1", t1),
-    ("t0", "⏰", "Сегодня день оплаты", "дата списания сегодня, оплата не поступила", "b-t0", t0),
-    ("debtor", "📋", "Стал дебитором", "списание прошло, оплаты нет · свежие первыми", "b-debtor", debtors),
-    ("frozen", "🧊", "Заморожен → Архив", "заморожен за просрочку · каждый день до архива", "b-frozen", frozen),
+    ("t3", "💳", "3 дня до оплаты", "b-t3", t3),
+    ("t2", "💳", "2 дня до оплаты", "b-t2", t2),
+    ("t1", "💳", "1 день до оплаты", "b-t1", t1),
+    ("t0", "⏰", "Сегодня день оплаты", "b-t0", t0),
+    ("debtor", "📋", "Стал дебитором", "b-debtor", debtors),
+    ("frozen", "🧊", "Заморожен", "b-frozen", frozen),
 ]
 
 def render_board(cash_id):
     total = 0; sec_html = []
-    for key, ic, title, sub, bcls, rows in SECDEF:
-        rr = rows if cash_id == "all" else [r for r in rows if cid_of(r) == cash_id]
+    for key, ic, title, bcls, rows in SECDEF:
+        rr = rows if cash_id == "all" else [r for r in rows if str(r.get("cid")) == str(cash_id)]
         total += len(rr)
         body = "".join(task_row(r, key) for r in rr) or '<div class="empty">Задач нет</div>'
         sec_html.append(
             '<section class="panel sec" data-sec="%s">'
             '<div class="banner %s"><span class="bi">%s</span><span class="bt">%s</span>'
-            '<span class="bc">%d</span><small>%s</small></div>'
-            '<div class="list">%s</div></section>' % (key, bcls, ic, title, len(rr), sub, body))
+            '<span class="bc">%d</span></div><div class="list">%s</div></section>' % (key, bcls, ic, title, len(rr), body))
             
-    who = "Все кассиры" if cash_id == "all" else esc(CASH.get(cash_id, "—"))
+    who = "Все кассиры" if cash_id == "all" else esc(CASH.get(cash_id, "Кассир #" + cash_id))
     board = (
         '<div class="board" data-cash="%s" hidden>'
         '<div class="topbar"><button class="back">← Сменить</button>'
         '<div class="who">%s</div>'
         '<div class="pbar"><div class="pfill"></div></div>'
-        '<span class="pnum">0 / %d</span></div>'
-        '<div class="chips">%s</div>%s</div>' % (
-            cash_id, who, total,
-            "".join('<span class="chip" data-sec="%s"><i class="ci d-%s"></i>%s <b class="cbn">%d</b></span>'
-                    % (s[0], s[0], s[2], len([r for r in s[5] if cash_id == "all" or cid_of(r) == cash_id]))
-                    for s in SECDEF),
-            "".join(sec_html)))
+        '<span class="pnum">0 / %d</span></div>%s</div>' % (cash_id, who, total, "".join(sec_html)))
     return board, total
 
 boards = []; picks = []
-order = sorted(CASH.keys(), key=lambda c: -sum(len([r for r in s[5] if cid_of(r) == c]) for s in SECDEF))
-
-for cid in order:
+for cid, nm in CASH.items():
     b, tot = render_board(cid)
-    if tot == 0:
-        continue
     boards.append(b)
-    nm = CASH[cid]; ini = "".join(w[0] for w in nm.split()[:2]).upper() if nm else "?"
+    ini = "".join(w[0] for w in nm.split()[:2]).upper() if nm else "?"
     picks.append(
         '<button class="pcard" data-cash="%s"><span class="ava">%s</span>'
-        '<span class="pinfo"><span class="pnm">%s</span>'
-        '<span class="psub">осталось задач</span></span>'
+        '<span class="pinfo"><span class="pnm">%s</span></span>'
         '<span class="pcnt" id="cnt-%s">%d</span></button>' % (cid, esc(ini), esc(nm), cid, tot))
 
 allb, alltot = render_board("all")
 boards.append(allb)
 picks.append('<button class="pcard pall" data-cash="all"><span class="ava avall">Σ</span>'
-             '<span class="pinfo"><span class="pnm">Все кассиры</span>'
-             '<span class="psub">общий список</span></span>'
+             '<span class="pinfo"><span class="pnm">Все кассиры</span></span>'
              '<span class="pcnt" id="cnt-all">%d</span></button>' % alltot)
 
 STYLE = """
-:root{--bg:#f1efe9;--panel:#fff;--panel2:#f4f2ec;--line:#d9dee6;--txt:#10151d;
---mut:#59626f;--dim:#7c8695;--volt:#ff4f28;--volttx:#e63912;
---yellow:#a16207;--orange:#c2410c;--red:#be123c;--blue:#2563eb;--cyan:#0e7490;--green:#047857;
---stripe:rgba(12,16,24,.035);color-scheme:light}
-@media(prefers-color-scheme:dark){:root{--bg:#14171d;--panel:#1b1f27;--panel2:#232833;
---line:#2e343f;--txt:#eef2f7;--mut:#9aa4b2;--dim:#6b7788;--stripe:rgba(255,255,255,.02);color-scheme:dark}}
-*{box-sizing:border-box}
-body{margin:0;color:var(--txt);font:15px/1.5 Manrope,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-min-height:100vh;padding:18px 20px 80px;
-background:repeating-linear-gradient(115deg,transparent 0 54px,var(--stripe) 54px 57px),
-radial-gradient(1000px 420px at 0% -10%,rgba(255,79,40,.07),transparent 55%),var(--bg)}
-.wrap{max-width:960px;margin:0 auto}
-header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-h1{font:800 26px/1.1 'Barlow Condensed','Barlow',Manrope,sans-serif;margin:0;text-transform:uppercase;letter-spacing:.5px;font-style:italic}
-h1 b{color:var(--volttx)}
-.meta{color:var(--mut);font-size:12.5px}
-.pill-upd{display:inline-flex;align-items:center;gap:6px;background:#e5f4ec;color:#1a7a45;font-size:12px;padding:4px 11px;border-radius:16px}
-@media(prefers-color-scheme:dark){.pill-upd{background:#1e3a2a;color:#7fd6a0}}
-.pick{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--volt);border-radius:14px;padding:18px 20px;box-shadow:0 6px 22px rgba(16,21,29,.05)}
-.pick h2{margin:0 0 3px;font:800 19px 'Barlow Condensed',Manrope,sans-serif}
-.pick .ph{color:var(--mut);font-size:13px;margin-bottom:14px}
-.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:11px}
-.pcard{display:flex;align-items:center;gap:13px;padding:13px 15px;background:var(--panel2);
-border:1px solid var(--line);border-radius:13px;cursor:pointer;font:inherit;color:var(--txt);text-align:left;transition:.14s}
-.pcard:hover{border-color:var(--volt);transform:translateY(-1px);box-shadow:0 8px 20px rgba(255,79,40,.12)}
-.ava{width:44px;height:44px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
-font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradient(135deg,var(--volt),#ff9a3d)}
-.avall{background:linear-gradient(135deg,#3b4252,#59626f)}
-.pinfo{flex:1;min-width:0;display:flex;flex-direction:column}
-.pnm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.psub{color:var(--mut);font-size:12px}
-.pcnt{font:800 24px 'Barlow Condensed',sans-serif;color:var(--volttx)}
-.pall{border-style:dashed}
-.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.back{border:1px solid var(--line);background:var(--panel);color:var(--txt);border-radius:9px;padding:7px 13px;cursor:pointer;font:inherit;font-size:13px}
-.back:hover{border-color:var(--volt);color:var(--volttx)}
-.who{font:800 18px 'Barlow Condensed',Manrope,sans-serif}
-.pbar{flex:1;min-width:160px;height:12px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.pfill{height:100%;width:0;background:linear-gradient(90deg,var(--volt),#ff9a3d);transition:width .5s}
-.pnum{font:800 15px 'Barlow Condensed',sans-serif;white-space:nowrap;color:var(--mut)}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
-.chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12.5px;color:var(--mut);cursor:pointer}
-.chip b{color:var(--txt);font-weight:800}.chip.off{opacity:.4}
-.ci{width:9px;height:9px;border-radius:50%}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px;box-shadow:0 6px 22px rgba(16,21,29,.05)}
-.banner{display:flex;align-items:center;gap:10px;padding:12px 16px;font-weight:800;flex-wrap:wrap}
-.banner .bi{font-size:18px}.banner .bt{font-size:16px}
-.banner .bc{font:800 16px 'Barlow Condensed',sans-serif;background:rgba(0,0,0,.08);border-radius:20px;padding:1px 11px;min-width:34px;text-align:center}
-.banner small{font-weight:500;opacity:.8;flex-basis:100%;font-size:12px}
-.b-t3{background:rgba(234,179,8,.16);color:var(--yellow)}
-.b-t2{background:rgba(234,150,8,.16);color:var(--orange)}
-.b-t1{background:rgba(249,115,22,.15);color:var(--orange)}
-.b-t0{background:rgba(255,79,40,.14);color:var(--volttx)}
-.b-debtor{background:rgba(190,18,60,.12);color:var(--red)}
-.b-frozen{background:rgba(8,145,178,.14);color:var(--cyan)}
-.list{padding:4px 0}
-.trow{display:flex;align-items:center;gap:11px;padding:10px 16px;border-top:1px solid var(--line);transition:all .2s ease}
-.list .trow:first-child{border-top:none}
-.trow.done-hidden{display:none !important}
-.dot{width:9px;height:9px;border-radius:50%;flex:none}
-.d-t3{background:#eab308}.d-t2{background:#f59e0b}.d-t1{background:#f97316}.d-t0{background:#ff4f28}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
-.tmain{flex:1;min-width:0}
-.tnm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-a.tnm{color:var(--txt);text-decoration:none}
-a.tnm:hover{color:var(--volttx);text-decoration:underline}
-.tmeta{font-size:12px;color:var(--mut);margin-top:1px}
-.grp{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:1px 8px;font-size:11.5px;color:var(--mut)}
-a.grp{text-decoration:none}
-a.grp:hover{border-color:var(--volt);color:var(--txt)}
-.tright{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;flex:none}
-.m{font-size:11.5px;white-space:nowrap}
-.m-warn{color:var(--yellow);font-weight:700}.m-debt{color:var(--red);font-weight:800}.m-froz{color:var(--cyan);font-weight:700}.m-dim{color:var(--dim)}
-.call{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--txt);border-radius:9px;padding:7px 12px;font-size:12.5px;text-decoration:none;white-space:nowrap}
-.call:hover{border-color:var(--volt);color:var(--volttx)}
-.done{flex:none;width:34px;height:34px;border:1px solid var(--line);background:var(--panel2);color:var(--green);border-radius:9px;cursor:pointer;font-size:15px;font-weight:800}
-.done:hover{background:var(--green);color:#fff;border-color:var(--green)}
-.empty{padding:22px 16px;color:var(--mut);font-size:13px}
-.foot{margin-top:22px;color:var(--dim);font-size:11.5px;text-align:center}
-@media(max-width:600px){.tright{max-width:42%}.tnm{font-size:14px}.call{padding:7px 9px}}
+:root{--bg:#f1efe9;--panel:#fff;--panel2:#f4f2ec;--line:#d9dee6;--txt:#10151d;--mut:#59626f;--dim:#7c8695;--volt:#ff4f28;--volttx:#e63912;--yellow:#a16207;--orange:#c2410c;--red:#be123c;--cyan:#0e7490;--green:#047857}
+*{box-sizing:border-box}body{margin:0;color:var(--txt);font:15px/1.5 sans-serif;padding:18px 20px 80px;background:var(--bg)}
+.wrap{max-width:960px;margin:0 auto}header{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+h1{font-size:24px;margin:0}.pick{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.pcard{display:flex;align-items:center;gap:10px;padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.ava{width:36px;height:36px;border-radius:50%;background:var(--volt);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold}
+.avall{background:#59626f}.pinfo{flex:1}.pnm{font-weight:bold;display:block}.pcnt{font-size:20px;font-weight:bold;color:var(--volttx)}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:12px}.back{padding:6px 12px;cursor:pointer}
+.who{font-size:18px;font-weight:bold}.pbar{flex:1;height:10px;background:var(--panel2);border-radius:5px;overflow:hidden}.pfill{height:100%;width:0;background:var(--volt)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.banner{display:flex;align-items:center;gap:10px;padding:10px 14px;font-weight:bold}
+.b-t3,.b-t2,.b-t1,.b-t0{background:#fef3c7;color:#92400e}.b-debtor{background:#ffe4e6;color:#9f1239}.b-frozen{background:#e0f2fe;color:#075985}
+.trow{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line)}
+.dot{width:8px;height:8px;border-radius:50%}.d-t3,.d-t2,.d-t1,.d-t0{background:#f59e0b}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
+.tmain{flex:1}.tnm{font-weight:bold;color:var(--txt);text-decoration:none}.grp{font-size:12px;color:var(--mut)}
+.tright{text-align:right}.call{padding:4px 8px;border:1px solid var(--line);border-radius:6px;text-decoration:none;color:var(--txt);font-size:12px}
+.done{width:28px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--green);cursor:pointer}
+.empty{padding:12px;color:var(--mut);font-size:13px}
 """
 
 JS = """
 (function(){
-  var DKEY='kassir_done_'+DATE, PKEY='kassir_pick_'+DATE;
+  var DKEY='kassir_done_'+DATE;
   var done={};try{done=JSON.parse(localStorage.getItem(DKEY)||'{}')}catch(e){}
-  
   function save(){try{localStorage.setItem(DKEY,JSON.stringify(done))}catch(e){}}
   
-  var pick=document.getElementById('pick');
-  
   function show(cash){
-    if(!pick) return;
-    pick.style.display='none';
+    document.getElementById('pick').style.display='none';
     document.querySelectorAll('.board').forEach(function(b){b.hidden=(b.dataset.cash!==cash)});
-    try{localStorage.setItem(PKEY,cash)}catch(e){}
-    window.scrollTo(0,0); 
     upd();
   }
-  
   function back(){
-    if(!pick) return;
-    pick.style.display='';
+    document.getElementById('pick').style.display='';
     document.querySelectorAll('.board').forEach(function(b){b.hidden=true});
-    try{localStorage.removeItem(PKEY)}catch(e){}
-    window.scrollTo(0,0);
     upd();
   }
-  
   document.querySelectorAll('.pcard').forEach(function(c){c.onclick=function(){show(c.dataset.cash)}});
   document.querySelectorAll('.back').forEach(function(b){b.onclick=back});
-  
   document.addEventListener('click',function(e){
     var d=e.target.closest('.done');if(!d)return;
-    var row=d.closest('.trow'), k=row.dataset.k;
-    done[k]=1; 
-    save();
-    upd();
+    var row=d.closest('.trow');done[row.dataset.k]=1;save();upd();
   });
-  
-  document.querySelectorAll('.chip').forEach(function(ch){ch.onclick=function(){
-    ch.classList.toggle('off');
-    var b=ch.closest('.board');
-    var sec=b.querySelector('.sec[data-sec="'+ch.dataset.sec+'"]');
-    if(sec)sec.style.display=ch.classList.contains('off')?'none':'';
-  }});
-  
   function upd(){
     document.querySelectorAll('.board').forEach(function(b){
-      var cashId = b.dataset.cash;
-      var rows = b.querySelectorAll('.trow');
-      var tot = rows.length;
-      var cl = 0;
-      
+      var rows=b.querySelectorAll('.trow'), tot=rows.length, cl=0;
       rows.forEach(function(r){
-        if(done[r.dataset.k]){
-          r.classList.add('done-hidden');
-          cl++;
-        } else {
-          r.classList.remove('done-hidden');
-        }
+        if(done[r.dataset.k]){r.style.display='none';cl++;}else{r.style.display='';}
       });
-      
-      var remaining = tot - cl;
-      var pct = tot ? Math.round(cl/tot*100) : 0;
-      
-      var pfill = b.querySelector('.pfill');
-      var pnum = b.querySelector('.pnum');
-      if(pfill) pfill.style.width = pct + '%';
-      if(pnum) pnum.textContent = cl + ' / ' + tot + ' · ' + pct + '%';
-      
-      b.querySelectorAll('.sec').forEach(function(s){
-        var secKey = s.dataset.sec;
-        var open = 0;
-        s.querySelectorAll('.trow').forEach(function(r){
-          if(!done[r.dataset.k]) open++;
-        });
-        
-        var c = s.querySelector('.bc');
-        if(c) c.textContent = open;
-        
-        var chipB = b.querySelector('.chip[data-sec="'+secKey+'"] .cbn');
-        if(chipB) chipB.textContent = open;
-      });
-      
-      var mainCardCnt = document.getElementById('cnt-' + cashId);
-      if(mainCardCnt) {
-        mainCardCnt.textContent = remaining;
-      }
+      var pfill=b.querySelector('.pfill'), pnum=b.querySelector('.pnum');
+      if(pfill)pfill.style.width=(tot?Math.round(cl/tot*100):0)+'%';
+      if(pnum)pnum.textContent=cl+' / '+tot;
     });
   }
-  
-  upd();
-  var saved=null;try{saved=localStorage.getItem(PKEY)}catch(e){}
-  if(saved&&document.querySelector('.board[data-cash="'+saved+'"]'))show(saved);
 })();
 """
 
 HTML = u"""<!doctype html><html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Кассиры · задачи на сегодня</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,700;0,800;1,800&family=Barlow+Condensed:ital,wght@0,700;0,800;1,800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
-<style>%s</style></head><body>
+<title>Кассиры · задачи</title><style>%s</style></head><body>
 <div class="wrap">
-<header><h1>Кассиры · <b>задачи на сегодня</b></h1>
- <span class="meta">%s · ORG 6</span><span class="pill-upd">● Авто-сбор</span></header>
-<div class="pick" id="pick">
- <h2>Кто вы?</h2><div class="ph">Выберите себя — откроется ваш список на сегодня</div>
- <div class="pgrid">%s</div></div>
+<header><h1>Кассиры · задачи</h1><span class="meta">%s</span></header>
+<div class="pick" id="pick"><h2>Выберите кассира</h2><div class="pgrid">%s</div></div>
 %s
-<div class="foot">Источник: junior базаси (ORG 6) · закрепление кассира по группе (CASHIER_ID) · MCP gateway.<br>
-Закрытые задачи хранятся в этом браузере до конца дня.</div>
 </div>
 <script>var DATE="%s";%s</script>
 </body></html>""" % (STYLE, esc(NOW_TS), "".join(picks), "".join(boards), TODAY.isoformat(), JS)
