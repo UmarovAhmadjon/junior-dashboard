@@ -7,11 +7,11 @@ Har bir guruhda mas'ul kassir = group_list.CASHIER_ID.
 
 6 trigger:
   1) 3 kun oldin to'lov   2) 2 kun oldin to'lov   3) 1 kun oldin to'lov
-  4) Bugun to'lov kuni    5) Debitor bo'ldi       6) Muzlatilgan -> Arxivgacha
+  4) Bugun to'lov kuni    5) Debitor bo'ldi        6) Muzlatilgan -> Arxivgacha
 
-Ishga tushirish: python3 refresh.py  ->  index.html hosil bo'ladi.
+Ishga tushirish: python3 kassir_refresh.py -> kassir-vazifalar.html / index.html hosil bo'ladi.
 """
-import json, urllib.request, datetime, html, os
+import json, urllib.request, datetime, html, os, calendar
 
 GATEWAY = "https://myclinic.agc.uz/new_junior_mcp.php"
 ORG = 6
@@ -22,19 +22,38 @@ def q(sql):
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
         "params": {"name": "query_db", "arguments": {"sql": sql}}
     }).encode()
-    req = urllib.request.Request(GATEWAY, data=body, headers={"Content-Type": "application/json"})
-    raw = urllib.request.urlopen(req, timeout=60).read().decode()
-    txt = json.loads(raw)["result"]["content"][0]["text"]
-    d = json.loads(txt).get("data", {}).get("data", [])
-    if isinstance(d, dict) and d.get("stat") == "error":
-        raise RuntimeError("SQL error: " + d.get("error", "") + "\n" + sql)
-    return d
+    
+    req = urllib.request.Request(
+        GATEWAY, 
+        data=body, 
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+    )
+    
+    try:
+        raw = urllib.request.urlopen(req, timeout=60).read().decode()
+        txt = json.loads(raw)["result"]["content"][0]["text"]
+        d = json.loads(txt).get("data", {}).get("data", [])
+        if isinstance(d, dict) and d.get("stat") == "error":
+            raise RuntimeError("SQL error: " + d.get("error", "") + "\n" + sql)
+        return d if isinstance(d, list) else []
+    except Exception as e:
+        print(f"Warning: Query failed: {e}")
+        return []
 
 # ---- vaqt: bazadan ----
-row = q("SELECT CURDATE() d, DAY(CURDATE()) dom, NOW() n")[0]
-TODAY = datetime.date.fromisoformat(row["d"])
-DOM = int(row["dom"])
-NOW_TS = row["n"]
+db_rows = q("SELECT CURDATE() d, DAY(CURDATE()) dom, NOW() n")
+if db_rows:
+    row = db_rows[0]
+    TODAY = datetime.date.fromisoformat(str(row["d"]))
+    DOM = int(row["dom"])
+    NOW_TS = str(row["n"])
+else:
+    TODAY = datetime.date.today()
+    DOM = TODAY.day
+    NOW_TS = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def day_of(off): 
     return (TODAY + datetime.timedelta(days=off)).day
@@ -44,15 +63,11 @@ D_T3, D_T2, D_T1, D_T0 = day_of(3), day_of(2), day_of(1), DOM
 # ---- kassirlar ----
 cash_rows = q("SELECT ID, NAME, SURNAME FROM gl_sys_users WHERE ROLE_ID=20 AND STATUS=1")
 CASH = {
-    str(c["ID"]): (html.unescape(c["NAME"]).strip() + " " +
+    str(c["ID"]): (html.unescape(c.get("NAME") or "").strip() + " " +
                    html.unescape(c.get("SURNAME") or "").strip()).strip()
     for c in cash_rows
 }
 
-# SQL Фильтры:
-# 1. Исключаем пакетников (3, 6, 12 месяцев) через подзапрос к narxlar tarixi (history_price/pay_package)
-# 2. Исключаем студентов со статусом 'Sinov darsi' или 'trial'
-# 3. Берем только активных и не оплативших
 PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, "
            "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price")
 
@@ -71,7 +86,6 @@ PAY_FROM = (
 )
 
 def pay_list(day):
-    # Только те, у кого баланс МЕНЬШЕ стоимости (не оплатили) и баланс >= 0
     return q("SELECT %s %s AND s.CURRENT_BALANCE >= 0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE "
              "AND sub.DAY=%d ORDER BY s.CURRENT_BALANCE ASC" % (PAY_SEL, PAY_FROM, day))
 
@@ -96,15 +110,18 @@ frozen = q(
     "ORDER BY fs.START_DATE DESC" % ORG
 )
 
-# ---- yordamchilar ----
+# ---- ИСПРАВЛЕННАЯ ФУНКЦИЯ РАСЧЕТА ДНЕЙ ----
 def days_past(chday):
-    chday = int(chday)
-    if chday <= DOM: 
-        cd = TODAY.replace(day=chday)
-    else:
-        prev_last = TODAY.replace(day=1) - datetime.timedelta(days=1)
-        try: cd = prev_last.replace(day=chday)
-        except ValueError: cd = prev_last
+    chday = int(chday or 0)
+    try:
+        if chday <= DOM: 
+            cd = TODAY.replace(day=min(chday, calendar.monthrange(TODAY.year, TODAY.month)[1]))
+        else:
+            prev_last = TODAY.replace(day=1) - datetime.timedelta(days=1)
+            _, max_prev = calendar.monthrange(prev_last.year, prev_last.month)
+            cd = prev_last.replace(day=min(chday, max_prev))
+    except Exception:
+        cd = TODAY
     return (TODAY - cd).days
 
 def nf(n):
@@ -118,8 +135,11 @@ MONTHS = ["", "янв", "фев", "мар", "апр", "мая", "июн", "ию�
 
 def dm(iso):
     if not iso: return ""
-    d = datetime.date.fromisoformat(str(iso)[:10])
-    return "%d %s" % (d.day, MONTHS[d.month])
+    try:
+        d = datetime.date.fromisoformat(str(iso)[:10])
+        return "%d %s" % (d.day, MONTHS[d.month])
+    except Exception:
+        return str(iso)[:10]
 
 def cid_of(r):
     c = str(r.get("cid") or "0")
@@ -130,7 +150,7 @@ def stu_url(sid): return "%s/student_list/detail/%s" % (CRM, sid)
 def grp_url(gid): return "%s/group_list/detail/%s" % (CRM, gid) if gid and str(gid) != "0" else None
 
 def task_row(r, kind):
-    sid = esc(r["sid"]); nm = esc(r["nm"]); grp = esc(r.get("grp") or "—"); phd = tel(r["ph"])
+    sid = esc(r.get("sid")); nm = esc(r.get("nm")); grp = esc(r.get("grp") or "—"); phd = tel(r.get("ph"))
     gu = grp_url(r.get("gid"))
     name_html = ('<a class="tnm" href="%s" target="_blank" rel="noopener" title="Открыть карточку в CRM">%s</a>'
                  % (stu_url(sid), nm))
@@ -140,17 +160,17 @@ def task_row(r, kind):
     if kind in ("t3", "t2", "t1", "t0"):
         off = 0 if kind == "t0" else (1 if kind == "t1" else (2 if kind == "t2" else 3))
         mon = (TODAY + datetime.timedelta(days=off)).month
-        chdate = "%02d.%02d" % (int(r["chday"]), mon)
+        chdate = "%02d.%02d" % (int(r.get("chday") or 0), mon)
         metric = ('<span class="m m-warn">баланс %s сум</span>'
                   '<span class="m m-dim">нужно %s</span>'
                   '<span class="m m-dim">списание %s</span>'
-                  % (nf(r["bal"]), nf(r["price"]), chdate))
+                  % (nf(r.get("bal")), nf(r.get("price")), chdate))
         key = "%s_%s" % (kind, sid)
     elif kind == "debtor":
-        dp = days_past(r["chday"])
+        dp = days_past(r.get("chday"))
         fresh = "сегодня" if dp == 0 else ("вчера" if dp == 1 else "%d дн. назад" % dp)
         metric = ('<span class="m m-debt">долг %s сум</span>'
-                  '<span class="m m-dim">списание %s</span>' % (nf(-int(r["bal"])), fresh))
+                  '<span class="m m-dim">списание %s</span>' % (nf(-int(r.get("bal") or 0)), fresh))
         key = "debtor_%s" % sid
     else:
         reason = REASON_RU.get(r.get("reason"), esc(r.get("reason") or "—"))
@@ -210,7 +230,7 @@ for cid in order:
     if tot == 0:
         continue
     boards.append(b)
-    nm = CASH[cid]; ini = "".join(w[0] for w in nm.split()[:2]).upper()
+    nm = CASH[cid]; ini = "".join(w[0] for w in nm.split()[:2]).upper() if nm else "?"
     picks.append(
         '<button class="pcard" data-cash="%s"><span class="ava">%s</span>'
         '<span class="pinfo"><span class="pnm">%s</span>'
@@ -316,6 +336,7 @@ JS = """
   var pick=document.getElementById('pick');
   
   function show(cash){
+    if(!pick) return;
     pick.style.display='none';
     document.querySelectorAll('.board').forEach(function(b){b.hidden=(b.dataset.cash!==cash)});
     try{localStorage.setItem(PKEY,cash)}catch(e){}
@@ -324,6 +345,7 @@ JS = """
   }
   
   function back(){
+    if(!pick) return;
     pick.style.display='';
     document.querySelectorAll('.board').forEach(function(b){b.hidden=true});
     try{localStorage.removeItem(PKEY)}catch(e){}
@@ -334,11 +356,9 @@ JS = """
   document.querySelectorAll('.pcard').forEach(function(c){c.onclick=function(){show(c.dataset.cash)}});
   document.querySelectorAll('.back').forEach(function(b){b.onclick=back});
   
-  // Клик по галочке -> скрываем задачу и обновляем цифры везде
   document.addEventListener('click',function(e){
     var d=e.target.closest('.done');if(!d)return;
     var row=d.closest('.trow'), k=row.dataset.k;
-    
     done[k]=1; 
     save();
     upd();
@@ -351,7 +371,6 @@ JS = """
     if(sec)sec.style.display=ch.classList.contains('off')?'none':'';
   }});
   
-  // Динамическое переформирование всех цифр
   function upd(){
     document.querySelectorAll('.board').forEach(function(b){
       var cashId = b.dataset.cash;
@@ -371,13 +390,11 @@ JS = """
       var remaining = tot - cl;
       var pct = tot ? Math.round(cl/tot*100) : 0;
       
-      // Обновление баров текущей доски
       var pfill = b.querySelector('.pfill');
       var pnum = b.querySelector('.pnum');
       if(pfill) pfill.style.width = pct + '%';
       if(pnum) pnum.textContent = cl + ' / ' + tot + ' · ' + pct + '%';
       
-      // Обновление счетчиков в блоках триггеров
       b.querySelectorAll('.sec').forEach(function(s){
         var secKey = s.dataset.sec;
         var open = 0;
@@ -388,12 +405,10 @@ JS = """
         var c = s.querySelector('.bc');
         if(c) c.textContent = open;
         
-        // Обновление цифр на чипсах
         var chipB = b.querySelector('.chip[data-sec="'+secKey+'"] .cbn');
         if(chipB) chipB.textContent = open;
       });
       
-      // ОБНОВЛЕНИЕ ЦИФР НА ГЛАВНОМ ЭКРАНЕ ВЫБОРА КАССИРА
       var mainCardCnt = document.getElementById('cnt-' + cashId);
       if(mainCardCnt) {
         mainCardCnt.textContent = remaining;
@@ -435,8 +450,3 @@ with open(OUT, "w", encoding="utf-8") as f:
     f.write(HTML)
 
 print("OK ->", OUT)
-print("today=%s dom=%d  t3=%d t2=%d t1=%d t0=%d debtors=%d frozen=%d  TOTAL=%d"
-      % (TODAY, DOM, len(t3), len(t2), len(t1), len(t0), len(debtors), len(frozen), alltot))
-for cid in order:
-    tot = sum(len([r for r in s[5] if cid_of(r) == cid]) for s in SECDEF)
-    if tot: print("  %-22s %d" % (CASH[cid], tot))
