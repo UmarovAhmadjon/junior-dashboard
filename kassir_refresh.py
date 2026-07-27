@@ -6,9 +6,9 @@ Ma'lumot: junior bazasi (ORG 6), MCP HTTP gateway orqali.
 Har bir guruhda mas'ul kassir = group_list.CASHIER_ID. Har bir kassir o'zini
 tanlaydi va faqat o'z guruhlaridagi vazifalarni ko'radi (kuratorlar paneli kabi).
 5 trigger:
-  1) 3 kun oldin to'lov  2) 1 kun oldin to'lov  3) Bugun to'lov kuni
-  4) Debitor bo'ldi      5) Muzlatilgan -> Arxivgacha
-Ishga tushirish: python3 refresh.py  ->  index.html hosil bo'ladi.
+  1) 3 kun oldin to'lov  2) 1 kun oldin to'lov  3) Bugun to'lov kuni
+  4) Debitor bo'ldi      5) Muzlatilgan -> Arxivgacha
+Ishga tushirish: python3 refresh.py  ->  index.html hosil bo'ladi.
 """
 import json, urllib.request, datetime, html, os
 
@@ -18,16 +18,16 @@ ORG = 6
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 def q(sql):
-    body = json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call",
-        "params":{"name":"query_db","arguments":{"sql":sql}}}).encode()
-    req = urllib.request.Request(GATEWAY, data=body,
-        headers={"Content-Type":"application/json"})
-    raw = urllib.request.urlopen(req, timeout=60).read().decode()
-    txt = json.loads(raw)["result"]["content"][0]["text"]
-    d = json.loads(txt).get("data", {}).get("data", [])
-    if isinstance(d, dict) and d.get("stat") == "error":
-        raise RuntimeError("SQL error: " + d.get("error","") + "\n" + sql)
-    return d
+    body = json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call",
+        "params":{"name":"query_db","arguments":{"sql":sql}}}).encode()
+    req = urllib.request.Request(GATEWAY, data=body,
+        headers={"Content-Type":"application/json"})
+    raw = urllib.request.urlopen(req, timeout=60).read().decode()
+    txt = json.loads(raw)["result"]["content"][0]["text"]
+    d = json.loads(txt).get("data", {}).get("data", [])
+    if isinstance(d, dict) and d.get("stat") == "error":
+        raise RuntimeError("SQL error: " + d.get("error","") + "\n" + sql)
+    return d
 
 # ---- vaqt: bazadan ----
 row = q("SELECT CURDATE() d, DAY(CURDATE()) dom, NOW() n")[0]
@@ -39,155 +39,155 @@ D_T3, D_T1, D_T0 = day_of(3), day_of(1), DOM
 # ---- kassirlar ----
 cash_rows = q("SELECT ID, NAME, SURNAME FROM gl_sys_users WHERE ROLE_ID=20 AND STATUS=1")
 CASH = {str(c["ID"]): (html.unescape(c["NAME"]).strip() + " " +
-                       html.unescape(c.get("SURNAME") or "").strip()).strip()
-        for c in cash_rows}
+                       html.unescape(c.get("SURNAME") or "").strip()).strip()
+        for c in cash_rows}
 
 PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, "
-           "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price")
+           "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price")
 PAY_FROM = ("FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
-            "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
-            "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' "
-            "AND sub.STATUS='active'" % ORG)
+            "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
+            "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' "
+            "AND sub.STATUS='active'" % ORG)
 
 def pay_list(day):
-    return q("SELECT %s %s AND s.CURRENT_BALANCE>=0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE "
-             "AND sub.DAY=%d ORDER BY s.CURRENT_BALANCE ASC" % (PAY_SEL, PAY_FROM, day))
+    return q("SELECT %s %s AND s.CURRENT_BALANCE>=0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE "
+             "AND sub.DAY=%d ORDER BY s.CURRENT_BALANCE ASC" % (PAY_SEL, PAY_FROM, day))
 
 t3 = pay_list(D_T3); t1 = pay_list(D_T1); t0 = pay_list(D_T0)
 debtors = q("SELECT %s %s AND s.CURRENT_BALANCE < 0 ORDER BY sub.DAY DESC, s.CURRENT_BALANCE ASC"
-            % (PAY_SEL, PAY_FROM))
+            % (PAY_SEL, PAY_FROM))
 frozen = q(
-    "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
-    "DATE(fs.START_DATE) fdate, fr.REASON reason "
-    "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
-    "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
-    "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
-    "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
-    "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
-    "ORDER BY fs.START_DATE DESC" % ORG)
+    "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
+    "DATE(fs.START_DATE) fdate, fr.REASON reason "
+    "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
+    "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
+    "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
+    "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
+    "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
+    "ORDER BY fs.START_DATE DESC" % ORG)
 
 # ---- yordamchilar ----
 def days_past(chday):
-    chday = int(chday)
-    if chday <= DOM: cd = TODAY.replace(day=chday)
-    else:
-        prev_last = TODAY.replace(day=1) - datetime.timedelta(days=1)
-        try: cd = prev_last.replace(day=chday)
-        except ValueError: cd = prev_last
-    return (TODAY - cd).days
+    chday = int(chday)
+    if chday <= DOM: cd = TODAY.replace(day=chday)
+    else:
+        prev_last = TODAY.replace(day=1) - datetime.timedelta(days=1)
+        try: cd = prev_last.replace(day=chday)
+        except ValueError: cd = prev_last
+    return (TODAY - cd).days
 
 def nf(n):
-    n = int(n or 0)
-    return ("−" if n < 0 else "") + "{:,}".format(abs(n)).replace(",", " ")
+    n = int(n or 0)
+    return ("−" if n < 0 else "") + "{:,}".format(abs(n)).replace(",", " ")
 
 def esc(s): return html.escape("" if s is None else str(s)).strip()
 def tel(ph): return "".join(ch for ch in str(ph or "") if ch.isdigit() or ch == "+")
 REASON_RU = {"auto_overdue":"Просрочка оплаты","auto_overdue_lead":"Просрочка · лид"}
 MONTHS = ["","янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"]
 def dm(iso):
-    if not iso: return ""
-    d = datetime.date.fromisoformat(str(iso)[:10]); return "%d %s" % (d.day, MONTHS[d.month])
+    if not iso: return ""
+    d = datetime.date.fromisoformat(str(iso)[:10]); return "%d %s" % (d.day, MONTHS[d.month])
 
 def cid_of(r):
-    c = str(r.get("cid") or "0")
-    return c if c in CASH else "0"
+    c = str(r.get("cid") or "0")
+    return c if c in CASH else "0"
 
 CRM = "https://crm.junior-it.uz/account"
 def stu_url(sid): return "%s/student_list/detail/%s" % (CRM, sid)
 def grp_url(gid): return "%s/group_list/detail/%s" % (CRM, gid) if gid and str(gid) != "0" else None
 
 def task_row(r, kind):
-    sid = esc(r["sid"]); nm = esc(r["nm"]); grp = esc(r.get("grp") or "—"); phd = tel(r["ph"])
-    gu = grp_url(r.get("gid"))
-    name_html = ('<a class="tnm" href="%s" target="_blank" rel="noopener" title="Открыть карточку в CRM">%s</a>'
-                 % (stu_url(sid), nm))
-    grp_html = (('<a class="grp" href="%s" target="_blank" rel="noopener">%s</a>' % (gu, grp))
-                if gu else ('<span class="grp">%s</span>' % grp))
-    if kind in ("t3","t1","t0"):
-        off = 0 if kind=="t0" else (1 if kind=="t1" else 3)
-        mon = (TODAY + datetime.timedelta(days=off)).month
-        chdate = "%02d.%02d" % (int(r["chday"]), mon)
-        metric = ('<span class="m m-warn">баланс %s сум</span>'
-                  '<span class="m m-dim">нужно %s</span>'
-                  '<span class="m m-dim">списание %s</span>'
-                  % (nf(r["bal"]), nf(r["price"]), chdate))
-        key = "%s_%s" % (kind, sid)
-    elif kind == "debtor":
-        dp = days_past(r["chday"])
-        fresh = "сегодня" if dp==0 else ("вчера" if dp==1 else "%d дн. назад" % dp)
-        metric = ('<span class="m m-debt">долг %s сум</span>'
-                  '<span class="m m-dim">списание %s</span>' % (nf(-int(r["bal"])), fresh))
-        key = "debtor_%s" % sid
-    else:
-        reason = REASON_RU.get(r.get("reason"), esc(r.get("reason") or "—"))
-        metric = ('<span class="m m-froz">%s</span>'
-                  '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
-        key = "frozen_%s" % sid
-    return ('<div class="trow" data-k="%s"><span class="dot d-%s"></span>'
-            '<div class="tmain">%s'
-            '<div class="tmeta">%s</div></div>'
-            '<div class="tright">%s</div>'
-            '<a class="call" href="tel:%s">Позвонить</a>'
-            '<button class="done" title="Готово">✓</button></div>'
-            % (key, kind, name_html, grp_html, metric, phd))
+    sid = esc(r["sid"]); nm = esc(r["nm"]); grp = esc(r.get("grp") or "—"); phd = tel(r["ph"])
+    gu = grp_url(r.get("gid"))
+    name_html = ('<a class="tnm" href="%s" target="_blank" rel="noopener" title="Открыть карточку в CRM">%s</a>'
+                 % (stu_url(sid), nm))
+    grp_html = (('<a class="grp" href="%s" target="_blank" rel="noopener">%s</a>' % (gu, grp))
+                if gu else ('<span class="grp">%s</span>' % grp))
+    if kind in ("t3","t1","t0"):
+        off = 0 if kind=="t0" else (1 if kind=="t1" else 3)
+        mon = (TODAY + datetime.timedelta(days=off)).month
+        chdate = "%02d.%02d" % (int(r["chday"]), mon)
+        metric = ('<span class="m m-warn">баланс %s сум</span>'
+                  '<span class="m m-dim">нужно %s</span>'
+                  '<span class="m m-dim">списание %s</span>'
+                  % (nf(r["bal"]), nf(r["price"]), chdate))
+        key = "%s_%s" % (kind, sid)
+    elif kind == "debtor":
+        dp = days_past(r["chday"])
+        fresh = "сегодня" if dp==0 else ("вчера" if dp==1 else "%d дн. назад" % dp)
+        metric = ('<span class="m m-debt">долг %s сум</span>'
+                  '<span class="m m-dim">списание %s</span>' % (nf(-int(r["bal"])), fresh))
+        key = "debtor_%s" % sid
+    else:
+        reason = REASON_RU.get(r.get("reason"), esc(r.get("reason") or "—"))
+        metric = ('<span class="m m-froz">%s</span>'
+                  '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
+        key = "frozen_%s" % sid
+    return ('<div class="trow" data-k="%s"><span class="dot d-%s"></span>'
+            '<div class="tmain">%s'
+            '<div class="tmeta">%s</div></div>'
+            '<div class="tright">%s</div>'
+            '<a class="call" href="tel:%s">Позвонить</a>'
+            '<button class="done" title="Готово">✓</button></div>'
+            % (key, kind, name_html, grp_html, metric, phd))
 
 SECDEF = [
-    ("t3","💳","3 дня до оплаты","баланс не покрывает списание · за 3 дня","b-t3", t3),
-    ("t1","💳","1 день до оплаты","баланс не покрывает списание · за 1 день","b-t1", t1),
-    ("t0","⏰","Сегодня день оплаты","дата списания сегодня, оплата не поступила","b-t0", t0),
-    ("debtor","📋","Стал дебитором","списание прошло, оплаты нет · свежие первыми","b-debtor", debtors),
-    ("frozen","🧊","Заморожен → Архив","заморожен за просрочку · каждый день до архива","b-frozen", frozen),
+    ("t3","💳","3 дня до оплаты","баланс не покрывает списание · за 3 дня","b-t3", t3),
+    ("t1","💳","1 день до оплаты","баланс не покрывает списание · за 1 день","b-t1", t1),
+    ("t0","⏰","Сегодня день оплаты","дата списания сегодня, оплата не поступила","b-t0", t0),
+    ("debtor","📋","Стал дебитором","списание прошло, оплаты нет · свежие первыми","b-debtor", debtors),
+    ("frozen","🧊","Заморожен → Архив","заморожен за просрочку · каждый день до архива","b-frozen", frozen),
 ]
 
 def render_board(cash_id):
-    """cash_id: kassir ID (str) yoki 'all'."""
-    total = 0; sec_html = []
-    for key, ic, title, sub, bcls, rows in SECDEF:
-        rr = rows if cash_id=="all" else [r for r in rows if cid_of(r)==cash_id]
-        total += len(rr)
-        body = "".join(task_row(r, key) for r in rr) or '<div class="empty">Задач нет</div>'
-        sec_html.append(
-            '<section class="panel sec" data-sec="%s">'
-            '<div class="banner %s"><span class="bi">%s</span><span class="bt">%s</span>'
-            '<span class="bc">%d</span><small>%s</small></div>'
-            '<div class="list">%s</div></section>' % (key, bcls, ic, title, len(rr), sub, body))
-    who = "Все кассиры" if cash_id=="all" else esc(CASH.get(cash_id, "—"))
-    board = (
-        '<div class="board" data-cash="%s" hidden>'
-        '<div class="topbar"><button class="back">← Сменить</button>'
-        '<div class="who">%s</div>'
-        '<div class="pbar"><div class="pfill"></div></div>'
-        '<span class="pnum">0 / %d</span></div>'
-        '<div class="chips">%s</div>%s</div>' % (
-            cash_id, who, total,
-            "".join('<span class="chip" data-sec="%s"><i class="ci d-%s"></i>%s <b class="cbn">%d</b></span>'
-                    % (s[0], s[0], s[2], len([r for r in s[5] if cash_id=="all" or cid_of(r)==cash_id]))
-                    for s in SECDEF),
-            "".join(sec_html)))
-    return board, total
+    """cash_id: kassir ID (str) yoki 'all'."""
+    total = 0; sec_html = []
+    for key, ic, title, sub, bcls, rows in SECDEF:
+        rr = rows if cash_id=="all" else [r for r in rows if cid_of(r)==cash_id]
+        total += len(rr)
+        body = "".join(task_row(r, key) for r in rr) or '<div class="empty">Задач нет</div>'
+        sec_html.append(
+            '<section class="panel sec" data-sec="%s">'
+            '<div class="banner %s"><span class="bi">%s</span><span class="bt">%s</span>'
+            '<span class="bc">%d</span><small>%s</small></div>'
+            '<div class="list">%s</div></section>' % (key, bcls, ic, title, len(rr), sub, body))
+    who = "Все кассиры" if cash_id=="all" else esc(CASH.get(cash_id, "—"))
+    board = (
+        '<div class="board" data-cash="%s" hidden>'
+        '<div class="topbar"><button class="back">← Сменить</button>'
+        '<div class="who">%s</div>'
+        '<div class="pbar"><div class="pfill"></div></div>'
+        '<span class="pnum">0 / %d</span></div>'
+        '<div class="chips">%s</div>%s</div>' % (
+            cash_id, who, total,
+            "".join('<span class="chip" data-sec="%s"><i class="ci d-%s"></i>%s <b class="cbn">%d</b></span>'
+                    % (s[0], s[0], s[2], len([r for r in s[5] if cash_id=="all" or cid_of(r)==cash_id]))
+                    for s in SECDEF),
+            "".join(sec_html)))
+    return board, total
 
 # har bir kassir uchun board + jami
 boards = []; picks = []
 order = sorted(CASH.keys(), key=lambda c: -sum(
-    len([r for r in s[5] if cid_of(r)==c]) for s in SECDEF))
+    len([r for r in s[5] if cid_of(r)==c]) for s in SECDEF))
 for cid in order:
-    b, tot = render_board(cid)
-    if tot == 0:  # ishlamayotgan kassir (Shahzoda) — ko'rsatmaymiz
-        continue
-    boards.append(b)
-    nm = CASH[cid]; ini = "".join(w[0] for w in nm.split()[:2]).upper()
-    picks.append(
-        '<button class="pcard" data-cash="%s"><span class="ava">%s</span>'
-        '<span class="pinfo"><span class="pnm">%s</span>'
-        '<span class="psub">задач сегодня</span></span>'
-        '<span class="pcnt">%d</span></button>' % (cid, esc(ini), esc(nm), tot))
+    b, tot = render_board(cid)
+    if tot == 0:  # ishlamayotgan kassir (Shahzoda) — ko'rsatmaymiz
+        continue
+    boards.append(b)
+    nm = CASH[cid]; ini = "".join(w[0] for w in nm.split()[:2]).upper()
+    picks.append(
+        '<button class="pcard" data-cash="%s"><span class="ava">%s</span>'
+        '<span class="pinfo"><span class="pnm">%s</span>'
+        '<span class="psub">задач сегодня</span></span>'
+        '<span class="pcnt">%d</span></button>' % (cid, esc(ini), esc(nm), tot))
 # "Barchasi" board
 allb, alltot = render_board("all")
 boards.append(allb)
 picks.append('<button class="pcard pall" data-cash="all"><span class="ava avall">Σ</span>'
-             '<span class="pinfo"><span class="pnm">Все кассиры</span>'
-             '<span class="psub">общий список</span></span>'
-             '<span class="pcnt">%d</span></button>' % alltot)
+             '<span class="pinfo"><span class="pnm">Все кассиры</span>'
+             '<span class="psub">общий список</span></span>'
+             '<span class="pcnt">%d</span></button>' % alltot)
 
 STYLE = """
 :root{--bg:#f1efe9;--panel:#fff;--panel2:#f4f2ec;--line:#d9dee6;--txt:#10151d;
@@ -275,46 +275,46 @@ a.grp:hover{border-color:var(--volt);color:var(--txt)}
 
 JS = """
 (function(){
- var DKEY='kassir_done_'+DATE, PKEY='kassir_pick_'+DATE;
- var done={};try{done=JSON.parse(localStorage.getItem(DKEY)||'{}')}catch(e){}
- function save(){try{localStorage.setItem(DKEY,JSON.stringify(done))}catch(e){}}
- var pick=document.getElementById('pick');
- function show(cash){
-  pick.style.display='none';
-  document.querySelectorAll('.board').forEach(function(b){b.hidden=(b.dataset.cash!==cash)});
-  try{localStorage.setItem(PKEY,cash)}catch(e){}
-  window.scrollTo(0,0); upd();
- }
- function back(){pick.style.display='';document.querySelectorAll('.board').forEach(function(b){b.hidden=true});
-  try{localStorage.removeItem(PKEY)}catch(e){}window.scrollTo(0,0);}
- document.querySelectorAll('.pcard').forEach(function(c){c.onclick=function(){show(c.dataset.cash)}});
- document.querySelectorAll('.back').forEach(function(b){b.onclick=back});
- document.addEventListener('click',function(e){
-  var d=e.target.closest('.done');if(!d)return;
-  var row=d.closest('.trow'),k=row.dataset.k;
-  if(done[k])delete done[k];else done[k]=1;save();upd();
- });
- document.querySelectorAll('.chip').forEach(function(ch){ch.onclick=function(){
-  ch.classList.toggle('off');
-  var b=ch.closest('.board');var sec=b.querySelector('.sec[data-sec="'+ch.dataset.sec+'"]');
-  if(sec)sec.style.display=ch.classList.contains('off')?'none':'';
- }});
- function upd(){
-  document.querySelectorAll('.board').forEach(function(b){
-   if(b.hidden)return;
-   var rows=b.querySelectorAll('.trow'),tot=rows.length,cl=0;
-   rows.forEach(function(r){if(done[r.dataset.k]){r.classList.add('done');cl++}else r.classList.remove('done')});
-   var pct=tot?Math.round(cl/tot*100):0;
-   b.querySelector('.pfill').style.width=pct+'%';
-   b.querySelector('.pnum').textContent=cl+' / '+tot+' · '+pct+'%';
-   b.querySelectorAll('.sec').forEach(function(s){
-    var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!done[r.dataset.k])open++});
-    var c=s.querySelector('.bc');if(c)c.textContent=open;
-   });
-  });
- }
- var saved=null;try{saved=localStorage.getItem(PKEY)}catch(e){}
- if(saved&&document.querySelector('.board[data-cash="'+saved+'"]'))show(saved);
+ var DKEY='kassir_done_'+DATE, PKEY='kassir_pick_'+DATE;
+ var done={};try{done=JSON.parse(localStorage.getItem(DKEY)||'{}')}catch(e){}
+ function save(){try{localStorage.setItem(DKEY,JSON.stringify(done))}catch(e){}}
+ var pick=document.getElementById('pick');
+ function show(cash){
+  pick.style.display='none';
+  document.querySelectorAll('.board').forEach(function(b){b.hidden=(b.dataset.cash!==cash)});
+  try{localStorage.setItem(PKEY,cash)}catch(e){}
+  window.scrollTo(0,0); upd();
+ }
+ function back(){pick.style.display='';document.querySelectorAll('.board').forEach(function(b){b.hidden=true});
+  try{localStorage.removeItem(PKEY)}catch(e){}window.scrollTo(0,0);}
+ document.querySelectorAll('.pcard').forEach(function(c){c.onclick=function(){show(c.dataset.cash)}});
+ document.querySelectorAll('.back').forEach(function(b){b.onclick=back});
+ document.addEventListener('click',function(e){
+  var d=e.target.closest('.done');if(!d)return;
+  var row=d.closest('.trow'),k=row.dataset.k;
+  if(done[k])delete done[k];else done[k]=1;save();upd();
+ });
+ document.querySelectorAll('.chip').forEach(function(ch){ch.onclick=function(){
+  ch.classList.toggle('off');
+  var b=ch.closest('.board');var sec=b.querySelector('.sec[data-sec="'+ch.dataset.sec+'"]');
+  if(sec)sec.style.display=ch.classList.contains('off')?'none':'';
+ }});
+ function upd(){
+  document.querySelectorAll('.board').forEach(function(b){
+   if(b.hidden)return;
+   var rows=b.querySelectorAll('.trow'),tot=rows.length,cl=0;
+   rows.forEach(function(r){if(done[r.dataset.k]){r.classList.add('done');cl++}else r.classList.remove('done')});
+   var pct=tot?Math.round(cl/tot*100):0;
+   b.querySelector('.pfill').style.width=pct+'%';
+   b.querySelector('.pnum').textContent=cl+' / '+tot+' · '+pct+'%';
+   b.querySelectorAll('.sec').forEach(function(s){
+    var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!done[r.dataset.k])open++});
+    var c=s.querySelector('.bc');if(c)c.textContent=open;
+   });
+  });
+ }
+ var saved=null;try{saved=localStorage.getItem(PKEY)}catch(e){}
+ if(saved&&document.querySelector('.board[data-cash="'+saved+'"]'))show(saved);
 })();
 """
 
@@ -326,10 +326,10 @@ HTML = u"""<!doctype html><html lang="ru"><head>
 <style>%s</style></head><body>
 <div class="wrap">
 <header><h1>Кассиры · <b>задачи на сегодня</b></h1>
- <span class="meta">%s · ORG 6</span><span class="pill-upd">● Авто-сбор</span></header>
+ <span class="meta">%s · ORG 6</span><span class="pill-upd">● Авто-сбор</span></header>
 <div class="pick" id="pick">
- <h2>Кто вы?</h2><div class="ph">Выберите себя — откроется ваш список на сегодня</div>
- <div class="pgrid">%s</div></div>
+ <h2>Кто вы?</h2><div class="ph">Выберите себя — откроется ваш список на сегодня</div>
+ <div class="pgrid">%s</div></div>
 %s
 <div class="foot">Источник: junior базаси (ORG 6) · закрепление кассира по группе (CASHIER_ID) · MCP gateway.<br>
 Закрытые задачи хранятся в этом браузере до конца дня.</div>
@@ -340,15 +340,15 @@ HTML = u"""<!doctype html><html lang="ru"><head>
 # CI (GitHub Actions) rejimida repo ildiziga kassir-vazifalar.html yoziladi,
 # lokalda esa preview uchun index.html.
 if os.environ.get("GITHUB_ACTIONS") == "true":
-    OUT = os.path.join(os.getcwd(), "kassir-vazifalar.html")
+    OUT = os.path.join(os.getcwd(), "kassir-vazifalar.html")
 else:
-    OUT = os.path.join(HERE, "index.html")
+    OUT = os.path.join(HERE, "index.html")
 with open(OUT, "w", encoding="utf-8") as f:
-    f.write(HTML)
+    f.write(HTML)
 
 print("OK ->", OUT)
-print("today=%s dom=%d  t3=%d t1=%d t0=%d debtors=%d frozen=%d  TOTAL=%d"
-      % (TODAY, DOM, len(t3), len(t1), len(t0), len(debtors), len(frozen), alltot))
+print("today=%s dom=%d  t3=%d t1=%d t0=%d debtors=%d frozen=%d  TOTAL=%d"
+      % (TODAY, DOM, len(t3), len(t1), len(t0), len(debtors), len(frozen), alltot))
 for cid in order:
-    tot = sum(len([r for r in s[5] if cid_of(r)==cid]) for s in SECDEF)
-    if tot: print("  %-22s %d" % (CASH[cid], tot))
+    tot = sum(len([r for r in s[5] if cid_of(r)==cid]) for s in SECDEF)
+    if tot: print("  %-22s %d" % (CASH[cid], tot))
