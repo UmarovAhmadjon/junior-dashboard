@@ -34,5 +34,5 @@ jobs:
             echo "No changes - skip commit"
           else
             git commit -m "auto-update dashboard"
-            git push --force
+            git push
           fi
