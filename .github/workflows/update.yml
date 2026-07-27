@@ -23,6 +23,8 @@ jobs:
 
       - name: Generate cashier tasks dashboard (DB via gateway)
         continue-on-error: true
+        env:
+          JUNIOR_MCP_GATEWAY: ${{ vars.JUNIOR_MCP_GATEWAY }}
         run: python3 kassir_refresh.py
 
       - name: Commit & push if changed

@@ -12,10 +12,14 @@ Ishga tushirish: python3 refresh.py  ->  index.html hosil bo'ladi.
 """
 import json, urllib.request, datetime, html, os
 
-GATEWAY = "https://myclinic.agc.uz/new_junior_mcp.php"
-
 ORG = 6
 HERE = os.path.dirname(os.path.abspath(__file__))
+GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "").strip()
+if not GATEWAY:
+    raise RuntimeError(
+        "JUNIOR_MCP_GATEWAY is not set. "
+        "Add it to the environment or GitHub Actions repository variables."
+    )
 
 def q(sql):
     body = json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call",
