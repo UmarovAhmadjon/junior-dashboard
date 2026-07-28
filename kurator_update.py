@@ -8,7 +8,7 @@ import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiej
 HOME = pathlib.Path.home() / 'junior-dashboard'
 REPO = 'UmarovAhmadjon/junior-dashboard'
 CRM = 'https://crm.junior-it.uz'
-MCP = 'https://myclinic.agc.uz/junior_mcp.php'
+MCP = 'https://myclinic.agc.uz/new_junior_mcp.php'
 MONTH = os.environ.get('KURATOR_MONTH', '2026-07-01')  # oy boshidan
 
 # admin_id lar (CRM admin-select)
