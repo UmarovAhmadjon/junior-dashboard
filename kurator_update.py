@@ -13,15 +13,15 @@ MONTH = os.environ.get('KURATOR_MONTH', '2026-07-01')  # oy boshidan
 
 # admin_id lar (CRM admin-select)
 CUR = {
- 'Fot':('Fotimabonu Abdulkhakova','A','13799',6), 'Mad':('Madina Normatova','A','16005',5),
+ 'Fot':('Fotimabonu Abdulkhakova','A','13799',5), 'Mad':('Madina Normatova','A','16005',5),
  'Dil':('Dilafruz Shokirova','A','14241',6), 'Jas':('Jasmina Tolibova','A','14974',4),
- 'Dsh':('Dilshoda Parpiyeva','A','21511',4),
+ 'Nai':('Naima Ikramova','A','16876',4), 'Shx':('Shaxlo Ziyodova','A','21463',3),
  'Mar':('Marjona Pardayeva','B','14451',5), 'Xal':('Xalima Ismoiljonova','B','16386',6),
- 'Azi':('Aziza Qurvonaliyeva','B','17542',4), 'Sab':('Sabrina Salimova','B','18307',6),
- 'Mrm':('Maryam Safarova','B','21186',5),
+ 'Azi':('Aziza Qurvonaliyeva','B','17542',5), 'Sab':('Sabrina Salimova','B','18307',6),
+ 'Mun':('Munisa Sobirjonova','B','18784',7),
 }
-TEAM_A_IDS = '11274,13799,14241,14974,16005,16876,18784,21463,21511'
-TEAM_B_IDS = '14451,16386,17542,18307,21186'
+TEAM_A_IDS = '13799,14241,14974,16005,16876,21463'
+TEAM_B_IDS = '14451,16386,17542,18307,18784'
 
 CI = bool(os.environ.get('GITHUB_ACTIONS'))
 BASE = pathlib.Path('.') if CI else HOME  # CIda repo checkout, lokalda ~/junior-dashboard
