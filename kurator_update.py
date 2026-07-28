@@ -3,7 +3,7 @@
 Manba: crm.junior-it.uz Analitika AJAX API. Login: .crm_login (phone / pass).
 Haftalik churn hodisalari: junior-lms MCP (student_status_logs).
 Deploy: GitHub Pages (kurator.html)."""
-import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar
+import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar, time
 
 HOME = pathlib.Path.home() / 'junior-dashboard'
 REPO = 'UmarovAhmadjon/junior-dashboard'
@@ -92,12 +92,19 @@ def mcp(sql):
     body = json.dumps({'jsonrpc':'2.0','id':1,'method':'tools/call',
                        'params':{'name':'query_db','arguments':{'sql':sql}}}).encode()
     req = urllib.request.Request(MCP, body, {'Content-Type':'application/json'})
-    try:
-        r = json.load(urllib.request.urlopen(req, timeout=60))
-        txt = r['result']['content'][0]['text']
-        return json.loads(txt).get('data',{}).get('data',[])
-    except Exception as e:
-        print('MCP xato:', e); return []
+    for attempt in range(4):
+        try:
+            r = json.load(urllib.request.urlopen(req, timeout=90))
+            txt = r['result']['content'][0]['text']
+            rows = json.loads(txt).get('data',{}).get('data',[])
+            if rows:
+                return rows
+            raise RuntimeError('MCP bo‘sh javob qaytardi')
+        except Exception as e:
+            print(f'MCP urinish {attempt+1}/4 xato:', e)
+            if attempt < 3:
+                time.sleep(8)
+    return []
 
 def weekly(admin_ids_list, weeks):
     """har hafta: [faollashdi, passivga, noaktivga] guruh ADMIN_ID orqali."""
@@ -142,12 +149,26 @@ def main():
     ]
     id2key = {v[2]:k for k,v in CUR.items()}
     wk_all = weekly([v[2] for v in CUR.values()], weeks)
-    W = {}
-    for aid,key in id2key.items():
-        wd = wk_all.get(aid)
-        W[key] = {w:wd.get(w,[0,0,0]) for w in ['W1','W2','W3','W4']} if wd else None
-    # umumiy hafta = yig'indi
-    W['all'] = {w:[sum(wk_all.get(a,{}).get(w,[0,0,0])[i] for a in wk_all) for i in range(3)] for w in ['W1','W2','W3','W4']}
+    if wk_all:
+        W = {}
+        for aid,key in id2key.items():
+            wd = wk_all.get(aid)
+            W[key] = {w:wd.get(w,[0,0,0]) for w in ['W1','W2','W3','W4']} if wd else None
+        # umumiy hafta = yig'indi
+        W['all'] = {w:[sum(wk_all.get(a,{}).get(w,[0,0,0])[i] for a in wk_all) for i in range(3)] for w in ['W1','W2','W3','W4']}
+    else:
+        # MCP vaqtincha ishlamasa, saytdagi oxirgi to'g'ri haftalik tarixni o'chirmaymiz.
+        W = {}
+        try:
+            old = (BASE/'kurator.html').read_text()
+            match = re.search(r'const __DATA__=(\{.*?\});', old)
+            W = json.loads(match.group(1)).get('W',{}) if match else {}
+            print('MCP bo‘sh: oldingi W saqlandi')
+        except Exception as e:
+            print('Oldingi W ham olinmadi:', e)
+        for key in CUR:
+            W.setdefault(key, None)
+        W.setdefault('all', {w:[0,0,0] for w in ['W1','W2','W3','W4']})
 
     payload = {'M':M, 'W':W, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
