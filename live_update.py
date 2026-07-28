@@ -18,6 +18,7 @@ SHEET_ID = "1NOAYemdD1y2SvE7W6mEvO5ty80sqq01i1iNWbku5Ei4"
 SUMMARY_TAB = "Лист12"
 PREVIEW = ("preview" in sys.argv)   # `python3 live_update.py preview` -> preview.html (jonli index.html tegilmaydi)
 IS_CI = os.environ.get("GITHUB_ACTIONS")=="true"   # GitHub Actions (bulut) rejimi: fayl yoziladi, commitni workflow qiladi
+PERIOD = next((x for x in sys.argv[1:] if re.fullmatch(r"(?:n)?(?:month|w[1-4])", x)), "month")
 
 # Kassir -> qaysi kuratorlar bilan ishlaydi (Лист12 dan, foydalanuvchi bergan)
 CASHIERS = [
@@ -362,6 +363,90 @@ def cycle_window(today):
         start=datetime.date(sy,sm,26)
     return start,end
 
+def cycle_periods(c_start,c_end):
+    """Butun sikl + 4 ta haftalik filtr. Joriy 26–25 sikl uchun yakshanba/shanba kesimi."""
+    weeks=[]; ws=c_start
+    while ws<=c_end:
+        we=ws+datetime.timedelta(days=(5-ws.weekday())%7)
+        if (we-ws).days<4: we+=datetime.timedelta(days=7)
+        if we>c_end: we=c_end
+        weeks.append((ws,we))
+        ws=we+datetime.timedelta(days=1)
+    # 30/31 kunlik siklda 4 ta davr bo'lishi uchun ortiqcha qisqa bo'lakni oxirgisiga biriktiramiz.
+    while len(weeks)>4:
+        a,_=weeks[-2]; _,b=weeks[-1]
+        weeks[-2]=(a,b); weeks.pop()
+    return [("month",c_start,c_end,f"{c_start.strftime('%d.%m')}–{c_end.strftime('%d.%m')} · весь цикл")] + [
+        (f"w{i}",a,b,f"{a.strftime('%d.%m')}–{b.strftime('%d.%m')} · неделя {i}")
+        for i,(a,b) in enumerate(weeks,1)
+    ]
+
+def filter_periods(c_start, c_end):
+    """Закрытый цикл + новый цикл. Оплата относится к циклу строго по дате в колонке A."""
+    old=cycle_periods(c_start,c_end)
+    n_start=c_end+datetime.timedelta(days=1)
+    _s,n_end=cycle_window(n_start)
+    # Для нового цикла первая оперативная неделя задана бизнесом как 26.07–02.08.
+    cuts=[(n_start,min(n_start+datetime.timedelta(days=7),n_end))]
+    ws=cuts[-1][1]+datetime.timedelta(days=1)
+    while ws<=n_end and len(cuts)<4:
+        remaining=(n_end-ws).days+1
+        slots=4-len(cuts)
+        length=remaining if slots==1 else 7
+        we=min(ws+datetime.timedelta(days=length-1),n_end)
+        cuts.append((ws,we)); ws=we+datetime.timedelta(days=1)
+    new=[("nmonth",n_start,n_end,f"{n_start.strftime('%d.%m')}–{n_end.strftime('%d.%m')} · новый цикл")]
+    new += [(f"nw{i}",a,b,f"{a.strftime('%d.%m')}–{b.strftime('%d.%m')} · неделя {i} нового цикла")
+            for i,(a,b) in enumerate(cuts,1)]
+    return old+new
+
+def detect_data_cycle(WB, fallback_today):
+    """Jadvaldagi status qatorlari qaysi 26–25 siklga ko'proq tegishli bo'lsa, o'shani tanlaydi."""
+    from collections import Counter
+    counts=Counter()
+    recognized={"to'lagan","to'ladi","bitirdi","qarzdor","muzlagan","muzladi","arxiv"}
+    for _team,short,_full in CUR:
+        for r in WB.get(short,[]):
+            if len(r)<3: continue
+            st=norm(r[2])
+            if st not in recognized and not st.startswith("sarafan"): continue
+            d=pdate(r[0] if r else "")
+            if not d: continue
+            start,_end=cycle_window(d)
+            counts[start]+=1
+    if not counts: return cycle_window(fallback_today)
+    start=max(counts,key=lambda x:(counts[x],x))
+    _s,end=cycle_window(start)
+    return start,end
+
+def read_period_curator(rows, p_start, p_end):
+    """Tanlangan davr uchun PLAN+FAKT: A sanasi davrga tushgan status qatorlari."""
+    from collections import Counter
+    colcnt=Counter()
+    for r in rows:
+        for ci,val in enumerate(r):
+            if norm(val)=="qarzdor": colcnt[ci]+=1
+    scol=colcnt.most_common(1)[0][0] if colcnt else 2
+    tol=bit=sar=muz=arx=qarz=collected=plansum=0
+    for r in rows:
+        st=norm(r[scol]) if len(r)>scol else ""
+        paid = st in ("to'lagan","to'ladi","bitirdi") or st.startswith("sarafan")
+        if not paid and st not in ("qarzdor","muzlagan","muzladi","arxiv"): continue
+        d=pdate(r[0] if r else "")
+        if not d or not (p_start<=d<=p_end): continue
+        amt=num(r[scol+1]) if len(r)>scol+1 else 0
+        plansum+=amt
+        if st in ("to'lagan","to'ladi"): tol+=1; collected+=amt
+        elif st=="bitirdi": bit+=1
+        elif st.startswith("sarafan"): sar+=1
+        elif st=="arxiv": arx+=1
+        elif st in ("muzlagan","muzladi"): muz+=1
+        else: qarz+=1
+    paid=tol+bit+sar
+    plan=paid+qarz+muz+arx
+    return dict(paid=paid,tol=tol,bit=bit,sar=sar,muz=muz,arx=arx,
+                qarz=qarz,plan=plan,plansum=plansum,collected=collected)
+
 def mln(v): return f"{v/1e6:.1f}".rstrip("0").rstrip(".")
 def mlrd(v): return f"{v/1e9:.2f}"
 def esc(s): return str(s).replace("&","&amp;").replace("<","&lt;")
@@ -369,24 +454,35 @@ def esc(s): return str(s).replace("&","&amp;").replace("<","&lt;")
 def main():
     tnow=tash_now()                 # real Toshkent vaqti (internetdan)
     today=tnow.date()
-    c_start,c_end=cycle_window(today)
     WB = load_workbook()                               # butun kitob (filtrsiz, barcha qatorlar)
+    c_start,c_end=detect_data_cycle(WB,today)           # bugungi sana emas, jadvaldagi asosiy hisobot sikli
+    periods=filter_periods(c_start,c_end)
+    period_map={k:(a,b,label) for k,a,b,label in periods}
+    p_start,p_end,period_label=period_map.get(PERIOD,period_map["month"])
     per_plan, GPLAN, GPLANSUM = read_plan(WB.get(SUMMARY_TAB, []))   # Лист12: per-curator + JAMI
     win_start=c_start-datetime.timedelta(days=2); win_end=c_end      # Muzlagan/Arxiv oynasi: 24.06–25.07
     rows=[]
     for team,short,full in CUR:
-        st=read_curator(WB.get(short, []), win_start, win_end)       # FAKT statuslardan (to'liq varaq)
-        plan_c,_=per_plan.get(norm(short),(0,0))       # PLAN Лист12 dan (per-curator qarzdorlar soni)
+        if PERIOD=="month":
+            # Закрытый цикл: факт только по датам 26.06–25.07. Более поздние оплаты сюда не входят.
+            st=read_period_curator(WB.get(short, []),p_start,p_end)
+            plan_c,plan_sum=per_plan.get(norm(short),(0,0))
+        else:
+            st=read_period_curator(WB.get(short, []),p_start,p_end)
+            plan_c,plan_sum=st['plan'],st['plansum']
         rows.append(dict(team=team,short=short,full=full,
             paid=st['paid'], tol=st['tol'], bit=st['bit'], sar=st['sar'], muz=st['muz'], arx=st['arx'],
-            plan=plan_c, debt=max(0,plan_c-st['paid']), sob=st['collected'],
+            plan=plan_c, plansum=plan_sum, debt=max(0,plan_c-st['paid']), sob=st['collected'],
             pct=round(st['paid']/plan_c*100) if plan_c else 0))
-    weeks_agg=read_weeks(WB, c_start, c_end)
-    due_total,due_paid,due_per=read_deadline(WB, c_start, c_end, tnow.date())
+    if PERIOD!="month":
+        GPLAN=sum(r['plan'] for r in rows)
+        GPLANSUM=sum(r['plansum'] for r in rows)
+    weeks_agg=read_weeks(WB, p_start, p_end)
+    due_total,due_paid,due_per=read_deadline(WB, p_start, p_end, min(tnow.date(),p_end))
     for r in rows: r['due']=due_per.get(r['short'],0)
-    render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid)
+    render(tnow,p_start,p_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,periods,period_label)
 
-def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid):
+def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,periods,period_label):
     today=tnow.date()
     TOTAL_PAID=sum(r['paid'] for r in rows)
     TOTAL_PLAN=GPLAN                                   # JAMI Лист12 dan (1501)
@@ -408,8 +504,10 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid):
     with open(os.path.join(BASE,"plan_source.html"),encoding="utf-8") as f: src=f.read()
     CSS=re.search(r"<style>.*?</style>",src,re.S).group(0)
 
-    # Reyting umumiy reja bajarilishi bo'yicha.
-    ALL=sorted(rows,key=lambda x:(-x['pct'],-x['paid']))
+    # VARIANT 3: reyting = grafik bajarilishi % (fakt / bugungacha muddati kelganlar)
+    for x in rows:
+        x['pace_pct'] = round(x['paid']/x['due']*100) if x.get('due',0)>0 else (100 if x['paid']>=0 else 0)
+    ALL=sorted(rows,key=lambda x:(-x['pace_pct'],-x['paid']))
     for i,x in enumerate(ALL,1): x['pos']=i
     def team_tot(t):
         rr=[x for x in rows if x['team']==t]
@@ -453,70 +551,91 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid):
 
     def row_html(r):
         posc=f"p{r['pos']}" if r['pos']<=3 else ""; tpc=f"tp{r['pos']}" if r['pos']<=3 else ""
+        pace=r.get('pace_pct',0)
         fill="goldf" if r['pct']>=100 else ("okf" if r['pct']>=40 else "lagf")
-        gap="goldg" if r['pct']>=100 else ("okg" if r['pct']>=80 else "badg")
+        gap="goldg" if pace>=100 else ("okg" if pace>=80 else "badg")
         badge=f'<span class="tbadge t{r["team"]}">{r["team"]}</span>'
-        # Grafik: bugungacha muddati kelganlar (due) — oq marker; qolgan = plan - fakt.
+        # grafik: bugungacha muddati kelganlar (due) — oq marker; otryv = fakt - due
         due=r.get('due',0); plan=max(1,r['plan'])
         pacepct=min(100, round(due/plan*100))
         marker=f'<span style="position:absolute;left:{pacepct}%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span>' if due>0 else ""
-        left=max(0,r['plan']-r['paid'])
-        if left>0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">{left}</span>'
-        else: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(61,255,162,.16);color:var(--greentx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">0</span>'
+        gapn=r['paid']-due
+        if gapn>0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(61,255,162,.16);color:var(--greentx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">+{gapn}</span>'
+        elif gapn<0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−{-gapn}</span>'
+        else: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';color:var(--mut)">0</span>'
         return f"""<div class="lrow {tpc}">
     <span class="pos {posc}"><i>{r['pos']}</i></span>
     <span class="lnm">{badge}{esc(r['short'])}</span>
     <span class="track"><span class="fill {fill}" style="--w:{min(100,r['pct'])}%"></span>{marker}<span class="tfin"></span></span>
     <span class="fact"><b>{r['paid']}</b><i>/{r['plan']} · {mln(r['sob'])}м</i></span>
-    <span class="gap {gap}">{r['pct']}%</span><span class="wk">{chip}</span></div>"""
-    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · осталось = план − факт</span></div>
-  <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Осталось</span></div>
+    <span class="gap {gap}">{pace}%</span><span class="wk">{chip}</span></div>"""
+    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению графика</span><span class="lbleg">% = факт ÷ график к сегодня · белая метка = график · отрыв = факт − график</span></div>
+  <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% граф.</span><span>Отрыв</span></div>
   {"".join(row_html(r) for r in ALL)}
-  <div class="ltot">Всего: оплатили <b>{TOTAL_PAID}</b> из <b>{TOTAL_PLAN}</b> · <b>{PCT}%</b> · по графику к {today.strftime('%d.%m')} должно быть <b>{due_total}</b> · осталось <b>{TOTAL_DEBT}</b> · собрано <b>{mln(TOTAL_SOB)} млн</b></div></div>"""
+  <div class="ltot">Всего: оплатили <b>{TOTAL_PAID}</b> из <b>{TOTAL_PLAN}</b> · <b>{PCT}%</b> · по графику к {today.strftime('%d.%m')} должно быть <b>{due_total}</b> · отрыв <b>{TOTAL_PAID-due_total:+d}</b> · собрано <b>{mln(TOTAL_SOB)} млн</b></div></div>"""
 
     cashier_html = cashier_section(rows)
     week_html = week_section(weeks_agg, today)
-    deadline_html = ""   # Alohida blok kerak emas — grafik markeri kurator qatorlarida.
+    deadline_html = ""   # alohida blok kerak emas — grafik/otryv kurator qatorlarida
 
-    pstate=json.dumps({"v":"sheet1","upd":UPD,"paid":TOTAL_PAID,"debt":TOTAL_DEBT,"sob":TOTAL_SOB,"pct":PCT},ensure_ascii=False)
+    pstate=json.dumps({"v":"sheet1","period":PERIOD,"upd":UPD,"paid":TOTAL_PAID,"debt":TOTAL_DEBT,"sob":TOTAL_SOB,"pct":PCT},ensure_ascii=False)
     JS=open_js(SRV_MS)
 
     # --- ko'p sahifali: har sahifa o'z nav-tab bilan ---
-    PAGES=[("index.html","Кураторы"),("weeks.html","Недели"),("cashiers.html","Кассиры")]
+    suffix="" if PERIOD=="month" else f"-{PERIOD}"
+    preview_prefix="preview-" if PREVIEW else ""
+    def page_file(kind):
+        if PREVIEW:
+            return "preview.html" if kind=="index" and PERIOD=="month" else f"preview-{kind}{suffix}.html"
+        return ("index.html" if PERIOD=="month" else f"index{suffix}.html") if kind=="index" else f"{kind}{suffix}.html"
+    PAGES=[(page_file("index"),"Кураторы"),(page_file("weeks"),"Недели"),(page_file("cashiers"),"Кассиры")]
     def nav(active):
         links="".join(f'<a href="{fn}" class="{"on" if fn==active else ""}">{ttl}</a>' for fn,ttl in PAGES)
         return f'<nav class="rnav">{links}</nav>'
-    def page(active, body, subtitle):
+    def period_select(kind):
+        opts=[]
+        for key,_a,_b,label in periods:
+            if PREVIEW:
+                target="preview.html" if kind=="index" and key=="month" else f"preview-{kind}{'' if key=='month' else '-'+key}.html"
+            else:
+                target=("index.html" if key=="month" else f"index-{key}.html") if kind=="index" else f"{kind}{'' if key=='month' else '-'+key}.html"
+            opts.append(f'<option value="{target}"{" selected" if key==PERIOD else ""}>{esc(label)}</option>')
+        return f'''<label class="period-picker"><span>📅 Период</span><select aria-label="Выберите период" onchange="location.href=this.value">{"".join(opts)}</select></label>'''
+    def page(active, body, subtitle, kind):
         return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="3600"><title>Junior · {subtitle} · Долги</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700;800&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
 {CSS}
 <style>.tbadge{{display:inline-flex;align-items:center;justify-content:center;width:1.15em;height:1.15em;border-radius:5px;font:800 .62em/1 Barlow,sans-serif;margin-right:.5em;vertical-align:middle;color:#12131a}}.tbadge.tA{{background:#ffd21e}}.tbadge.tB{{background:#b9c2d0}}
-.sbwrap{{padding:14px 26px 22px;display:flex;flex-direction:column;gap:12px}}.sbrow{{display:flex;align-items:center;gap:12px}}.sbl{{width:120px;font:800 .82em/1 Manrope;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}}.sbtrack{{flex:1;height:22px;background:var(--trackbg);border-radius:6px;overflow:hidden;display:block}}.sbfill{{display:block;height:100%;min-width:3px;border-radius:6px}}.sbn{{width:54px;text-align:right;font:800 1.1em/1 'Barlow Condensed';color:var(--txt)}}</style>
+.sbwrap{{padding:14px 26px 22px;display:flex;flex-direction:column;gap:12px}}.sbrow{{display:flex;align-items:center;gap:12px}}.sbl{{width:120px;font:800 .82em/1 Manrope;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}}.sbtrack{{flex:1;height:22px;background:var(--trackbg);border-radius:6px;overflow:hidden;display:block}}.sbfill{{display:block;height:100%;min-width:3px;border-radius:6px}}.sbn{{width:54px;text-align:right;font:800 1.1em/1 'Barlow Condensed';color:var(--txt)}}
+.period-picker{{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);font:700 12px Manrope;color:var(--mut)}}.period-picker select{{max-width:260px;border:0;background:transparent;color:var(--txt);font:700 13px Manrope;outline:none;cursor:pointer}}@media(max-width:900px){{.period-picker{{order:4;width:100%}}.period-picker select{{flex:1;max-width:none}}}}</style>
 </head><body>
 <script>try{{var _t=localStorage.getItem('jTheme')||'light';if(_t!=='dark')document.body.classList.add('light');}}catch(e){{document.body.classList.add('light');}}</script>
 <script id="pstate" type="application/json">{pstate}</script>
 <header><div class="brand"><span class="b-volt">⚡ Долги</span><span class="b-dark">{subtitle}</span><span class="upd">обновлено {UPD} · ⟳ live</span></div>
 {nav(active)}
-<div class="mswitch"><button class="mbtn on">Цикл {CYCLE_LABEL} · live</button></div>
+{period_select(kind)}
 <button class="tbtn" id="tbtn" title="Тема">☀️</button>
 <span class="clkwrap"><span class="clk" id="clk">--:--</span><span class="cdate" id="cdate"></span></span></header>
 {body}
 {JS}
 </body></html>"""
     FILES={
-      "index.html":    page("index.html",    f"{hero}\n{deadline_html}\n{champ}\n{ticker}\n{boards}", "Кураторы"),
-      "weeks.html":    page("weeks.html",    f"{champ}\n{week_html}",                "Недели"),
-      "cashiers.html": page("cashiers.html", f"{champ}\n{cashier_html}",             "Кассиры"),
+      page_file("index"):    page(page_file("index"),    f"{hero}\n{deadline_html}\n{champ}\n{ticker}\n{boards}", "Кураторы", "index"),
+      page_file("weeks"):    page(page_file("weeks"),    f"{champ}\n{week_html}",                "Недели", "weeks"),
+      page_file("cashiers"): page(page_file("cashiers"), f"{champ}\n{cashier_html}",             "Кассиры", "cashiers"),
     }
     for fn,html in FILES.items():
-        local = fn if (IS_CI or fn!="index.html") else "kuratorlar.html"
+        local = fn if (IS_CI or fn not in ("index.html","preview.html")) else "kuratorlar.html"
         with open(os.path.join(BASE,local),"w",encoding="utf-8") as f: f.write(html)
     print(f"[{datetime.datetime.now():%Y-%m-%d %H:%M}] OK{' [PREVIEW]' if PREVIEW else ''} -> оплатили {TOTAL_PAID}/{TOTAL_PLAN}={PCT}% · должны {TOTAL_DEBT} · собрано {mln(TOTAL_SOB)}млн")
     for r in ALL: print(f"  {r['pos']:2} {r['short']:9} {r['team']} {r['paid']:3}/{r['plan']:3}={r['pct']:3}% qarzdor {r['debt']:3} собр {mln(r['sob'])}м")
     if IS_CI:
         print("  CI: fayllar yozildi — commit/push ni workflow bajaradi"); return
     if PREVIEW:
-        try: deploy_github(os.path.join(BASE,"kuratorlar.html"), None, path="preview.html")
+        try:
+            for fn in FILES:
+                local = "kuratorlar.html" if fn=="preview.html" else fn
+                deploy_github(os.path.join(BASE,local), None, path=fn)
         except Exception as e: print(f"  github: ERROR {e}", file=sys.stderr)
         return
     # sig: o'zgarmagan bo'lsa 3 sahifani ham o'tkazib yuboramiz
@@ -524,9 +643,9 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid):
     if os.path.isfile(SIG_FILE) and open(SIG_FILE,encoding="utf-8").read().strip()==sig:
         print("  github: ma'lumot o'zgarmadi — deploy o'tkazib yuborildi"); return
     try:
-        deploy_github(os.path.join(BASE,"kuratorlar.html"), None, path="index.html")
-        deploy_github(os.path.join(BASE,"weeks.html"),      None, path="weeks.html")
-        deploy_github(os.path.join(BASE,"cashiers.html"),   None, path="cashiers.html")
+        for fn in FILES:
+            local = "kuratorlar.html" if fn=="index.html" else fn
+            deploy_github(os.path.join(BASE,local), None, path=fn)
         with open(SIG_FILE,"w",encoding="utf-8") as f: f.write(sig)
     except Exception as e: print(f"  github: ERROR {e}", file=sys.stderr)
 
@@ -538,33 +657,35 @@ def cashier_section(rows):
         paid=sum(x['paid'] for x in cs); plan=sum(x['plan'] for x in cs); sob=sum(x['sob'] for x in cs)
         due=sum(x.get('due',0) for x in cs)
         data.append(dict(name=cname,team=team,curs=curs,paid=paid,plan=plan,sob=sob,due=due,
-                         pct=round(paid/plan*100) if plan else 0))
-    # Reyting umumiy reja bajarilishi bo'yicha.
-    data.sort(key=lambda x:(-x['pct'],-x['paid']))
+                         pct=round(paid/plan*100) if plan else 0,
+                         pace=round(paid/due*100) if due else 100))
+    # v3: reyting grafik bajarilishi bo'yicha
+    data.sort(key=lambda x:(-x['pace'],-x['paid']))
     for i,d in enumerate(data,1): d['pos']=i
     tp=sum(d['paid'] for d in data); tpl=sum(d['plan'] for d in data); tsob=sum(d['sob'] for d in data)
     tdue=sum(d['due'] for d in data)
     def crow(d):
         posc=f"p{d['pos']}" if d['pos']<=3 else ""; tpc=f"tp{d['pos']}" if d['pos']<=3 else ""
         fill="goldf" if d['pct']>=100 else ("okf" if d['pct']>=40 else "lagf")
-        gap="goldg" if d['pct']>=100 else ("okg" if d['pct']>=80 else "badg")
+        gap="goldg" if d['pace']>=100 else ("okg" if d['pace']>=80 else "badg")
         badge=f'<span class="tbadge t{d["team"]}">{d["team"]}</span>'
         sub=", ".join(d['curs'])
         plan=max(1,d['plan']); pacepct=min(100, round(d['due']/plan*100))
         marker=f'<span style="position:absolute;left:{pacepct}%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span>' if d['due']>0 else ""
-        left=max(0,d['plan']-d['paid'])
-        if left>0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">{left}</span>'
-        else: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(61,255,162,.16);color:var(--greentx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">0</span>'
+        gapn=d['paid']-d['due']
+        if gapn>0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(61,255,162,.16);color:var(--greentx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">+{gapn}</span>'
+        elif gapn<0: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−{-gapn}</span>'
+        else: chip=f'<span style="display:inline-block;padding:4px 10px;font:800 .95em \'Barlow Condensed\';color:var(--mut)">0</span>'
         return f"""<div class="lrow {tpc}">
     <span class="pos {posc}"><i>{d['pos']}</i></span>
     <span class="lnm">{badge}{esc(d['name'])} <i style="color:var(--mut);font-weight:600;font-size:.78em">· {esc(sub)}</i></span>
     <span class="track"><span class="fill {fill}" style="--w:{min(100,d['pct'])}%"></span>{marker}<span class="tfin"></span></span>
     <span class="fact"><b>{d['paid']}</b><i>/{d['plan']} · {mln(d['sob'])}м</i></span>
-    <span class="gap {gap}">{d['pct']}%</span><span class="wk">{chip}</span></div>"""
-    return f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Кассиры <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · осталось = план − факт</span></div>
-  <div class="lhead"><span>Поз</span><span>Кассир · кураторы</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Осталось</span></div>
+    <span class="gap {gap}">{d['pace']}%</span><span class="wk">{chip}</span></div>"""
+    return f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Кассиры <i class="sl">//</i> по выполнению графика</span><span class="lbleg">% = факт ÷ график к сегодня · белая метка = график · отрыв = факт − график</span></div>
+  <div class="lhead"><span>Поз</span><span>Кассир · кураторы</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% граф.</span><span>Отрыв</span></div>
   {"".join(crow(d) for d in data)}
-  <div class="ltot">Всего по кассирам: оплатили <b>{tp}</b> из <b>{tpl}</b> · по графику должно быть <b>{tdue}</b> · осталось <b>{max(0,tpl-tp)}</b> · собрано <b>{mln(tsob)} млн</b></div></div>"""
+  <div class="ltot">Всего по кассирам: оплатили <b>{tp}</b> из <b>{tpl}</b> · по графику должно быть <b>{tdue}</b> · отрыв <b>{tp-tdue:+d}</b> · собрано <b>{mln(tsob)} млн</b></div></div>"""
 
 def status_bars(tol,bit,sar,muz,arx,debt):
     tot=max(1,tol+bit+sar+debt)
