@@ -255,7 +255,7 @@
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
 /*__DATA__*/
-const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
+const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
 const MONTH_NAMES=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
 const MY=(__DATA__.month||'2026-07-01').split('-'), MONTH_NAME=MONTH_NAMES[+MY[1]-1], MONTH_YEAR=MY[0], MM=MY[1];
 const WLBL={ALL:`${MONTH_NAME} ${MONTH_YEAR} · oy boshidan`}, WSHORT={ALL:MONTH_NAME.toLowerCase()};
@@ -325,6 +325,11 @@ function activity(){
 function noaktivPoint(k,wk){
   const d=(N[k]||{})[wk];
   return d||{count:0,delta:0};
+}
+function periodKpi(k){
+  const e=E[k]||{month:{yangi:0,fao:0,qarz_plan:0},weeks:{}};
+  const d=WEEK==='ALL'?e.month:(e.weeks[WEEK]||{yangi:0,fao:0});
+  return {yangi:d.yangi||0,fao:d.fao||0,qarz_plan:(e.month&&e.month.qarz_plan)||0};
 }
 
 // ---------- NOAKTIV QOLDIQ CHART ----------
@@ -431,6 +436,7 @@ function cards(){
   const el=document.getElementById('cards'); el.innerHTML='';
   sorted.forEach(k=>{
     const r=M[k], w=W[k], c=pchurn(k);
+    const pk=periodKpi(k);
     const nvals=['W1','W2','W3','W4'].map(wk=>noaktivPoint(k,wk));
     const ntext=d=>`${d.count} (${d.delta>0?'+':''}${d.delta})`;
     const wkm=M[k].chu[1]==null?'—':M[k].chu[1].toFixed(1)+'%';
@@ -462,9 +468,9 @@ function cards(){
         <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('noaktiv','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('noaktiv','${k}')"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza · batafsil →</div></div>
       </div>
       <div class="extras">
-        <div class="extra-kpi"><div class="el">💰 Kassa</div><div class="ev">${mln(r.kassa)}</div><div class="en">oy boshidan</div></div>
-        <div class="extra-kpi"><div class="el">🆕 Yangi</div><div class="ev">${r.yangi}</div><div class="en">o‘quvchi</div></div>
-        <div class="extra-kpi"><div class="el">♻️ Faollashtirish</div><div class="ev">${r.fao[0]?r.fao[0].toFixed(0)+'%':'—'}</div><div class="en">${r.fao[1]} ta qaytarildi</div></div>
+        <div class="extra-kpi"><div class="el">📋 Qarzdorlik rejasi</div><div class="ev">${pk.qarz_plan}</div><div class="en">${MONTH_NAME} oyida qarzdor bo‘lgan</div></div>
+        <div class="extra-kpi"><div class="el">🆕 Yangi</div><div class="ev">${pk.yangi}</div><div class="en">${WLBL[WEEK]} · o‘quvchi</div></div>
+        <div class="extra-kpi"><div class="el">♻️ Faollashtirilgan</div><div class="ev">${pk.fao}</div><div class="en">${WLBL[WEEK]} · active’ga qaytgan</div></div>
         <div class="extra-kpi"><div class="el">🤖 Ota-ona bot</div><div class="ev">${r.ota[1]}%</div><div class="en">${r.ota[0]} ta ulangan</div></div>
       </div>
       <div class="tavs"><div class="th">💡 Tavsiyalar — churnni kamaytirish</div><ul>${tavsiyalar(r,k).map(t=>`<li>• ${t}</li>`).join('')}</ul></div>
@@ -492,6 +498,7 @@ function miniChart(k){
 }
 function showDetail(k){
   const r=M[k], w=W[k];
+  const pk=periodKpi(k);
   const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
   const segsum=segs.reduce((s,x)=>s+x[1],0);
   const chuTxt=r.chu[1]==null?'—':r.chu[1].toFixed(1)+'%';
@@ -519,9 +526,9 @@ function showDetail(k){
       </div>
       <div class="dcards">
         <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
-        <div class="hc"><div class="l">Faollashtirish</div><div class="v orange">${r.fao[0]?r.fao[0].toFixed(1)+'%':'—'}</div><div class="n">${r.fao[1]} ta noaktivdan qaytarildi</div></div>
+        <div class="hc"><div class="l">Faollashtirilgan</div><div class="v orange">${pk.fao}</div><div class="n">${WLBL[WEEK]} · active’ga qaytgan</div></div>
         <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
-        <div class="hc"><div class="l">Kassa — ${MONTH_NAME}</div><div class="v">${mln(r.kassa)}</div><div class="n">yangi o'quvchi: ${r.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
+        <div class="hc"><div class="l">Qarzdorlik rejasi — ${MONTH_NAME}</div><div class="v">${pk.qarz_plan}</div><div class="n">yangi: ${pk.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
       </div>
     </div>
     <div class="panel">
@@ -599,7 +606,8 @@ function applyLive(){
   var ncur=Object.keys(M).length;
   var set=function(id,v){var e=document.getElementById(id); if(e)e.textContent=v;};
   set('hBaseV', fmt(TOTAL)); set('hBaseN', ncur+" kurator · "+grp+" guruh");
-  if(DALL.fao){ set('hFaoV', DALL.fao[1].toFixed(1)+'%'); set('hFaoN', DALL.fao[2]+" ta noaktivdan qaytarildi"); }
+  const ek=Object.keys(M).reduce((s,k)=>s+periodKpi(k).fao,0);
+  set('hFaoV',fmt(ek)); set('hFaoN',WLBL[WEEK]+" · active’ga qaytgan");
   if(DALL.qarz!=null) set('hQarzV', DALL.qarz);
   if(DALL.froz!=null) set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta · batafsil →");
   if(__DATA__.snap) set('snapdate', __DATA__.snap);
@@ -608,7 +616,7 @@ function applyLive(){
   select.innerHTML=`<option value="ALL">${MONTH_NAME} ${MONTH_YEAR} · oy boshidan · yangilangan ${__DATA__.snap||'—'}</option>`+
     WM.map((w,i)=>`<option value="${w.key}">${String(w.from_day).padStart(2,'0')}.${MM}–${String(w.to_day).padStart(2,'0')}.${MM} · ${i+1}-hafta</option>`).join('');
   select.value=selected;
-  document.getElementById('sourceNote').innerHTML=`<b>Ma’lumotlar qayerdan olinadi:</b> Aktiv/Passiv/Noaktiv, baza, churn, kassa, qarzdor, muzlatilgan va ota-ona bot — CRM Analitika API’dan (<b>${MONTH_NAME} ${MONTH_YEAR}</b>, kurator admin_id bo‘yicha). Haftalik Noaktiv dinamikasi — CRM’dagi joriy Noaktiv qoldig‘i va LMS MCP’dagi <b>student_status_logs</b> kirish/chiqish hodisalari asosida. Kurator–guruh bog‘lanishi — <b>group_list + subscribe_list</b>. Dashboard har kuni avtomatik yangilanadi; yangi oy boshlanganda sana va hafta chegaralari avtomatik almashadi.`;
+  document.getElementById('sourceNote').innerHTML=`<b>Ma’lumotlar qayerdan olinadi:</b> Aktiv/Passiv/Noaktiv, baza, churn, joriy qarzdor, muzlatilgan va ota-ona bot — CRM Analitika API’dan. <b>Qarzdorlik rejasi</b> — debtors_plan.DATA’даги ${MONTH_NAME} рўйхати; <b>Yangi</b> — LMS MCP student_status_logs’да selected period’да new бўлган уникал ўқувчилар; <b>Faollashtirilgan</b> — passive/not_active’dan active’га қайтган уникал ўқувчилар. Kurator–guruh боғланиши — group_list + subscribe_list.`;
 }
 
 function renderAll(){
