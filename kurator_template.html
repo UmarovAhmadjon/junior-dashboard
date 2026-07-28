@@ -30,6 +30,8 @@
 
   .davr{display:flex;align-items:center;gap:10px;margin:16px 2px 14px;flex-wrap:wrap}
   .davr .lbl{font-size:13px;color:var(--muted);font-weight:600}
+  .period-select{min-width:330px;max-width:100%;font:650 13px var(--font);color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 42px 10px 14px;cursor:pointer;box-shadow:0 1px 3px rgba(16,22,40,.05)}
+  .period-select:focus{outline:3px solid rgba(84,110,255,.18);border-color:var(--blue)}
   .seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px}
   .seg button{font-family:var(--font);font-size:12.5px;font-weight:650;padding:8px 15px;border:none;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
   .seg button.on{background:var(--hero);color:#fff}
@@ -38,6 +40,15 @@
   .panel{background:#fff;border-radius:18px;padding:24px 28px;margin-bottom:18px;box-shadow:0 1px 3px rgba(16,22,40,.05)}
   .panel h2{font-size:16.5px;font-weight:750;letter-spacing:-.2px}
   .panel .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .activity-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+  .activity-card{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:#fbfcff}
+  .activity-card .at{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .activity-card .an{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .activity-card .av{font-size:28px;font-weight:850;color:var(--good);letter-spacing:-.8px}
+  .activity-card .as{font-size:11px;color:var(--muted);margin-top:2px}
+  .activity-card .mini-status{height:9px;border-radius:7px;overflow:hidden;display:flex;margin-top:12px;background:#eef0f5}
+  .activity-card .mini-status i{display:block;height:100%}
+  .activity-card .aleg{font-size:10.5px;color:var(--muted);display:flex;gap:9px;flex-wrap:wrap;margin-top:7px}
   .chartwrap{margin-top:16px;overflow-x:auto}
   svg text{font-family:var(--font)}
 
@@ -78,7 +89,7 @@
   .churninfo .t{font-size:12px;color:var(--muted)}
   .churninfo .big{font-size:15px;margin-top:2px}
   .churninfo .big b{font-size:21px;color:var(--bad);font-weight:800}
-  .wboxes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .wboxes{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
   .wb{border:1px solid var(--line);border-radius:10px;padding:8px 11px}
   .wb.hl{border-color:var(--hero);box-shadow:0 0 0 1px var(--hero)}
   .wb .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
@@ -102,8 +113,11 @@
   .tavs ul{list-style:none}
   .tavs li{font-size:12.5px;padding:3px 0;color:#4c4632}
   .tavs li b{color:var(--ink)}
-  .extras{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:13px;padding-top:12px;border-top:1px dashed var(--line);flex-wrap:wrap}
-  .extras b{color:var(--ink)}
+  .extras{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  .extra-kpi{border:1px solid var(--line);background:#f8f9fc;border-radius:11px;padding:11px 12px}
+  .extra-kpi .el{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:750}
+  .extra-kpi .ev{font-size:18px;font-weight:850;color:var(--ink);margin-top:2px}
+  .extra-kpi .en{font-size:10px;color:var(--muted)}
 
   .foot{font-size:12px;color:var(--muted);line-height:1.7;margin-top:20px;padding:0 6px}
   .foot b{color:#5a6272}
@@ -150,7 +164,7 @@
   .wtable th.num,.wtable td.num{text-align:right}
   .wtable td{padding:10px 8px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
   .wtable tr.cur td{background:#f4f6fa;font-weight:700}
-  @media(max-width:920px){.hcards{grid-template-columns:repeat(2,1fr)}.cardsgrid{grid-template-columns:1fr}.hide-sm{display:none}.dcards{grid-template-columns:repeat(2,1fr)}.dgrid2{grid-template-columns:1fr}}
+  @media(max-width:920px){.hcards{grid-template-columns:repeat(2,1fr)}.cardsgrid{grid-template-columns:1fr}.hide-sm{display:none}.dcards{grid-template-columns:repeat(2,1fr)}.dgrid2{grid-template-columns:1fr}.activity-grid{grid-template-columns:1fr}.extras{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -173,13 +187,21 @@
   <!-- DAVR -->
   <div class="davr">
     <span class="lbl">Davr:</span>
-    <div class="seg" id="seg">
-      <button class="on" data-w="ALL">Oy boshidan</button>
-      <button data-w="W1">1-hafta</button>
-      <button data-w="W2">2-hafta</button>
-      <button data-w="W3">Joriy hafta</button>
-    </div>
-    <span class="showing" id="showing">Ko'rsatilmoqda: Oy boshidan (01–16.07)</span>
+    <select class="period-select" id="periodSelect" aria-label="Davrni tanlang">
+      <option value="ALL" id="monthOption">Iyul 2026 · oy boshidan · yangilangan 28.07</option>
+      <option value="W1">01.07–07.07 · 1-hafta</option>
+      <option value="W2">08.07–14.07 · 2-hafta</option>
+      <option value="W3">15.07–21.07 · 3-hafta</option>
+      <option value="W4">22.07–31.07 · joriy hafta</option>
+    </select>
+    <span class="showing" id="showing">Ko'rsatilmoqda: Iyul 2026, oy boshidan</span>
+  </div>
+
+  <!-- UMUMIY AKTIVNOST -->
+  <div class="panel">
+    <h2>Umumiy aktivnost</h2>
+    <div class="sub">Aktiv / Passiv / Noaktiv kesimi — umumiy va jamoalar bo‘yicha.</div>
+    <div class="activity-grid" id="activityGrid"></div>
   </div>
 
   <!-- CHART -->
@@ -243,9 +265,9 @@
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
 /*__DATA__*/
-const M=__DATA__.M, W=__DATA__.W, DALL=__DATA__.all||{};
-const WLBL={ALL:"Oy boshidan (01–16.07)",W1:"1-hafta (01–07.07)",W2:"2-hafta (08–14.07)",W3:"Joriy hafta (15–21.07)"};
-const WSHORT={ALL:"iyul",W1:"1-hafta",W2:"2-hafta",W3:"joriy hafta"};
+const M=__DATA__.M, W=__DATA__.W, DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
+const WLBL={ALL:"Iyul 2026 · oy boshidan",W1:"1-hafta (01–07.07)",W2:"2-hafta (08–14.07)",W3:"3-hafta (15–21.07)",W4:"Joriy hafta (22–31.07)"};
+const WSHORT={ALL:"iyul",W1:"1-hafta",W2:"2-hafta",W3:"3-hafta",W4:"joriy hafta"};
 const TOTAL=(__DATA__.all&&__DATA__.all.b)||2126;
 const fmt=n=>n==null?'—':n.toLocaleString('ru-RU').replace(/,/g,' ');
 const mln=n=>(n/1e6).toFixed(1).replace('.',',')+' mln';
@@ -260,7 +282,7 @@ function pchurn(k){
   }
   if(!w) return {pct:null,cnt:null,plan:PLAN.churnW,has:false,prev:null};
   const cnt=w[WEEK][2], pct=cnt/r.b*100;
-  const prevKey={W1:null,W2:'W1',W3:'W2'}[WEEK];
+  const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
   const prev=prevKey?{pct:w[prevKey][2]/r.b*100,cnt:w[prevKey][2],lbl:WSHORT[prevKey]}:null;
   return {pct,cnt,plan:PLAN.churnW,has:true,prev};
 }
@@ -271,7 +293,7 @@ function pzone(pct,plan){
 function orgChurn(){
   if(WEEK==='ALL')return {pct:DALL.chu?DALL.chu[1]:0,cnt:DALL.chu?DALL.chu[2]:0,plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
   const cnt=W.all[WEEK][2], pct=cnt/TOTAL*100;
-  const prevKey={W1:null,W2:'W1',W3:'W2'}[WEEK];
+  const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
   const prev=prevKey?{pct:W.all[prevKey][2]/TOTAL*100,cnt:W.all[prevKey][2],lbl:WSHORT[prevKey]}:null;
   return {pct,cnt,plan:PLAN.churnW,prev};
 }
@@ -294,13 +316,32 @@ function hero(){
   }
 }
 
+// ---------- UMUMIY AKTIVNOST ----------
+function activity(){
+  const sets=[
+    ['Umumiy',DALL],
+    ['TEAM A',typeof DTA!=='undefined'?DTA:null],
+    ['TEAM B',typeof DTB!=='undefined'?DTB:null]
+  ].filter(x=>x[1]&&x[1].a);
+  document.getElementById('activityGrid').innerHTML=sets.map(([name,d])=>{
+    const a=d.a||[0,0],p=d.p||[0,0],x=d.x||[0,0],y=d.y||[0,0];
+    const sum=Math.max(1,a[0]+p[0]+x[0]+y[0]);
+    return `<div class="activity-card">
+      <div class="at"><div><div class="an">${name}</div><div class="as">${fmt(d.b||sum)} o‘quvchi</div></div><div class="av">${a[1].toFixed(1)}%</div></div>
+      <div class="mini-status"><i style="width:${a[0]/sum*100}%;background:var(--good)"></i><i style="width:${p[0]/sum*100}%;background:var(--warn)"></i><i style="width:${x[0]/sum*100}%;background:var(--bad)"></i><i style="width:${y[0]/sum*100}%;background:#6c5ce7"></i></div>
+      <div class="aleg"><span>Aktiv ${a[0]}</span><span>Passiv ${p[0]}</span><span>Noaktiv ${x[0]}</span>${y[0]?`<span>Yangi ${y[0]}</span>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
 // ---------- CHART ----------
 function drawChart(){
   const svg=document.getElementById('chart');
   const pts=[
     {x:'1-hafta\n01–07',v:W.all.W1[2]/TOTAL*100,n:W.all.W1[2]},
     {x:'2-hafta\n08–14',v:W.all.W2[2]/TOTAL*100,n:W.all.W2[2]},
-    {x:'Joriy\n15–21*',v:W.all.W3[2]/TOTAL*100,n:W.all.W3[2]},
+    {x:'3-hafta\n15–21',v:W.all.W3[2]/TOTAL*100,n:W.all.W3[2]},
+    {x:'Joriy\n22–31*',v:W.all.W4[2]/TOTAL*100,n:W.all.W4[2]},
   ];
   const L=70,R=40,T=24,B=44,Wd=900-L-R,H=230-T-B,maxV=14;
   const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-(Math.min(v,maxV)/maxV)*H;
@@ -312,7 +353,7 @@ function drawChart(){
   const area=`M${X(0)},${Y(pts[0].v)} `+pts.map((p,i)=>`L${X(i)},${Y(p.v)}`).join(' ')+` L${X(pts.length-1)},${T+H} L${X(0)},${T+H} Z`;
   s+=`<path d="${area}" fill="rgba(53,100,196,.09)"/>`;
   s+=`<path d="${path}" fill="none" stroke="#3564c4" stroke-width="2.6" stroke-linecap="round"/>`;
-  const selIdx={ALL:-1,W1:0,W2:1,W3:2}[WEEK];
+  const selIdx={ALL:-1,W1:0,W2:1,W3:2,W4:3}[WEEK];
   pts.forEach((p,i)=>{
     const hl=i===selIdx;
     s+=`<circle cx="${X(i)}" cy="${Y(p.v)}" r="${hl?8:5.5}" fill="#fff" stroke="#3564c4" stroke-width="${hl?3.4:2.4}"/>`;
@@ -403,8 +444,8 @@ function cards(){
   const el=document.getElementById('cards'); el.innerHTML='';
   sorted.forEach(k=>{
     const r=M[k], w=W[k], c=pchurn(k);
-    let wk1='—',wk2='—',wk3='—';
-    if(w){wk1=(w.W1[2]/r.b*100).toFixed(1)+'%';wk2=(w.W2[2]/r.b*100).toFixed(1)+'%';wk3=(w.W3[2]/r.b*100).toFixed(1)+'%'}
+    let wk1='—',wk2='—',wk3='—',wk4='—';
+    if(w){wk1=(w.W1[2]/r.b*100).toFixed(1)+'%';wk2=(w.W2[2]/r.b*100).toFixed(1)+'%';wk3=(w.W3[2]/r.b*100).toFixed(1)+'%';wk4=(w.W4[2]/r.b*100).toFixed(1)+'%'}
     const wkm=M[k].chu[1]==null?'—':M[k].chu[1].toFixed(1)+'%';
     const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
     const segsum=segs.reduce((s,x)=>s+x[1],0);
@@ -423,7 +464,8 @@ function cards(){
           <div class="wboxes">
             <div class="wb ${WEEK==='W1'?'hl':''}"><div class="l">1-hafta</div><div class="v">${wk1}</div></div>
             <div class="wb ${WEEK==='W2'?'hl':''}"><div class="l">2-hafta</div><div class="v">${wk2}</div></div>
-            <div class="wb ${WEEK==='ALL'?'hl':(WEEK==='W3'?'hl':'')}"><div class="l">${WEEK==='W3'?'Joriy':'Oylik'}</div><div class="v">${WEEK==='W3'?wk3:wkm}</div></div>
+            <div class="wb ${WEEK==='W3'?'hl':''}"><div class="l">3-hafta</div><div class="v">${wk3}</div></div>
+            <div class="wb ${WEEK==='ALL'||WEEK==='W4'?'hl':''}"><div class="l">${WEEK==='ALL'?'Oylik':'Joriy'}</div><div class="v">${WEEK==='ALL'?wkm:wk4}</div></div>
           </div>
         </div>
       </div>
@@ -435,13 +477,13 @@ function cards(){
         <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('froz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('froz','${k}')"><div class="l">Muzlatilgan</div><div class="v or">${r.froz}</div><div class="n">${(r.froz/r.b*100).toFixed(1)}% baza · batafsil →</div></div>
         <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('noaktiv','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('noaktiv','${k}')"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza · batafsil →</div></div>
       </div>
-      <div class="tavs"><div class="th">💡 Tavsiyalar — churnni kamaytirish</div><ul>${tavsiyalar(r,k).map(t=>`<li>• ${t}</li>`).join('')}</ul></div>
       <div class="extras">
-        <span>💰 Kassa: <b>${mln(r.kassa)}</b></span>
-        <span>🆕 Yangi: <b>${r.yangi}</b></span>
-        <span>♻️ Faollashtirish: <b>${r.fao[0]?r.fao[0].toFixed(0)+'%':'—'} (${r.fao[1]})</b></span>
-        <span>🤖 Ota-ona bot: <b>${r.ota[1]}%</b></span>
+        <div class="extra-kpi"><div class="el">💰 Kassa</div><div class="ev">${mln(r.kassa)}</div><div class="en">oy boshidan</div></div>
+        <div class="extra-kpi"><div class="el">🆕 Yangi</div><div class="ev">${r.yangi}</div><div class="en">o‘quvchi</div></div>
+        <div class="extra-kpi"><div class="el">♻️ Faollashtirish</div><div class="ev">${r.fao[0]?r.fao[0].toFixed(0)+'%':'—'}</div><div class="en">${r.fao[1]} ta qaytarildi</div></div>
+        <div class="extra-kpi"><div class="el">🤖 Ota-ona bot</div><div class="ev">${r.ota[1]}%</div><div class="en">${r.ota[0]} ta ulangan</div></div>
       </div>
+      <div class="tavs"><div class="th">💡 Tavsiyalar — churnni kamaytirish</div><ul>${tavsiyalar(r,k).map(t=>`<li>• ${t}</li>`).join('')}</ul></div>
     </div>`);
   });
 }
@@ -453,7 +495,8 @@ function miniChart(k){
   const pts=[
     {x:'1-hafta',x2:'01–07',v:w.W1[2]/r.b*100,n:w.W1[2]},
     {x:'2-hafta',x2:'08–14',v:w.W2[2]/r.b*100,n:w.W2[2]},
-    {x:'Joriy',x2:'15–21*',v:w.W3[2]/r.b*100,n:w.W3[2]},
+    {x:'3-hafta',x2:'15–21',v:w.W3[2]/r.b*100,n:w.W3[2]},
+    {x:'Joriy',x2:'22–31*',v:w.W4[2]/r.b*100,n:w.W4[2]},
   ];
   const Wd0=440,H0=190,L=44,R=26,T=22,B=40,Wd=Wd0-L-R,H=H0-T-B;
   const maxV=Math.max(5,...pts.map(p=>p.v))*1.25;
@@ -481,11 +524,11 @@ function showDetail(k){
     : `<span style="opacity:.6">iyun bazasi yo'q</span>`;
   let wrows='';
   if(w){
-    [['1-hafta (01–07.07)','W1'],['2-hafta (08–14.07)','W2'],['Joriy hafta (15–21.07)','W3']].forEach(([lbl,wk])=>{
+    [['1-hafta (01–07.07)','W1'],['2-hafta (08–14.07)','W2'],['3-hafta (15–21.07)','W3'],['Joriy hafta (22–31.07)','W4']].forEach(([lbl,wk])=>{
       const d=w[wk];
       wrows+=`<tr class="${WEEK===wk?'cur':''}"><td>${lbl}</td><td class="num" style="color:var(--good)">${d[0]}</td><td class="num" style="color:var(--warn)">${d[1]}</td><td class="num" style="color:var(--bad);font-weight:700">${d[2]}</td><td class="num">${(d[2]/r.b*100).toFixed(1)}%</td></tr>`;
     });
-    const t=[w.W1,w.W2,w.W3].reduce((s,x)=>[s[0]+x[0],s[1]+x[1],s[2]+x[2]],[0,0,0]);
+    const t=[w.W1,w.W2,w.W3,w.W4].reduce((s,x)=>[s[0]+x[0],s[1]+x[1],s[2]+x[2]],[0,0,0]);
     wrows+=`<tr class="cur"><td>Oy boshidan</td><td class="num" style="color:var(--good)">${t[0]}</td><td class="num" style="color:var(--warn)">${t[1]}</td><td class="num" style="color:var(--bad);font-weight:700">${t[2]}</td><td class="num">${(t[2]/r.b*100).toFixed(1)}%</td></tr>`;
   } else wrows=`<tr><td colspan="5" style="color:var(--muted)">Haftalik log hali yig'ilmagan</td></tr>`;
   document.getElementById('dcontent').innerHTML=`
@@ -577,23 +620,20 @@ function applyLive(){
   var grp=Object.values(M).reduce(function(s,r){return s+(r.grp||0)},0);
   var ncur=Object.keys(M).length;
   var set=function(id,v){var e=document.getElementById(id); if(e)e.textContent=v;};
-  set('hBaseV', fmt(TOTAL));
-  set('hBaseN', ncur+" kurator · "+grp+" guruh");
+  set('hBaseV', fmt(TOTAL)); set('hBaseN', ncur+" kurator · "+grp+" guruh");
   if(DALL.fao){ set('hFaoV', DALL.fao[1].toFixed(1)+'%'); set('hFaoN', DALL.fao[2]+" ta noaktivdan qaytarildi"); }
-  if(DALL.qarz!=null){ set('hQarzV', DALL.qarz); }
-  if(DALL.froz!=null){ set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta · batafsil →"); }
-  if(__DATA__.snap){ set('snapdate', __DATA__.snap); }
+  if(DALL.qarz!=null) set('hQarzV', DALL.qarz);
+  if(DALL.froz!=null) set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta · batafsil →");
+  if(__DATA__.snap){ set('snapdate', __DATA__.snap); var md=__DATA__.snap.slice(0,5); set('monthOption', "Iyul 2026 · oy boshidan · yangilangan "+md); }
 }
 
 function renderAll(){
   applyLive();
   document.getElementById('showing').textContent='Ko\'rsatilmoqda: '+WLBL[WEEK];
-  hero(); drawChart(); rating(); cards();
+  hero(); activity(); drawChart(); rating(); cards();
 }
-document.getElementById('seg').addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b)return;
-  WEEK=b.dataset.w;
-  document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x===b));
+document.getElementById('periodSelect').addEventListener('change',e=>{
+  WEEK=e.target.value;
   renderAll();
 });
 renderAll();
