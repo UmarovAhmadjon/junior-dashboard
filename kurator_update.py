@@ -147,6 +147,48 @@ def weekly_noaktiv_net(admin_ids_list, weeks):
         out.setdefault(str(r['admin']), {})[r['wk']] = int(r['net'] or 0)
     return out
 
+def period_kpis(admin_ids_list, weeks):
+    """Oy/hafta bo'yicha yangi va qayta faollashtirilgan unik o'quvchilar."""
+    ids = ','.join(admin_ids_list)
+    when = " ".join([f"WHEN l.changed_at<'{w['end_exclusive']}' THEN '{w['key']}'" for w in weeks[:-1]])
+    last = weeks[-1]['key']
+    base = (
+        f"FROM (SELECT s.STUDENT_ID,MIN(g.ADMIN_ID) admin FROM subscribe_list s "
+        f"JOIN group_list g ON g.ID=s.GROUP_ID WHERE g.ADMIN_ID IN ({ids}) "
+        f"AND s.STATUS IN ('active','freezed') GROUP BY s.STUDENT_ID) t "
+        f"JOIN student_status_logs l ON l.student_id=t.STUDENT_ID "
+        f"WHERE l.changed_at>='{weeks[0]['start']}' AND l.changed_at<'{weeks[-1]['end_exclusive']}' "
+    )
+    counts = (
+        f"COUNT(DISTINCT CASE WHEN l.to_status='new' THEN l.student_id END) yangi, "
+        f"COUNT(DISTINCT CASE WHEN l.from_status IN ('passive','not_active') "
+        f"AND l.to_status='active' THEN l.student_id END) faollashgan "
+    )
+    sql = (
+        f"SELECT t.admin,CASE {when} ELSE '{last}' END wk,{counts}{base} GROUP BY t.admin,wk "
+        f"UNION ALL SELECT t.admin,'ALL' wk,{counts}{base} GROUP BY t.admin"
+    )
+    out = {}
+    for r in mcp(sql):
+        out.setdefault(str(r['admin']), {})[r['wk']] = {
+            'yangi': int(r['yangi'] or 0),
+            'fao': int(r['faollashgan'] or 0),
+        }
+    return out
+
+def monthly_debtor_plan(admin_ids_list, month):
+    """debtors_plan.DATA dagi oylik reja, amaldagi oylik obunalar bo'yicha."""
+    ids = ','.join(admin_ids_list)
+    sql = (
+        f"SELECT g.ADMIN_ID admin,COUNT(DISTINCT s.STUDENT_ID) qarz_plan "
+        f"FROM group_list g JOIN subscribe_list s ON s.GROUP_ID=g.ID "
+        f"JOIN debtors_plan d ON d.START_DATE='{month}' "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND s.ACTIVE=1 AND s.TYPE='monthly' AND s.STATUS='active' "
+        f"AND JSON_CONTAINS(d.DATA,JSON_QUOTE(CAST(s.STUDENT_ID AS CHAR)),'$') "
+        f"GROUP BY g.ADMIN_ID"
+    )
+    return {str(r['admin']):int(r['qarz_plan']) for r in mcp(sql)}
+
 def month_weeks(month):
     """Oyni 1–7, 8–14, 15–21, 22–oy oxiri ko'rinishida avtomatik yaratadi."""
     y, mo = map(int, month[:7].split('-'))
@@ -223,7 +265,25 @@ def main():
             'delta': sum(N[k][wk]['delta'] for k in CUR),
         }
 
-    payload = {'M':M, 'W':W, 'N':N, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    # Filtrga bog'liq yangi/faollashtirilgan va oylik qarzdorlik rejasi.
+    events = period_kpis([v[2] for v in CUR.values()], weeks_meta)
+    debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
+    E = {}
+    for key,(_,_,aid,_) in CUR.items():
+        wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in ['W1','W2','W3','W4']}
+        E[key] = {
+            'weeks': wk_data,
+            'month': {
+                'yangi': events.get(aid,{}).get('ALL',{}).get('yangi',0),
+                'fao': events.get(aid,{}).get('ALL',{}).get('fao',0),
+                'qarz_plan': debt_plan.get(aid,0),
+            }
+        }
+        M[key]['yangi'] = E[key]['month']['yangi']
+        M[key]['qayta'] = E[key]['month']['fao']
+        M[key]['qarz_plan'] = E[key]['month']['qarz_plan']
+
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -245,7 +305,7 @@ def real_date():
 
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
