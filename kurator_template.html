@@ -90,6 +90,9 @@
   .stlegend .d{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px}
   .boxes3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
   .b3{border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+  .metric-click{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+  .metric-click:hover{transform:translateY(-2px);border-color:#9aa9ff;box-shadow:0 8px 22px rgba(52,70,150,.12)}
+  .metric-click:focus-visible{outline:3px solid rgba(84,110,255,.25);outline-offset:2px}
   .b3 .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
   .b3 .v{font-size:19px;font-weight:800;margin-top:1px}
   .b3 .v.or{color:#d78a1e} .b3 .v.rd{color:var(--bad)}
@@ -111,6 +114,25 @@
   .kk .who .n1:hover,.nm:hover{color:var(--blue)}
   #detail{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none;padding:22px 14px 60px}
   #detail.open{display:block}
+  #metricModal{position:fixed;inset:0;background:rgba(17,25,48,.58);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}
+  #metricModal.open{display:flex}
+  .metric-dialog{width:min(760px,100%);max-height:min(760px,92vh);overflow:auto;background:#fff;border-radius:20px;box-shadow:0 28px 80px rgba(15,24,55,.3)}
+  .metric-head{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:20px 22px 14px;z-index:2}
+  .metric-headrow{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  .metric-title{font-size:21px;font-weight:800}
+  .metric-sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .metric-close{border:1px solid var(--line);background:#f7f8fb;border-radius:9px;width:34px;height:34px;cursor:pointer;font-size:19px;color:var(--muted)}
+  .metric-tabs{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
+  .metric-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:700 12px var(--font);cursor:pointer;color:var(--muted)}
+  .metric-tab.on{background:var(--hero);color:#fff;border-color:var(--hero)}
+  .metric-body{padding:8px 22px 22px}
+  .metric-table{width:100%;border-collapse:collapse}
+  .metric-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:11px 8px;text-align:left;border-bottom:1px solid var(--line)}
+  .metric-table th.num,.metric-table td.num{text-align:right}
+  .metric-table td{font-size:13px;padding:11px 8px;border-bottom:1px solid #eef0f5}
+  .metric-table tr.focus td{background:#f3f5ff;font-weight:700}
+  .metric-rank{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#f0f2f7;font-size:11px;font-weight:800;color:var(--muted)}
+  .metric-val{font-size:16px;font-weight:800;color:var(--ink)}
   .dpage{max-width:980px;margin:0 auto}
   .backbtn{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 18px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;font-family:var(--font);margin-bottom:14px}
   .backbtn:hover{border-color:var(--blue);color:var(--blue)}
@@ -144,7 +166,7 @@
       <div class="hc"><div class="l" id="hChuL">Churn — Iyul</div><div class="v red" id="hChuV">12.6%</div><div class="n" id="hChuN">266 o'quvchi ketgan · plan ≤14%</div></div>
       <div class="hc"><div class="l" id="hTrL">Iyunga nisbatan</div><div class="v green" id="hTrV">▼ 4.6p</div><div class="n" id="hTrN">iyun 17.2% → iyul 12.6%</div></div>
       <div class="hc"><div class="l">Faollashtirish</div><div class="v orange" id="hFaoV">45.7%</div><div class="n" id="hFaoN">344 ta noaktivdan qaytarildi</div></div>
-      <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange" id="hQarzV">238</div><div class="n" id="hQarzN">muzlatilganlar: 215 ta</div></div>
+      <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz')" title="Bosing — kuratorlar kesimi"><div class="l">Qarzdorlar</div><div class="v orange" id="hQarzV">238</div><div class="n" id="hQarzN">muzlatilganlar: 215 ta · batafsil →</div></div>
     </div>
   </div>
 
@@ -204,6 +226,18 @@
 
 <!-- KURATOR DETAIL SAHIFASI -->
 <div id="detail"><div class="dpage" id="dcontent"></div></div>
+<div id="metricModal" onclick="if(event.target===this)closeMetric()">
+  <div class="metric-dialog" role="dialog" aria-modal="true" aria-labelledby="metricTitle">
+    <div class="metric-head">
+      <div class="metric-headrow">
+        <div><div class="metric-title" id="metricTitle"></div><div class="metric-sub" id="metricSub"></div></div>
+        <button class="metric-close" onclick="closeMetric()" aria-label="Yopish">×</button>
+      </div>
+      <div class="metric-tabs" id="metricTabs"></div>
+    </div>
+    <div class="metric-body" id="metricBody"></div>
+  </div>
+</div>
 
 <script>
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
@@ -397,9 +431,9 @@ function cards(){
       <div class="stack">${segs.map(s=>`<i style="background:${s[2]};width:${s[1]/segsum*100}%">${s[1]/segsum>0.09?s[1]:''}</i>`).join('')}</div>
       <div class="stlegend">${segs.map(s=>`<span><i class="d" style="background:${s[2]}"></i>${s[0]} ${s[1]}</span>`).join('')}</div>
       <div class="boxes3">
-        <div class="b3"><div class="l">Qarzdorlar</div><div class="v or">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza</div></div>
-        <div class="b3"><div class="l">Muzlatilgan</div><div class="v or">${r.froz}</div><div class="n">${(r.froz/r.b*100).toFixed(1)}% baza</div></div>
-        <div class="b3"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza</div></div>
+        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v or">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · batafsil →</div></div>
+        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('froz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('froz','${k}')"><div class="l">Muzlatilgan</div><div class="v or">${r.froz}</div><div class="n">${(r.froz/r.b*100).toFixed(1)}% baza · batafsil →</div></div>
+        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('noaktiv','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('noaktiv','${k}')"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza · batafsil →</div></div>
       </div>
       <div class="tavs"><div class="th">💡 Tavsiyalar — churnni kamaytirish</div><ul>${tavsiyalar(r,k).map(t=>`<li>• ${t}</li>`).join('')}</ul></div>
       <div class="extras">
@@ -465,7 +499,7 @@ function showDetail(k){
       <div class="dcards">
         <div class="hc"><div class="l">Churn — Iyul</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
         <div class="hc"><div class="l">Faollashtirish</div><div class="v orange">${r.fao[0]?r.fao[0].toFixed(1)+'%':'—'}</div><div class="n">${r.fao[1]} ta noaktivdan qaytarildi</div></div>
-        <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz}</div></div>
+        <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
         <div class="hc"><div class="l">Kassa — Iyul</div><div class="v">${mln(r.kassa)}</div><div class="n">yangi o'quvchi: ${r.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
       </div>
     </div>
@@ -493,6 +527,50 @@ function hideDetail(){
   document.body.style.overflow='';
 }
 
+// ---------- CLICKABLE METRICS ----------
+const METRICS={
+  qarz:{title:'Qarzdorlar',color:'#d78a1e',value:r=>r.qarz,pct:r=>r.b?r.qarz/r.b*100:0},
+  froz:{title:'Muzlatilganlar',color:'#d78a1e',value:r=>r.froz,pct:r=>r.b?r.froz/r.b*100:0},
+  noaktiv:{title:'Noaktiv o‘quvchilar',color:'#d24a35',value:r=>r.x[0],pct:r=>r.x[1]}
+};
+let METRIC_KEY='qarz', METRIC_FOCUS=null;
+function openMetric(metric='qarz',focus=null){
+  METRIC_KEY=metric; METRIC_FOCUS=focus;
+  renderMetric();
+  document.getElementById('metricModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeMetric(){
+  document.getElementById('metricModal').classList.remove('open');
+  document.body.style.overflow=document.getElementById('detail').classList.contains('open')?'hidden':'';
+}
+function switchMetric(metric){
+  METRIC_KEY=metric;
+  renderMetric();
+}
+function renderMetric(){
+  const cfg=METRICS[METRIC_KEY];
+  const rows=Object.entries(M).map(([k,r])=>({k,r,v:cfg.value(r),pct:cfg.pct(r)}))
+    .sort((a,b)=>b.v-a.v);
+  const total=rows.reduce((s,x)=>s+x.v,0);
+  const focusName=METRIC_FOCUS&&M[METRIC_FOCUS]?M[METRIC_FOCUS].name:null;
+  document.getElementById('metricTitle').textContent=cfg.title;
+  document.getElementById('metricSub').textContent=
+    `${Object.keys(M).length} amaldagi kurator · jami ${fmt(total)} ta`+
+    (focusName?` · ${focusName} ajratildi`:'');
+  document.getElementById('metricTabs').innerHTML=Object.entries(METRICS).map(([k,m])=>
+    `<button class="metric-tab ${k===METRIC_KEY?'on':''}" onclick="switchMetric('${k}')">${m.title}</button>`
+  ).join('');
+  document.getElementById('metricBody').innerHTML=`<table class="metric-table">
+    <thead><tr><th>#</th><th>Kurator</th><th>Team</th><th class="num">Baza</th><th class="num">${cfg.title}</th><th class="num">Ulush</th></tr></thead>
+    <tbody>${rows.map((x,i)=>`<tr class="${x.k===METRIC_FOCUS?'focus':''}">
+      <td><span class="metric-rank">${i+1}</span></td><td>${x.r.name}</td><td>TEAM ${x.r.team}</td>
+      <td class="num">${fmt(x.r.b)}</td><td class="num"><span class="metric-val" style="color:${cfg.color}">${fmt(x.v)}</span></td>
+      <td class="num">${x.pct.toFixed(1)}%</td></tr>`).join('')}
+    </tbody></table>`;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMetric()});
+
 // ---------- PERIOD SWITCH ----------
 
 function applyLive(){
@@ -503,7 +581,7 @@ function applyLive(){
   set('hBaseN', ncur+" kurator · "+grp+" guruh");
   if(DALL.fao){ set('hFaoV', DALL.fao[1].toFixed(1)+'%'); set('hFaoN', DALL.fao[2]+" ta noaktivdan qaytarildi"); }
   if(DALL.qarz!=null){ set('hQarzV', DALL.qarz); }
-  if(DALL.froz!=null){ set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta"); }
+  if(DALL.froz!=null){ set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta · batafsil →"); }
   if(__DATA__.snap){ set('snapdate', __DATA__.snap); }
 }
 
