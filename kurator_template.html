@@ -174,7 +174,7 @@
   <div class="hero">
     <h1>Junior Online — Kurator Tahlili</h1>
     <div class="desc">Har bir kurator bo'yicha o'quvchilar soni, churn darajasi, status taqsimoti (Aktiv/Passiv/Noaktiv), qarzdorlik, kassa va faollashtirish. <b>Churn = tanlangan davrda ketgan o'quvchilar ÷ aktiv baza. Oylik plan: ≤ 14%.</b></div>
-    <div class="srcbadge"><span class="dot"></span> Ma'lumot manbasi: <b>CRM Analitika moduli</b> (jonli API) · Snapshot: <b id="snapdate">16.07.2026</b> · Iyul, oy boshidan</div>
+    <div class="srcbadge"><span class="dot"></span> Ma'lumot manbasi: <b>CRM Analitika + LMS MCP</b> · Snapshot: <b id="snapdate">—</b> · <span id="srcMonth">joriy oy</span></div>
     <div class="hcards">
       <div class="hc"><div class="l">Aktiv baza</div><div class="v" id="hBaseV">2 126</div><div class="n" id="hBaseN">10 kurator · 51 guruh</div></div>
       <div class="hc"><div class="l" id="hChuL">Churn — Iyul</div><div class="v red" id="hChuV">12.6%</div><div class="n" id="hChuN">266 o'quvchi ketgan · plan ≤14%</div></div>
@@ -188,11 +188,7 @@
   <div class="davr">
     <span class="lbl">Davr:</span>
     <select class="period-select" id="periodSelect" aria-label="Davrni tanlang">
-      <option value="ALL" id="monthOption">Iyul 2026 · oy boshidan · yangilangan 28.07</option>
-      <option value="W1">01.07–07.07 · 1-hafta</option>
-      <option value="W2">08.07–14.07 · 2-hafta</option>
-      <option value="W3">15.07–21.07 · 3-hafta</option>
-      <option value="W4">22.07–31.07 · joriy hafta</option>
+      <option value="ALL" id="monthOption">Joriy oy · oy boshidan</option>
     </select>
     <span class="showing" id="showing">Ko'rsatilmoqda: Iyul 2026, oy boshidan</span>
   </div>
@@ -206,8 +202,8 @@
 
   <!-- CHART -->
   <div class="panel">
-    <h2>Haftalik churn dinamikasi</h2>
-    <div class="sub">Haftada noaktivga o'tgan o'quvchilar (% baza). Qizil chiziq — haftalik plan chegarasi (14%/oy ≈ 3.5%/hafta). Jonli status-hodisalar bo'yicha.</div>
+    <h2>Haftalik Noaktiv dinamikasi</h2>
+    <div class="sub">Hafta oxiridagi Noaktiv qoldig‘i va oldingi haftaga nisbatan ko‘payish/kamayish. CRM snapshot + LMS status hodisalari asosida.</div>
     <div class="chartwrap"><svg id="chart" width="900" height="230" viewBox="0 0 900 230"></svg></div>
   </div>
 
@@ -237,13 +233,7 @@
   </div>
   <div class="cardsgrid" id="cards"></div>
 
-  <div class="foot">
-    <b>Manba.</b> Oy kesimi — CRM Analitika modulining jonli API'sidan (crm.junior-it.uz, month=2026-07-01, kurator=admin_id):
-    status-student, churn/activate/cashier/new-student-plan-card, debtors/frozen/active-parent/active-student-card.
-    Haftalik kesim — student_status_logs jonli hodisalari (haftalar: 1–7, 8–14, 15–21 iyul; haftalik plan ≈3.5%). Guruhlar soni — group_list.<br>
-    <b>Izoh.</b> Dilshoda Parpiyeva — yangi kurator (Munisa o'rniga). Dilshoda, Sabrina, Maryam uchun churn bazasi CRMda hali 0 — oylik churn % hisoblanmaydi.
-    Dilshoda va Aziza uchun haftalik log hali yig'ilmagan. Joriy hafta (15–21) tugallanmagan — raqamlar to'liq emas.
-  </div>
+  <div class="foot" id="sourceNote"></div>
 </div>
 
 <!-- KURATOR DETAIL SAHIFASI -->
@@ -265,9 +255,11 @@
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
 /*__DATA__*/
-const M=__DATA__.M, W=__DATA__.W, DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
-const WLBL={ALL:"Iyul 2026 · oy boshidan",W1:"1-hafta (01–07.07)",W2:"2-hafta (08–14.07)",W3:"3-hafta (15–21.07)",W4:"Joriy hafta (22–31.07)"};
-const WSHORT={ALL:"iyul",W1:"1-hafta",W2:"2-hafta",W3:"3-hafta",W4:"joriy hafta"};
+const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
+const MONTH_NAMES=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+const MY=(__DATA__.month||'2026-07-01').split('-'), MONTH_NAME=MONTH_NAMES[+MY[1]-1], MONTH_YEAR=MY[0], MM=MY[1];
+const WLBL={ALL:`${MONTH_NAME} ${MONTH_YEAR} · oy boshidan`}, WSHORT={ALL:MONTH_NAME.toLowerCase()};
+WM.forEach((w,i)=>{WLBL[w.key]=`${i+1}-hafta (${String(w.from_day).padStart(2,'0')}–${String(w.to_day).padStart(2,'0')}.${MM})`;WSHORT[w.key]=`${i+1}-hafta`;});
 const TOTAL=(__DATA__.all&&__DATA__.all.b)||2126;
 const fmt=n=>n==null?'—':n.toLocaleString('ru-RU').replace(/,/g,' ');
 const mln=n=>(n/1e6).toFixed(1).replace('.',',')+' mln';
@@ -305,15 +297,11 @@ function hero(){
   document.getElementById('hChuV').textContent=o.pct.toFixed(1)+'%';
   document.getElementById('hChuN').textContent=`${o.cnt} o'quvchi ketgan · plan ≤${o.plan}%`;
   const tl=document.getElementById('hTrL'),tv=document.getElementById('hTrV'),tn=document.getElementById('hTrN');
-  if(o.prev){
-    const d=o.pct-o.prev.pct, up=d>0;
-    tl.textContent=o.prev.lbl.charAt(0).toUpperCase()+o.prev.lbl.slice(1)+'ga nisbatan';
-    tv.textContent=(up?'▲ ':'▼ ')+Math.abs(d).toFixed(1)+'p';
-    tv.className='v '+(up?'red':'green');
-    tn.textContent=`${o.prev.lbl} ${o.prev.pct.toFixed(1)}% → ${WSHORT[WEEK]} ${o.pct.toFixed(1)}%`;
-  } else {
-    tl.textContent='Trend'; tv.textContent='—'; tv.className='v'; tn.textContent="oldingi davr yo'q";
-  }
+  const nw=WEEK==='ALL'?'W4':WEEK, nd=noaktivPoint('all',nw), before=nd.count-nd.delta;
+  tl.textContent=`Noaktiv · ${WSHORT[nw]} o‘zgarishi`;
+  tv.textContent=(nd.delta>0?'▲ +':nd.delta<0?'▼ ':'')+Math.abs(nd.delta)+' ta';
+  tv.className='v '+(nd.delta>0?'red':nd.delta<0?'green':'');
+  tn.textContent=`${fmt(before)} → ${fmt(nd.count)} noaktiv`;
 }
 
 // ---------- UMUMIY AKTIVNOST ----------
@@ -334,31 +322,31 @@ function activity(){
   }).join('');
 }
 
-// ---------- CHART ----------
+function noaktivPoint(k,wk){
+  const d=(N[k]||{})[wk];
+  return d||{count:0,delta:0};
+}
+
+// ---------- NOAKTIV QOLDIQ CHART ----------
 function drawChart(){
   const svg=document.getElementById('chart');
-  const pts=[
-    {x:'1-hafta\n01–07',v:W.all.W1[2]/TOTAL*100,n:W.all.W1[2]},
-    {x:'2-hafta\n08–14',v:W.all.W2[2]/TOTAL*100,n:W.all.W2[2]},
-    {x:'3-hafta\n15–21',v:W.all.W3[2]/TOTAL*100,n:W.all.W3[2]},
-    {x:'Joriy\n22–31*',v:W.all.W4[2]/TOTAL*100,n:W.all.W4[2]},
-  ];
-  const L=70,R=40,T=24,B=44,Wd=900-L-R,H=230-T-B,maxV=14;
-  const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-(Math.min(v,maxV)/maxV)*H;
+  const pts=WM.map((w,i)=>{const d=noaktivPoint('all',w.key);return{x:`${i+1}-hafta\n${String(w.from_day).padStart(2,'0')}–${String(w.to_day).padStart(2,'0')}`,v:d.count/TOTAL*100,n:d.count,delta:d.delta,key:w.key}});
+  const L=70,R=40,T=30,B=44,Wd=900-L-R,H=230-T-B;
+  const vals=pts.map(p=>p.v), minV=Math.max(0,Math.floor(Math.min(...vals)-3)),maxV=Math.max(minV+5,Math.ceil(Math.max(...vals)+3));
+  const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-((v-minV)/(maxV-minV))*H;
   let s='';
-  [0,5,10].forEach(g=>{s+=`<line x1="${L}" y1="${Y(g)}" x2="${900-R}" y2="${Y(g)}" stroke="#eef0f5"/><text x="${L-10}" y="${Y(g)+4}" font-size="11" fill="#a7aec0" text-anchor="end">${g}%</text>`});
-  const planY=Y(3.5);
-  s+=`<line x1="${L}" y1="${planY}" x2="${900-R}" y2="${planY}" stroke="#d24a35" stroke-dasharray="6 5" stroke-width="1.6"/><text x="${900-R}" y="${planY-8}" font-size="11.5" fill="#d24a35" font-weight="700" text-anchor="end">Haftalik plan ≈3.5%</text>`;
+  [minV,(minV+maxV)/2,maxV].forEach(g=>{s+=`<line x1="${L}" y1="${Y(g)}" x2="${900-R}" y2="${Y(g)}" stroke="#eef0f5"/><text x="${L-10}" y="${Y(g)+4}" font-size="11" fill="#a7aec0" text-anchor="end">${g.toFixed(0)}%</text>`});
   const path=pts.map((p,i)=>`${i?'L':'M'}${X(i)},${Y(p.v)}`).join(' ');
   const area=`M${X(0)},${Y(pts[0].v)} `+pts.map((p,i)=>`L${X(i)},${Y(p.v)}`).join(' ')+` L${X(pts.length-1)},${T+H} L${X(0)},${T+H} Z`;
   s+=`<path d="${area}" fill="rgba(53,100,196,.09)"/>`;
   s+=`<path d="${path}" fill="none" stroke="#3564c4" stroke-width="2.6" stroke-linecap="round"/>`;
-  const selIdx={ALL:-1,W1:0,W2:1,W3:2,W4:3}[WEEK];
+  const selIdx=WEEK==='ALL'?-1:WM.findIndex(w=>w.key===WEEK);
   pts.forEach((p,i)=>{
     const hl=i===selIdx;
     s+=`<circle cx="${X(i)}" cy="${Y(p.v)}" r="${hl?8:5.5}" fill="#fff" stroke="#3564c4" stroke-width="${hl?3.4:2.4}"/>`;
     s+=`<text x="${X(i)}" y="${Y(p.v)-14}" font-size="13" font-weight="800" fill="#141a26" text-anchor="middle">${p.v.toFixed(1)}%</text>`;
-    s+=`<text x="${X(i)}" y="${Y(p.v)+24}" font-size="10.5" fill="#7d8698" text-anchor="middle">${p.n} ta</text>`;
+    const dc=p.delta>0?'+'+p.delta:String(p.delta), color=p.delta>0?'#d24a35':p.delta<0?'#2e9e64':'#7d8698';
+    s+=`<text x="${X(i)}" y="${Y(p.v)+24}" font-size="10.5" fill="${color}" text-anchor="middle">${p.n} ta · ${dc}</text>`;
     const [l1,l2]=p.x.split('\n');
     s+=`<text x="${X(i)}" y="${230-22}" font-size="11.5" fill="#7d8698" text-anchor="middle" font-weight="600">${l1}</text>`;
     s+=`<text x="${X(i)}" y="${230-8}" font-size="10" fill="#a7aec0" text-anchor="middle">${l2}</text>`;
@@ -375,16 +363,14 @@ function rating(){
     if(A.pct==null)return 1; if(B2.pct==null)return -1; return B2.pct-A.pct;
   });
   document.getElementById('thChurn').textContent='Churn · '+WSHORT[WEEK];
+  document.getElementById('thTrend').textContent='Noaktiv Δ';
   document.getElementById('rtTitle').textContent=`Kurator reytingi — churn bo'yicha (${WSHORT[WEEK]})`;
   const barScale=WEEK==='ALL'?4.5:18;
   const rt=document.getElementById('rt'); rt.innerHTML='';
   sorted.forEach((k,i)=>{
     const r=M[k], c=pchurn(k), z=pzone(c.pct,c.plan);
-    let trend='<span class="dim">—</span>';
-    if(c.prev&&c.pct!=null){
-      const d=c.pct-c.prev.pct;
-      trend=d>0?`<span class="up">▲ ${d.toFixed(1)}p</span>`:`<span class="down">▼ ${Math.abs(d).toFixed(1)}p</span>`;
-    }
+    const nw=WEEK==='ALL'?'W4':WEEK, nd=noaktivPoint(k,nw).delta;
+    const trend=nd>0?`<span class="up">▲ +${nd} ta</span>`:nd<0?`<span class="down">▼ ${Math.abs(nd)} ta</span>`:`<span class="dim">0 ta</span>`;
     const pctTxt=c.has?(c.pct==null?'—':c.pct.toFixed(1)+'%'):'log yo\'q';
     rt.insertAdjacentHTML('beforeend',`<tr data-k="${k}" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">
       <td><span class="rk">${i+1}</span></td>
@@ -399,7 +385,8 @@ function rating(){
     </tr>`);
   });
   const o=orgChurn();
-  const oTrend=o.prev?((o.pct-o.prev.pct)>0?`<span class="up">▲ ${(o.pct-o.prev.pct).toFixed(1)}p</span>`:`<span class="down">▼ ${(o.prev.pct-o.pct).toFixed(1)}p</span>`):'<span class="dim">—</span>';
+  const onw=WEEK==='ALL'?'W4':WEEK, ond=noaktivPoint('all',onw).delta;
+  const oTrend=ond>0?`<span class="up">▲ +${ond} ta</span>`:ond<0?`<span class="down">▼ ${Math.abs(ond)} ta</span>`:`<span class="dim">0 ta</span>`;
   const jBase=(typeof DALL!=='undefined'&&DALL.b)?DALL.b:TOTAL;
   const jNoa=(typeof DALL!=='undefined'&&DALL.x)?DALL.x[1].toFixed(1)+'%':'—';
   const jQarz=(typeof DALL!=='undefined'&&DALL.qarz!=null)?DALL.qarz:'—';
@@ -444,8 +431,8 @@ function cards(){
   const el=document.getElementById('cards'); el.innerHTML='';
   sorted.forEach(k=>{
     const r=M[k], w=W[k], c=pchurn(k);
-    let wk1='—',wk2='—',wk3='—',wk4='—';
-    if(w){wk1=(w.W1[2]/r.b*100).toFixed(1)+'%';wk2=(w.W2[2]/r.b*100).toFixed(1)+'%';wk3=(w.W3[2]/r.b*100).toFixed(1)+'%';wk4=(w.W4[2]/r.b*100).toFixed(1)+'%'}
+    const nvals=['W1','W2','W3','W4'].map(wk=>noaktivPoint(k,wk));
+    const ntext=d=>`${d.count} (${d.delta>0?'+':''}${d.delta})`;
     const wkm=M[k].chu[1]==null?'—':M[k].chu[1].toFixed(1)+'%';
     const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
     const segsum=segs.reduce((s,x)=>s+x[1],0);
@@ -462,10 +449,7 @@ function cards(){
           <div class="t">Churn — ${WLBL[WEEK]}${c.has?'':' · log yo\'q (oylik son)'}</div>
           <div class="big"><b>${ketgan}</b> o'quvchi ketgan</div>
           <div class="wboxes">
-            <div class="wb ${WEEK==='W1'?'hl':''}"><div class="l">1-hafta</div><div class="v">${wk1}</div></div>
-            <div class="wb ${WEEK==='W2'?'hl':''}"><div class="l">2-hafta</div><div class="v">${wk2}</div></div>
-            <div class="wb ${WEEK==='W3'?'hl':''}"><div class="l">3-hafta</div><div class="v">${wk3}</div></div>
-            <div class="wb ${WEEK==='ALL'||WEEK==='W4'?'hl':''}"><div class="l">${WEEK==='ALL'?'Oylik':'Joriy'}</div><div class="v">${WEEK==='ALL'?wkm:wk4}</div></div>
+            ${nvals.map((d,i)=>`<div class="wb ${WEEK===`W${i+1}`||(WEEK==='ALL'&&i===3)?'hl':''}"><div class="l">Noaktiv · ${i+1}-hafta</div><div class="v">${ntext(d)}</div></div>`).join('')}
           </div>
         </div>
       </div>
@@ -491,26 +475,18 @@ function cards(){
 // ---------- KURATOR DETAIL ----------
 function miniChart(k){
   const r=M[k], w=W[k];
-  if(!w) return `<div style="padding:30px 10px;color:var(--muted);font-size:13px">⏳ Haftalik log hali yig'ilmagan (yangi biriktirilgan baza). Oylik ko'rsatkichlar yuqorida.</div>`;
-  const pts=[
-    {x:'1-hafta',x2:'01–07',v:w.W1[2]/r.b*100,n:w.W1[2]},
-    {x:'2-hafta',x2:'08–14',v:w.W2[2]/r.b*100,n:w.W2[2]},
-    {x:'3-hafta',x2:'15–21',v:w.W3[2]/r.b*100,n:w.W3[2]},
-    {x:'Joriy',x2:'22–31*',v:w.W4[2]/r.b*100,n:w.W4[2]},
-  ];
+  const pts=WM.map((wm,i)=>{const d=noaktivPoint(k,wm.key);return{x:`${i+1}-hafta`,x2:`${String(wm.from_day).padStart(2,'0')}–${String(wm.to_day).padStart(2,'0')}`,v:d.count/r.b*100,n:d.count,delta:d.delta}});
   const Wd0=440,H0=190,L=44,R=26,T=22,B=40,Wd=Wd0-L-R,H=H0-T-B;
   const maxV=Math.max(5,...pts.map(p=>p.v))*1.25;
   const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-(Math.min(v,maxV)/maxV)*H;
   let s='';
-  const planY=Y(3.5);
-  if(3.5<maxV) s+=`<line x1="${L}" y1="${planY}" x2="${Wd0-R}" y2="${planY}" stroke="#d24a35" stroke-dasharray="5 4" stroke-width="1.4"/><text x="${Wd0-R}" y="${planY-6}" font-size="10" fill="#d24a35" font-weight="700" text-anchor="end">plan ≈3.5%</text>`;
   const path=pts.map((p,i)=>`${i?'L':'M'}${X(i)},${Y(p.v)}`).join(' ');
   s+=`<path d="${path}" fill="none" stroke="#3564c4" stroke-width="2.4" stroke-linecap="round"/>`;
   pts.forEach((p,i)=>{
     s+=`<circle cx="${X(i)}" cy="${Y(p.v)}" r="5" fill="#fff" stroke="#3564c4" stroke-width="2.2"/>`;
     s+=`<text x="${X(i)}" y="${Y(p.v)-11}" font-size="12" font-weight="800" fill="#141a26" text-anchor="middle">${p.v.toFixed(1)}%</text>`;
     s+=`<text x="${X(i)}" y="${H0-24}" font-size="11" fill="#7d8698" text-anchor="middle" font-weight="600">${p.x}</text>`;
-    s+=`<text x="${X(i)}" y="${H0-11}" font-size="9.5" fill="#a7aec0" text-anchor="middle">${p.x2} · ${p.n} ta</text>`;
+    s+=`<text x="${X(i)}" y="${H0-11}" font-size="9.5" fill="${p.delta>0?'#d24a35':p.delta<0?'#2e9e64':'#a7aec0'}" text-anchor="middle">${p.x2} · ${p.n} (${p.delta>0?'+':''}${p.delta})</text>`;
   });
   return `<svg width="100%" viewBox="0 0 ${Wd0} ${H0}">${s}</svg>`;
 }
@@ -519,12 +495,14 @@ function showDetail(k){
   const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
   const segsum=segs.reduce((s,x)=>s+x[1],0);
   const chuTxt=r.chu[1]==null?'—':r.chu[1].toFixed(1)+'%';
+  const prevMonthName=MONTH_NAMES[(+MY[1]+10)%12].toLowerCase();
   const trend=(r.cj!=null&&r.chu[1]!=null)
-    ? (r.chu[1]<=r.cj?`<span style="color:#43d17c">▼ ${(r.cj-r.chu[1]).toFixed(1)}p iyunga nisbatan</span>`:`<span style="color:#ff8a75">▲ ${(r.chu[1]-r.cj).toFixed(1)}p iyunga nisbatan</span>`)
-    : `<span style="opacity:.6">iyun bazasi yo'q</span>`;
+    ? (r.chu[1]<=r.cj?`<span style="color:#43d17c">▼ ${(r.cj-r.chu[1]).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`:`<span style="color:#ff8a75">▲ ${(r.chu[1]-r.cj).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`)
+    : `<span style="opacity:.6">${prevMonthName} bazasi yo'q</span>`;
   let wrows='';
   if(w){
-    [['1-hafta (01–07.07)','W1'],['2-hafta (08–14.07)','W2'],['3-hafta (15–21.07)','W3'],['Joriy hafta (22–31.07)','W4']].forEach(([lbl,wk])=>{
+    WM.forEach((wm,i)=>{
+      const lbl=`${i+1}-hafta (${String(wm.from_day).padStart(2,'0')}–${String(wm.to_day).padStart(2,'0')}.${MM})`,wk=wm.key;
       const d=w[wk];
       wrows+=`<tr class="${WEEK===wk?'cur':''}"><td>${lbl}</td><td class="num" style="color:var(--good)">${d[0]}</td><td class="num" style="color:var(--warn)">${d[1]}</td><td class="num" style="color:var(--bad);font-weight:700">${d[2]}</td><td class="num">${(d[2]/r.b*100).toFixed(1)}%</td></tr>`;
     });
@@ -536,14 +514,14 @@ function showDetail(k){
     <div class="dhero">
       <div class="row">
         <div><h1>${r.name} <span class="tm ${r.team}" style="font-size:11px;vertical-align:4px">TEAM ${r.team}</span></h1>
-        <div class="meta">Kurator · ${r.grp} guruh · Iyul 2026, oy boshidan · yangilangan 16.07.2026</div></div>
+        <div class="meta">Kurator · ${r.grp} guruh · ${MONTH_NAME} ${MONTH_YEAR}, oy boshidan · yangilangan ${__DATA__.snap||'—'}</div></div>
         <div class="bigb"><b>${r.b}</b><span>faol o'quvchi</span></div>
       </div>
       <div class="dcards">
-        <div class="hc"><div class="l">Churn — Iyul</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
+        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
         <div class="hc"><div class="l">Faollashtirish</div><div class="v orange">${r.fao[0]?r.fao[0].toFixed(1)+'%':'—'}</div><div class="n">${r.fao[1]} ta noaktivdan qaytarildi</div></div>
         <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
-        <div class="hc"><div class="l">Kassa — Iyul</div><div class="v">${mln(r.kassa)}</div><div class="n">yangi o'quvchi: ${r.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
+        <div class="hc"><div class="l">Kassa — ${MONTH_NAME}</div><div class="v">${mln(r.kassa)}</div><div class="n">yangi o'quvchi: ${r.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
       </div>
     </div>
     <div class="panel">
@@ -552,7 +530,7 @@ function showDetail(k){
       <div class="stlegend">${segs.map(s=>`<span><i class="d" style="background:${s[2]}"></i>${s[0]} ${s[1]} (${(s[1]/segsum*100).toFixed(1)}%)</span>`).join('')}</div>
     </div>
     <div class="dgrid2">
-      <div class="panel"><h2>Haftalik churn dinamikasi</h2><div class="sub">Noaktivga o'tganlar, % baza (jonli log)</div>${miniChart(k)}</div>
+      <div class="panel"><h2>Haftalik Noaktiv dinamikasi</h2><div class="sub">Hafta oxiridagi Noaktiv qoldig‘i; qavsda oldingi haftaga nisbatan ± o‘zgarish.</div>${miniChart(k)}</div>
       <div class="panel"><h2>Haftalik hodisalar</h2><div class="sub">Jonli status-o'zgarishlar</div>
         <table class="wtable"><thead><tr><th>Davr</th><th class="num">Faollashdi</th><th class="num">Passivga</th><th class="num">Churn</th><th class="num">%</th></tr></thead><tbody>${wrows}</tbody></table>
       </div>
@@ -624,7 +602,13 @@ function applyLive(){
   if(DALL.fao){ set('hFaoV', DALL.fao[1].toFixed(1)+'%'); set('hFaoN', DALL.fao[2]+" ta noaktivdan qaytarildi"); }
   if(DALL.qarz!=null) set('hQarzV', DALL.qarz);
   if(DALL.froz!=null) set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta · batafsil →");
-  if(__DATA__.snap){ set('snapdate', __DATA__.snap); var md=__DATA__.snap.slice(0,5); set('monthOption', "Iyul 2026 · oy boshidan · yangilangan "+md); }
+  if(__DATA__.snap) set('snapdate', __DATA__.snap);
+  set('srcMonth',`${MONTH_NAME} ${MONTH_YEAR}, oy boshidan`);
+  const select=document.getElementById('periodSelect'), selected=select.value||'ALL';
+  select.innerHTML=`<option value="ALL">${MONTH_NAME} ${MONTH_YEAR} · oy boshidan · yangilangan ${__DATA__.snap||'—'}</option>`+
+    WM.map((w,i)=>`<option value="${w.key}">${String(w.from_day).padStart(2,'0')}.${MM}–${String(w.to_day).padStart(2,'0')}.${MM} · ${i+1}-hafta</option>`).join('');
+  select.value=selected;
+  document.getElementById('sourceNote').innerHTML=`<b>Ma’lumotlar qayerdan olinadi:</b> Aktiv/Passiv/Noaktiv, baza, churn, kassa, qarzdor, muzlatilgan va ota-ona bot — CRM Analitika API’dan (<b>${MONTH_NAME} ${MONTH_YEAR}</b>, kurator admin_id bo‘yicha). Haftalik Noaktiv dinamikasi — CRM’dagi joriy Noaktiv qoldig‘i va LMS MCP’dagi <b>student_status_logs</b> kirish/chiqish hodisalari asosida. Kurator–guruh bog‘lanishi — <b>group_list + subscribe_list</b>. Dashboard har kuni avtomatik yangilanadi; yangi oy boshlanganda sana va hafta chegaralari avtomatik almashadi.`;
 }
 
 function renderAll(){
