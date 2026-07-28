@@ -90,6 +90,9 @@
   .stlegend .d{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px}
   .boxes3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
   .b3{border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+  .metric-click{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+  .metric-click:hover{transform:translateY(-2px);border-color:#9aa9ff;box-shadow:0 8px 22px rgba(52,70,150,.12)}
+  .metric-click:focus-visible{outline:3px solid rgba(84,110,255,.25);outline-offset:2px}
   .b3 .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
   .b3 .v{font-size:19px;font-weight:800;margin-top:1px}
   .b3 .v.or{color:#d78a1e} .b3 .v.rd{color:var(--bad)}
@@ -111,6 +114,25 @@
   .kk .who .n1:hover,.nm:hover{color:var(--blue)}
   #detail{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none;padding:22px 14px 60px}
   #detail.open{display:block}
+  #metricModal{position:fixed;inset:0;background:rgba(17,25,48,.58);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}
+  #metricModal.open{display:flex}
+  .metric-dialog{width:min(760px,100%);max-height:min(760px,92vh);overflow:auto;background:#fff;border-radius:20px;box-shadow:0 28px 80px rgba(15,24,55,.3)}
+  .metric-head{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:20px 22px 14px;z-index:2}
+  .metric-headrow{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+  .metric-title{font-size:21px;font-weight:800}
+  .metric-sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .metric-close{border:1px solid var(--line);background:#f7f8fb;border-radius:9px;width:34px;height:34px;cursor:pointer;font-size:19px;color:var(--muted)}
+  .metric-tabs{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
+  .metric-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:700 12px var(--font);cursor:pointer;color:var(--muted)}
+  .metric-tab.on{background:var(--hero);color:#fff;border-color:var(--hero)}
+  .metric-body{padding:8px 22px 22px}
+  .metric-table{width:100%;border-collapse:collapse}
+  .metric-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:11px 8px;text-align:left;border-bottom:1px solid var(--line)}
+  .metric-table th.num,.metric-table td.num{text-align:right}
+  .metric-table td{font-size:13px;padding:11px 8px;border-bottom:1px solid #eef0f5}
+  .metric-table tr.focus td{background:#f3f5ff;font-weight:700}
+  .metric-rank{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#f0f2f7;font-size:11px;font-weight:800;color:var(--muted)}
+  .metric-val{font-size:16px;font-weight:800;color:var(--ink)}
   .dpage{max-width:980px;margin:0 auto}
   .backbtn{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 18px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;font-family:var(--font);margin-bottom:14px}
   .backbtn:hover{border-color:var(--blue);color:var(--blue)}
@@ -144,7 +166,7 @@
       <div class="hc"><div class="l" id="hChuL">Churn — Iyul</div><div class="v red" id="hChuV">12.6%</div><div class="n" id="hChuN">266 o'quvchi ketgan · plan ≤14%</div></div>
       <div class="hc"><div class="l" id="hTrL">Iyunga nisbatan</div><div class="v green" id="hTrV">▼ 4.6p</div><div class="n" id="hTrN">iyun 17.2% → iyul 12.6%</div></div>
       <div class="hc"><div class="l">Faollashtirish</div><div class="v orange" id="hFaoV">45.7%</div><div class="n" id="hFaoN">344 ta noaktivdan qaytarildi</div></div>
-      <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange" id="hQarzV">238</div><div class="n" id="hQarzN">muzlatilganlar: 215 ta</div></div>
+      <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz')" title="Bosing — kuratorlar kesimi"><div class="l">Qarzdorlar</div><div class="v orange" id="hQarzV">238</div><div class="n" id="hQarzN">muzlatilganlar: 215 ta · batafsil →</div></div>
     </div>
   </div>
 
@@ -204,11 +226,23 @@
 
 <!-- KURATOR DETAIL SAHIFASI -->
 <div id="detail"><div class="dpage" id="dcontent"></div></div>
+<div id="metricModal" onclick="if(event.target===this)closeMetric()">
+  <div class="metric-dialog" role="dialog" aria-modal="true" aria-labelledby="metricTitle">
+    <div class="metric-head">
+      <div class="metric-headrow">
+        <div><div class="metric-title" id="metricTitle"></div><div class="metric-sub" id="metricSub"></div></div>
+        <button class="metric-close" onclick="closeMetric()" aria-label="Yopish">×</button>
+      </div>
+      <div class="metric-tabs" id="metricTabs"></div>
+    </div>
+    <div class="metric-body" id="metricBody"></div>
+  </div>
+</div>
 
 <script>
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
-const __DATA__={"M": {"Fot": {"a": [141, 69.4], "p": [16, 7.9], "x": [46, 22.7], "y": [0, 0.0], "chu": [169, 11.83, 20], "fao": [null, 88.67, 47], "b": 203, "kassa": 374360000, "yangi": 0, "qayta": 0, "ota": [160, 79.0], "froz": 14, "qarz": 29, "cj": 12.94, "name": "Fotimabonu Abdulkhakova", "team": "A", "grp": 6}, "Mad": {"a": [162, 70.1], "p": [26, 11.3], "x": [43, 18.6], "y": [0, 0.0], "chu": [221, 10.41, 23], "fao": [null, 96.55, 56], "b": 231, "kassa": 554360000, "yangi": 0, "qayta": 0, "ota": [163, 71.0], "froz": 15, "qarz": 69, "cj": 14.49, "name": "Madina Normatova", "team": "A", "grp": 5}, "Dil": {"a": [175, 62.1], "p": [43, 15.2], "x": [63, 22.3], "y": [1, 0.4], "chu": [274, 21.17, 58], "fao": [null, 90.58, 77], "b": 282, "kassa": 566336000, "yangi": 0, "qayta": 0, "ota": [160, 57.0], "froz": 48, "qarz": 46, "cj": 13.24, "name": "Dilafruz Shokirova", "team": "A", "grp": 6}, "Jas": {"a": [149, 75.3], "p": [25, 12.6], "x": [24, 12.1], "y": [0, 0.0], "chu": [246, 13.01, 32], "fao": [null, 100.0, 4], "b": 198, "kassa": 495450000, "yangi": 0, "qayta": 0, "ota": [135, 68.0], "froz": 15, "qarz": 34, "cj": 23.72, "name": "Jasmina Tolibova", "team": "A", "grp": 4}, "Dsh": {"a": [0, 0.0], "p": [0, 0.0], "x": [0, 0.0], "y": [0, 0.0], "chu": [0, 0.0, 0], "fao": [null, 0.0, 0], "b": 0, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [0, 0.0], "froz": 0, "qarz": 0, "cj": 0.0, "name": "Dilshoda Parpiyeva", "team": "A", "grp": 4}, "Mar": {"a": [106, 59.5], "p": [24, 13.5], "x": [47, 26.4], "y": [1, 0.6], "chu": [235, 22.13, 52], "fao": [null, 100.0, 10], "b": 178, "kassa": 461860000, "yangi": 0, "qayta": 0, "ota": [139, 78.0], "froz": 33, "qarz": 23, "cj": 14.98, "name": "Marjona Pardayeva", "team": "B", "grp": 5}, "Xal": {"a": [123, 63.4], "p": [19, 9.8], "x": [51, 26.3], "y": [1, 0.5], "chu": [246, 24.8, 61], "fao": [null, 100.0, 17], "b": 194, "kassa": 487760000, "yangi": 0, "qayta": 0, "ota": [150, 77.0], "froz": 13, "qarz": 33, "cj": 17.14, "name": "Xalima Ismoiljonova", "team": "B", "grp": 6}, "Azi": {"a": [103, 54.2], "p": [25, 13.2], "x": [60, 31.6], "y": [2, 1.0], "chu": [176, 23.3, 41], "fao": [null, 96.22, 51], "b": 190, "kassa": 437914000, "yangi": 0, "qayta": 0, "ota": [134, 71.0], "froz": 18, "qarz": 31, "cj": 49.44, "name": "Aziza Qurvonaliyeva", "team": "B", "grp": 4}, "Sab": {"a": [112, 62.6], "p": [34, 19.0], "x": [33, 18.4], "y": [0, 0.0], "chu": [0, 0.0, 45], "fao": [null, 73.07, 19], "b": 179, "kassa": 364790000, "yangi": 0, "qayta": 0, "ota": [144, 80.0], "froz": 31, "qarz": 30, "cj": 0.0, "name": "Sabrina Salimova", "team": "B", "grp": 6}, "Mrm": {"a": [0, 0.0], "p": [0, 0.0], "x": [0, 0.0], "y": [0, 0.0], "chu": [0, 0.0, 0], "fao": [null, 0.0, 0], "b": 0, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [0, 0.0], "froz": 0, "qarz": 0, "cj": 0.0, "name": "Maryam Safarova", "team": "B", "grp": 5}}, "W": {"Fot": null, "Mad": null, "Dil": null, "Jas": null, "Dsh": null, "Mar": null, "Xal": null, "Azi": null, "Sab": null, "Mrm": null, "all": {"W1": [0, 0, 0], "W2": [0, 0, 0], "W3": [0, 0, 0]}}, "all": {"a": [1345, 63.9], "p": [275, 13.0], "x": [472, 22.4], "y": [14, 0.7], "chu": [2116, 19.14, 405], "fao": [null, 54.41, 462], "b": 2106, "kassa": 4537410000, "yangi": 0, "qayta": 0, "ota": [1523, 72.0], "froz": 258, "qarz": 361, "cj": 17.15}, "TA": {"a": [901, 66.0], "p": [173, 12.7], "x": [281, 20.6], "y": [10, 0.7], "chu": [1095, 20.09, 220], "fao": [null, 88.36, 357], "b": 1365, "kassa": 2773886000, "yangi": 0, "qayta": 0, "ota": [956, 70.0], "froz": 161, "qarz": 244}, "TB": {"a": [444, 59.9], "p": [102, 13.8], "x": [191, 25.8], "y": [4, 0.5], "chu": [657, 29.07, 191], "fao": [null, 91.5, 97], "b": 741, "kassa": 1752324000, "yangi": 0, "qayta": 0, "ota": [567, 77.0], "froz": 95, "qarz": 117}, "snap": "28.07.2026"};
+const __DATA__={"M": {"Fot": {"a": [142, 69.6], "p": [16, 7.8], "x": [46, 22.6], "y": [0, 0.0], "chu": [169, 11.83, 20], "fao": [null, 88.67, 47], "b": 204, "kassa": 374360000, "yangi": 0, "qayta": 0, "ota": [160, 78.0], "froz": 14, "qarz": 29, "cj": 12.94, "name": "Fotimabonu Abdulkhakova", "team": "A", "grp": 5}, "Mad": {"a": [162, 70.1], "p": [26, 11.3], "x": [43, 18.6], "y": [0, 0.0], "chu": [221, 10.41, 23], "fao": [null, 96.55, 56], "b": 231, "kassa": 554360000, "yangi": 0, "qayta": 0, "ota": [163, 71.0], "froz": 15, "qarz": 69, "cj": 14.49, "name": "Madina Normatova", "team": "A", "grp": 5}, "Dil": {"a": [175, 62.1], "p": [43, 15.2], "x": [63, 22.3], "y": [1, 0.4], "chu": [274, 21.17, 58], "fao": [null, 90.58, 77], "b": 282, "kassa": 577136000, "yangi": 0, "qayta": 0, "ota": [160, 57.0], "froz": 31, "qarz": 45, "cj": 13.24, "name": "Dilafruz Shokirova", "team": "A", "grp": 6}, "Jas": {"a": [149, 74.5], "p": [26, 13.0], "x": [25, 12.5], "y": [0, 0.0], "chu": [246, 13.82, 34], "fao": [null, 100.0, 2], "b": 200, "kassa": 495450000, "yangi": 0, "qayta": 0, "ota": [136, 68.0], "froz": 9, "qarz": 34, "cj": 23.72, "name": "Jasmina Tolibova", "team": "A", "grp": 4}, "Nai": {"a": [133, 67.5], "p": [25, 12.7], "x": [39, 19.8], "y": [0, 0.0], "chu": [0, 0.0, 45], "fao": [null, 91.8, 56], "b": 197, "kassa": 490770000, "yangi": 0, "qayta": 0, "ota": [173, 88.0], "froz": 28, "qarz": 24, "cj": 146.15, "name": "Naima Ikramova", "team": "A", "grp": 4}, "Shx": {"a": [53, 85.5], "p": [4, 6.5], "x": [2, 3.2], "y": [3, 4.8], "chu": [0, 0.0, 0], "fao": [null, 88.52, 54], "b": 62, "kassa": 23100000, "yangi": 0, "qayta": 0, "ota": [46, 74.0], "froz": 10, "qarz": 0, "cj": 0.0, "name": "Shaxlo Ziyodova", "team": "A", "grp": 3}, "Mar": {"a": [106, 59.5], "p": [24, 13.5], "x": [47, 26.4], "y": [1, 0.6], "chu": [235, 22.13, 52], "fao": [null, 100.0, 10], "b": 178, "kassa": 461860000, "yangi": 0, "qayta": 0, "ota": [139, 78.0], "froz": 33, "qarz": 23, "cj": 14.98, "name": "Marjona Pardayeva", "team": "B", "grp": 5}, "Xal": {"a": [124, 62.9], "p": [19, 9.7], "x": [52, 26.4], "y": [2, 1.0], "chu": [246, 24.8, 61], "fao": [null, 100.0, 17], "b": 197, "kassa": 508260000, "yangi": 0, "qayta": 0, "ota": [151, 77.0], "froz": 12, "qarz": 32, "cj": 17.14, "name": "Xalima Ismoiljonova", "team": "B", "grp": 6}, "Azi": {"a": [103, 54.2], "p": [25, 13.2], "x": [60, 31.6], "y": [2, 1.0], "chu": [176, 23.86, 42], "fao": [null, 96.22, 51], "b": 190, "kassa": 437914000, "yangi": 0, "qayta": 0, "ota": [134, 71.0], "froz": 18, "qarz": 31, "cj": 49.44, "name": "Aziza Qurvonaliyeva", "team": "B", "grp": 5}, "Sab": {"a": [113, 62.8], "p": [34, 18.9], "x": [33, 18.3], "y": [0, 0.0], "chu": [0, 0.0, 45], "fao": [null, 73.07, 19], "b": 180, "kassa": 368690000, "yangi": 0, "qayta": 0, "ota": [144, 80.0], "froz": 31, "qarz": 29, "cj": 0.0, "name": "Sabrina Salimova", "team": "B", "grp": 6}, "Mun": {"a": [88, 45.4], "p": [35, 18.0], "x": [64, 33.0], "y": [7, 3.6], "chu": [185, 28.11, 52], "fao": [null, 78.75, 63], "b": 194, "kassa": 275810000, "yangi": 0, "qayta": 0, "ota": [119, 61.0], "froz": 31, "qarz": 40, "cj": 15.97, "name": "Munisa Sobirjonova", "team": "B", "grp": 7}}, "W": {"Fot": null, "Mad": null, "Dil": null, "Jas": null, "Nai": null, "Shx": null, "Mar": null, "Xal": null, "Azi": null, "Sab": null, "Mun": null, "all": {"W1": [0, 0, 0], "W2": [0, 0, 0], "W3": [0, 0, 0]}}, "all": {"a": [1348, 63.7], "p": [277, 13.1], "x": [474, 22.4], "y": [16, 0.8], "chu": [2116, 19.0, 402], "fao": [null, 54.6, 462], "b": 2115, "kassa": 4578910000, "yangi": 0, "qayta": 0, "ota": [1525, 72.0], "froz": 234, "qarz": 356, "cj": 17.15}, "TA": {"a": [814, 69.2], "p": [140, 11.9], "x": [218, 18.5], "y": [4, 0.4], "chu": [910, 18.57, 169], "fao": [null, 91.25, 292], "b": 1176, "kassa": 2515176000, "yangi": 0, "qayta": 0, "ota": [838, 71.0], "froz": 107, "qarz": 201}, "TB": {"a": [534, 56.9], "p": [137, 14.6], "x": [256, 27.2], "y": [12, 1.3], "chu": [842, 28.74, 242], "fao": [null, 86.02, 160], "b": 939, "kassa": 2052534000, "yangi": 0, "qayta": 0, "ota": [687, 73.0], "froz": 125, "qarz": 155}, "snap": "28.07.2026"};
 const M=__DATA__.M, W=__DATA__.W, DALL=__DATA__.all||{};
 const WLBL={ALL:"Oy boshidan (01–16.07)",W1:"1-hafta (01–07.07)",W2:"2-hafta (08–14.07)",W3:"Joriy hafta (15–21.07)"};
 const WSHORT={ALL:"iyul",W1:"1-hafta",W2:"2-hafta",W3:"joriy hafta"};
@@ -397,9 +431,9 @@ function cards(){
       <div class="stack">${segs.map(s=>`<i style="background:${s[2]};width:${s[1]/segsum*100}%">${s[1]/segsum>0.09?s[1]:''}</i>`).join('')}</div>
       <div class="stlegend">${segs.map(s=>`<span><i class="d" style="background:${s[2]}"></i>${s[0]} ${s[1]}</span>`).join('')}</div>
       <div class="boxes3">
-        <div class="b3"><div class="l">Qarzdorlar</div><div class="v or">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza</div></div>
-        <div class="b3"><div class="l">Muzlatilgan</div><div class="v or">${r.froz}</div><div class="n">${(r.froz/r.b*100).toFixed(1)}% baza</div></div>
-        <div class="b3"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza</div></div>
+        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v or">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · batafsil →</div></div>
+        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('froz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('froz','${k}')"><div class="l">Muzlatilgan</div><div class="v or">${r.froz}</div><div class="n">${(r.froz/r.b*100).toFixed(1)}% baza · batafsil →</div></div>
+        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('noaktiv','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('noaktiv','${k}')"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza · batafsil →</div></div>
       </div>
       <div class="tavs"><div class="th">💡 Tavsiyalar — churnni kamaytirish</div><ul>${tavsiyalar(r,k).map(t=>`<li>• ${t}</li>`).join('')}</ul></div>
       <div class="extras">
@@ -465,7 +499,7 @@ function showDetail(k){
       <div class="dcards">
         <div class="hc"><div class="l">Churn — Iyul</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
         <div class="hc"><div class="l">Faollashtirish</div><div class="v orange">${r.fao[0]?r.fao[0].toFixed(1)+'%':'—'}</div><div class="n">${r.fao[1]} ta noaktivdan qaytarildi</div></div>
-        <div class="hc"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz}</div></div>
+        <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
         <div class="hc"><div class="l">Kassa — Iyul</div><div class="v">${mln(r.kassa)}</div><div class="n">yangi o'quvchi: ${r.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
       </div>
     </div>
@@ -493,6 +527,50 @@ function hideDetail(){
   document.body.style.overflow='';
 }
 
+// ---------- CLICKABLE METRICS ----------
+const METRICS={
+  qarz:{title:'Qarzdorlar',color:'#d78a1e',value:r=>r.qarz,pct:r=>r.b?r.qarz/r.b*100:0},
+  froz:{title:'Muzlatilganlar',color:'#d78a1e',value:r=>r.froz,pct:r=>r.b?r.froz/r.b*100:0},
+  noaktiv:{title:'Noaktiv o‘quvchilar',color:'#d24a35',value:r=>r.x[0],pct:r=>r.x[1]}
+};
+let METRIC_KEY='qarz', METRIC_FOCUS=null;
+function openMetric(metric='qarz',focus=null){
+  METRIC_KEY=metric; METRIC_FOCUS=focus;
+  renderMetric();
+  document.getElementById('metricModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeMetric(){
+  document.getElementById('metricModal').classList.remove('open');
+  document.body.style.overflow=document.getElementById('detail').classList.contains('open')?'hidden':'';
+}
+function switchMetric(metric){
+  METRIC_KEY=metric;
+  renderMetric();
+}
+function renderMetric(){
+  const cfg=METRICS[METRIC_KEY];
+  const rows=Object.entries(M).map(([k,r])=>({k,r,v:cfg.value(r),pct:cfg.pct(r)}))
+    .sort((a,b)=>b.v-a.v);
+  const total=rows.reduce((s,x)=>s+x.v,0);
+  const focusName=METRIC_FOCUS&&M[METRIC_FOCUS]?M[METRIC_FOCUS].name:null;
+  document.getElementById('metricTitle').textContent=cfg.title;
+  document.getElementById('metricSub').textContent=
+    `${Object.keys(M).length} amaldagi kurator · jami ${fmt(total)} ta`+
+    (focusName?` · ${focusName} ajratildi`:'');
+  document.getElementById('metricTabs').innerHTML=Object.entries(METRICS).map(([k,m])=>
+    `<button class="metric-tab ${k===METRIC_KEY?'on':''}" onclick="switchMetric('${k}')">${m.title}</button>`
+  ).join('');
+  document.getElementById('metricBody').innerHTML=`<table class="metric-table">
+    <thead><tr><th>#</th><th>Kurator</th><th>Team</th><th class="num">Baza</th><th class="num">${cfg.title}</th><th class="num">Ulush</th></tr></thead>
+    <tbody>${rows.map((x,i)=>`<tr class="${x.k===METRIC_FOCUS?'focus':''}">
+      <td><span class="metric-rank">${i+1}</span></td><td>${x.r.name}</td><td>TEAM ${x.r.team}</td>
+      <td class="num">${fmt(x.r.b)}</td><td class="num"><span class="metric-val" style="color:${cfg.color}">${fmt(x.v)}</span></td>
+      <td class="num">${x.pct.toFixed(1)}%</td></tr>`).join('')}
+    </tbody></table>`;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMetric()});
+
 // ---------- PERIOD SWITCH ----------
 
 function applyLive(){
@@ -503,7 +581,7 @@ function applyLive(){
   set('hBaseN', ncur+" kurator · "+grp+" guruh");
   if(DALL.fao){ set('hFaoV', DALL.fao[1].toFixed(1)+'%'); set('hFaoN', DALL.fao[2]+" ta noaktivdan qaytarildi"); }
   if(DALL.qarz!=null){ set('hQarzV', DALL.qarz); }
-  if(DALL.froz!=null){ set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta"); }
+  if(DALL.froz!=null){ set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta · batafsil →"); }
   if(__DATA__.snap){ set('snapdate', __DATA__.snap); }
 }
 
