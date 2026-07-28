@@ -5,21 +5,16 @@ Kassirlar · kunlik avto-vazifalar dashboard generatori.
 Ma'lumot: junior bazasi (ORG 6), MCP HTTP gateway orqali.
 Har bir guruhda mas'ul kassir = group_list.CASHIER_ID. Har bir kassir o'zini
 tanlaydi va faqat o'z guruhlaridagi vazifalarni ko'radi (kuratorlar paneli kabi).
-6 trigger:
-  1) 3 kun oldin to'lov  2) 2 kun oldin to'lov  3) 1 kun oldin to'lov
-  4) Bugun to'lov kuni   5) Debitor bo'ldi      6) Muzlatilgan -> Arxivgacha
+5 trigger:
+  1) 3 kun oldin to'lov  2) 1 kun oldin to'lov  3) Bugun to'lov kuni
+  4) Debitor bo'ldi      5) Muzlatilgan -> Arxivgacha
 Ishga tushirish: python3 refresh.py  ->  index.html hosil bo'ladi.
 """
 import json, urllib.request, datetime, html, os
 
+GATEWAY = "https://myclinic.agc.uz/new_junior_mcp.php"
 ORG = 6
 HERE = os.path.dirname(os.path.abspath(__file__))
-GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "").strip()
-if not GATEWAY:
-    raise RuntimeError(
-        "JUNIOR_MCP_GATEWAY is not set. "
-        "Add it to the environment or GitHub Actions repository variables."
-    )
 
 def q(sql):
     body = json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call",
@@ -38,7 +33,7 @@ row = q("SELECT CURDATE() d, DAY(CURDATE()) dom, NOW() n")[0]
 TODAY = datetime.date.fromisoformat(row["d"])
 DOM = int(row["dom"]); NOW_TS = row["n"]
 def day_of(off): return (TODAY + datetime.timedelta(days=off)).day
-D_T3, D_T2, D_T1, D_T0 = day_of(3), day_of(2), day_of(1), DOM
+D_T3, D_T1, D_T0 = day_of(3), day_of(1), DOM
 
 # ---- kassirlar ----
 cash_rows = q("SELECT ID, NAME, SURNAME FROM gl_sys_users WHERE ROLE_ID=20 AND STATUS=1")
@@ -51,33 +46,13 @@ PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, "
 PAY_FROM = ("FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
             "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
             "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' "
-            "AND sub.STATUS='active' "
-            # CRM kartasidagi "Narxlar tarixi": 3/6/12 oylik paketlar uchun
-            # har oylik eslatma va qarzdor vazifasi yaratilmaydi.
-            "AND NOT (LOWER(COALESCE(NULLIF(TRIM(sub.PRICE_TYPE),'NULL'),'')) "
-            "REGEXP '(^|[^0-9])(3|6|12)[[:space:]]*(oy|oylik|month)' "
-            "OR LOWER(COALESCE(NULLIF(TRIM(sub.PRICE_TYPE),'NULL'),'')) "
-            "REGEXP 'upsell[[:space:]]*(3|6|12)([^0-9]|$)' "
-            "OR LOWER(COALESCE(NULLIF(TRIM(sub.PRICE_TYPE),'NULL'),'')) "
-            "REGEXP '-[[:space:]]*(3|6|12)([^0-9]|$)') "
-            # Kartaning amaldagi holati "Sinov darsi" bo'lsa, eski aktiv
-            # obuna qoldig'i uni qarzdorga aylantirmasligi kerak.
-            "AND NOT EXISTS (SELECT 1 FROM subscribe_list demo "
-            "WHERE demo.ORG_ID=sub.ORG_ID AND demo.STUDENT_ID=sub.STUDENT_ID "
-            "AND demo.ACTIVE=1 AND demo.STATUS='demo') "
-            # Shu oyda to'liq to'lov qilgan o'quvchini yana eslatmaga chiqarmaymiz.
-            "AND COALESCE((SELECT SUM(tx.AMOUNT) FROM transaction_list tx "
-            "WHERE tx.ORG_ID=sub.ORG_ID AND tx.STUDENT_ID=sub.STUDENT_ID "
-            "AND tx.ACTION_TYPE='add' "
-            "AND tx.TRANSACTION_DATE>=DATE_FORMAT(CURDATE(),'%%Y-%%m-01') "
-            "AND tx.TRANSACTION_DATE<DATE_ADD(LAST_DAY(CURDATE()),INTERVAL 1 DAY)),0) "
-            "< sub.SPECIAL_PRICE" % ORG)
+            "AND sub.STATUS='active'" % ORG)
 
 def pay_list(day):
     return q("SELECT %s %s AND s.CURRENT_BALANCE>=0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE "
              "AND sub.DAY=%d ORDER BY s.CURRENT_BALANCE ASC" % (PAY_SEL, PAY_FROM, day))
 
-t3 = pay_list(D_T3); t2 = pay_list(D_T2); t1 = pay_list(D_T1); t0 = pay_list(D_T0)
+t3 = pay_list(D_T3); t1 = pay_list(D_T1); t0 = pay_list(D_T0)
 debtors = q("SELECT %s %s AND s.CURRENT_BALANCE < 0 ORDER BY sub.DAY DESC, s.CURRENT_BALANCE ASC"
             % (PAY_SEL, PAY_FROM))
 frozen = q(
@@ -127,8 +102,8 @@ def task_row(r, kind):
                  % (stu_url(sid), nm))
     grp_html = (('<a class="grp" href="%s" target="_blank" rel="noopener">%s</a>' % (gu, grp))
                 if gu else ('<span class="grp">%s</span>' % grp))
-    if kind in ("t3","t2","t1","t0"):
-        off = {"t0":0, "t1":1, "t2":2, "t3":3}[kind]
+    if kind in ("t3","t1","t0"):
+        off = 0 if kind=="t0" else (1 if kind=="t1" else 3)
         mon = (TODAY + datetime.timedelta(days=off)).month
         chdate = "%02d.%02d" % (int(r["chday"]), mon)
         metric = ('<span class="m m-warn">баланс %s сум</span>'
@@ -157,7 +132,6 @@ def task_row(r, kind):
 
 SECDEF = [
     ("t3","💳","3 дня до оплаты","баланс не покрывает списание · за 3 дня","b-t3", t3),
-    ("t2","💳","2 дня до оплаты","баланс не покрывает списание · за 2 дня","b-t2", t2),
     ("t1","💳","1 день до оплаты","баланс не покрывает списание · за 1 день","b-t1", t1),
     ("t0","⏰","Сегодня день оплаты","дата списания сегодня, оплата не поступила","b-t0", t0),
     ("debtor","📋","Стал дебитором","списание прошло, оплаты нет · свежие первыми","b-debtor", debtors),
@@ -267,17 +241,16 @@ font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradien
 .banner .bc{font:800 16px 'Barlow Condensed',sans-serif;background:rgba(0,0,0,.08);border-radius:20px;padding:1px 11px;min-width:34px;text-align:center}
 .banner small{font-weight:500;opacity:.8;flex-basis:100%;font-size:12px}
 .b-t3{background:rgba(234,179,8,.16);color:var(--yellow)}
-.b-t2{background:rgba(245,158,11,.15);color:var(--yellow)}
 .b-t1{background:rgba(249,115,22,.15);color:var(--orange)}
 .b-t0{background:rgba(255,79,40,.14);color:var(--volttx)}
 .b-debtor{background:rgba(190,18,60,.12);color:var(--red)}
 .b-frozen{background:rgba(8,145,178,.14);color:var(--cyan)}
 .list{padding:4px 0}
 .trow{display:flex;align-items:center;gap:11px;padding:10px 16px;border-top:1px solid var(--line)}
-.trow[hidden]{display:none}
 .list .trow:first-child{border-top:none}
+.trow.done{opacity:.42}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
-.d-t3{background:#eab308}.d-t2{background:#f59e0b}.d-t1{background:#f97316}.d-t0{background:#ff4f28}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
+.d-t3{background:#eab308}.d-t1{background:#f97316}.d-t0{background:#ff4f28}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
 .tmain{flex:1;min-width:0}
 .tnm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 a.tnm{color:var(--txt);text-decoration:none}
@@ -293,6 +266,7 @@ a.grp:hover{border-color:var(--volt);color:var(--txt)}
 .call:hover{border-color:var(--volt);color:var(--volttx)}
 .done{flex:none;width:34px;height:34px;border:1px solid var(--line);background:var(--panel2);color:var(--green);border-radius:9px;cursor:pointer;font-size:15px;font-weight:800}
 .done:hover{border-color:var(--green)}
+.trow.done .done{background:var(--green);color:#fff;border-color:var(--green)}
 .empty{padding:22px 16px;color:var(--mut);font-size:13px}
 .foot{margin-top:22px;color:var(--dim);font-size:11.5px;text-align:center}
 @media(max-width:600px){.tright{max-width:42%}.tnm{font-size:14px}.call{padding:7px 9px}}
@@ -317,7 +291,7 @@ JS = """
  document.addEventListener('click',function(e){
   var d=e.target.closest('.done');if(!d)return;
   var row=d.closest('.trow'),k=row.dataset.k;
-  done[k]=1;save();upd();
+  if(done[k])delete done[k];else done[k]=1;save();upd();
  });
  document.querySelectorAll('.chip').forEach(function(ch){ch.onclick=function(){
   ch.classList.toggle('off');
@@ -326,28 +300,19 @@ JS = """
  }});
  function upd(){
   document.querySelectorAll('.board').forEach(function(b){
+   if(b.hidden)return;
    var rows=b.querySelectorAll('.trow'),tot=rows.length,cl=0;
-   rows.forEach(function(r){
-    var closed=!!done[r.dataset.k];
-    r.hidden=closed;
-    if(closed)cl++;
-   });
-   var open=tot-cl;
+   rows.forEach(function(r){if(done[r.dataset.k]){r.classList.add('done');cl++}else r.classList.remove('done')});
    var pct=tot?Math.round(cl/tot*100):0;
    b.querySelector('.pfill').style.width=pct+'%';
-   b.querySelector('.pnum').textContent=open+' осталось · '+cl+' готово';
-   var pickCount=document.querySelector('.pcard[data-cash="'+b.dataset.cash+'"] .pcnt');
-   if(pickCount)pickCount.textContent=open;
+   b.querySelector('.pnum').textContent=cl+' / '+tot+' · '+pct+'%';
    b.querySelectorAll('.sec').forEach(function(s){
-    var secOpen=0;s.querySelectorAll('.trow').forEach(function(r){if(!done[r.dataset.k])secOpen++});
-    var c=s.querySelector('.bc');if(c)c.textContent=secOpen;
-    var chip=b.querySelector('.chip[data-sec="'+s.dataset.sec+'"] .cbn');
-    if(chip)chip.textContent=secOpen;
+    var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!done[r.dataset.k])open++});
+    var c=s.querySelector('.bc');if(c)c.textContent=open;
    });
   });
  }
  var saved=null;try{saved=localStorage.getItem(PKEY)}catch(e){}
- upd();
  if(saved&&document.querySelector('.board[data-cash="'+saved+'"]'))show(saved);
 })();
 """
@@ -381,8 +346,8 @@ with open(OUT, "w", encoding="utf-8") as f:
     f.write(HTML)
 
 print("OK ->", OUT)
-print("today=%s dom=%d  t3=%d t2=%d t1=%d t0=%d debtors=%d frozen=%d  TOTAL=%d"
-      % (TODAY, DOM, len(t3), len(t2), len(t1), len(t0), len(debtors), len(frozen), alltot))
+print("today=%s dom=%d  t3=%d t1=%d t0=%d debtors=%d frozen=%d  TOTAL=%d"
+      % (TODAY, DOM, len(t3), len(t1), len(t0), len(debtors), len(frozen), alltot))
 for cid in order:
     tot = sum(len([r for r in s[5] if cid_of(r)==cid]) for s in SECDEF)
     if tot: print("  %-22s %d" % (CASH[cid], tot))
