@@ -42,24 +42,43 @@ CASH = {str(c["ID"]): (html.unescape(c["NAME"]).strip() + " " +
         for c in cash_rows}
 
 PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, "
-           "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price")
+           "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price, "
+           "DATE(sub.END_OF_SUBSCRIPTION) expiry, COALESCE(tf.tariff_months,0) tariff_months, "
+           "tf.tariff_name")
 PAY_FROM = ("FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
             "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
+            "LEFT JOIN (SELECT NAME_VALUE, AMOUNT, MAX(MONTH_AMOUNT) tariff_months, "
+            "MAX(NAME) tariff_name FROM tariffs_list WHERE TYPE='tariff' "
+            "GROUP BY NAME_VALUE, AMOUNT) tf "
+            "ON tf.NAME_VALUE=sub.PRICE_TYPE AND tf.AMOUNT=sub.SPECIAL_PRICE "
             "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' "
             "AND sub.STATUS='active'" % ORG)
 
-def pay_list(day):
-    return q("SELECT %s %s AND s.CURRENT_BALANCE>=0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE "
-             "AND sub.DAY=%d ORDER BY s.CURRENT_BALANCE ASC" % (PAY_SEL, PAY_FROM, day))
+def pay_list(day, days_left):
+    return q(
+        "SELECT %s %s AND ("
+        "(COALESCE(tf.tariff_months,0)<=1 "
+        " AND s.CURRENT_BALANCE>=0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE AND sub.DAY=%d)"
+        " OR "
+        "(COALESCE(tf.tariff_months,0)>1 "
+        " AND DATEDIFF(DATE(sub.END_OF_SUBSCRIPTION),CURDATE())=%d)"
+        ") ORDER BY COALESCE(tf.tariff_months,0) DESC, s.CURRENT_BALANCE ASC"
+        % (PAY_SEL, PAY_FROM, day, days_left))
 
-t3 = pay_list(D_T3); t1 = pay_list(D_T1); t0 = pay_list(D_T0)
-debtors = q("SELECT %s %s AND s.CURRENT_BALANCE < 0 ORDER BY sub.DAY DESC, s.CURRENT_BALANCE ASC"
+t3 = pay_list(D_T3, 3); t1 = pay_list(D_T1, 1); t0 = pay_list(D_T0, 0)
+debtors = q("SELECT %s %s AND COALESCE(tf.tariff_months,0)<=1 "
+            "AND s.CURRENT_BALANCE < 0 ORDER BY sub.DAY DESC, s.CURRENT_BALANCE ASC"
             % (PAY_SEL, PAY_FROM))
 frozen = q(
     "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
-    "DATE(fs.START_DATE) fdate, fr.REASON reason "
+    "DATE(fs.START_DATE) fdate, fr.REASON reason, DATE(sub.END_OF_SUBSCRIPTION) expiry, "
+    "COALESCE(tf.tariff_months,0) tariff_months, tf.tariff_name "
     "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
     "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
+    "LEFT JOIN (SELECT NAME_VALUE, AMOUNT, MAX(MONTH_AMOUNT) tariff_months, "
+    "MAX(NAME) tariff_name FROM tariffs_list WHERE TYPE='tariff' "
+    "GROUP BY NAME_VALUE, AMOUNT) tf "
+    "ON tf.NAME_VALUE=sub.PRICE_TYPE AND tf.AMOUNT=sub.SPECIAL_PRICE "
     "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
     "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
     "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
@@ -102,38 +121,57 @@ def task_row(r, kind):
                  % (stu_url(sid), nm))
     grp_html = (('<a class="grp" href="%s" target="_blank" rel="noopener">%s</a>' % (gu, grp))
                 if gu else ('<span class="grp">%s</span>' % grp))
+    package_months = int(r.get("tariff_months") or 0)
+    is_package = package_months > 1
+    pay_kind = ("%d oylik paket" % package_months) if is_package else "Oylik to‘lov"
     if kind in ("t3","t1","t0"):
         off = 0 if kind=="t0" else (1 if kind=="t1" else 3)
-        mon = (TODAY + datetime.timedelta(days=off)).month
-        chdate = "%02d.%02d" % (int(r["chday"]), mon)
-        metric = ('<span class="m m-warn">баланс %s сум</span>'
-                  '<span class="m m-dim">нужно %s</span>'
-                  '<span class="m m-dim">списание %s</span>'
-                  % (nf(r["bal"]), nf(r["price"]), chdate))
+        if is_package:
+            chdate = dm(r.get("expiry"))
+            state = "bugun tugaydi" if off == 0 else "%d kun qoldi" % off
+            detail = '<span class="taskbadge package">📦 %s · %s</span>' % (pay_kind, state)
+            metric = ('<span class="m m-warn">%s</span>'
+                      '<span class="m m-dim">paket summasi %s</span>'
+                      '<span class="m m-dim">tugash sanasi %s</span>'
+                      % (esc(r.get("tariff_name") or pay_kind), nf(r["price"]), chdate))
+        else:
+            mon = (TODAY + datetime.timedelta(days=off)).month
+            chdate = "%02d.%02d" % (int(r["chday"]), mon)
+            state = "bugun tugaydi" if off == 0 else "%d kun qoldi" % off
+            detail = '<span class="taskbadge monthly">📅 %s · %s</span>' % (pay_kind, state)
+            metric = ('<span class="m m-warn">баланс %s сум</span>'
+                      '<span class="m m-dim">нужно %s</span>'
+                      '<span class="m m-dim">списание %s</span>'
+                      % (nf(r["bal"]), nf(r["price"]), chdate))
         key = "%s_%s" % (kind, sid)
     elif kind == "debtor":
         dp = days_past(r["chday"])
         fresh = "сегодня" if dp==0 else ("вчера" if dp==1 else "%d дн. назад" % dp)
+        detail = '<span class="taskbadge overdue">📅 Oylik to‘lov muddati o‘tdi</span>'
         metric = ('<span class="m m-debt">долг %s сум</span>'
                   '<span class="m m-dim">списание %s</span>' % (nf(-int(r["bal"])), fresh))
         key = "debtor_%s" % sid
     else:
         reason = REASON_RU.get(r.get("reason"), esc(r.get("reason") or "—"))
+        if is_package:
+            detail = '<span class="taskbadge package">📦 %s tugadi · muzlatilgan</span>' % pay_kind
+        else:
+            detail = '<span class="taskbadge frozen">🧊 Oylik to‘lov tugadi · muzlatilgan</span>'
         metric = ('<span class="m m-froz">%s</span>'
                   '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
         key = "frozen_%s" % sid
     return ('<div class="trow" data-k="%s"><span class="dot d-%s"></span>'
             '<div class="tmain">%s'
-            '<div class="tmeta">%s</div></div>'
+            '<div class="tmeta">%s %s</div></div>'
             '<div class="tright">%s</div>'
             '<a class="call" href="tel:%s">Позвонить</a>'
             '<button class="done" title="Готово">✓</button></div>'
-            % (key, kind, name_html, grp_html, metric, phd))
+            % (key, kind, name_html, grp_html, detail, metric, phd))
 
 SECDEF = [
-    ("t3","💳","3 дня до оплаты","баланс не покрывает списание · за 3 дня","b-t3", t3),
-    ("t1","💳","1 день до оплаты","баланс не покрывает списание · за 1 день","b-t1", t1),
-    ("t0","⏰","Сегодня день оплаты","дата списания сегодня, оплата не поступила","b-t0", t0),
+    ("t3","💳","3 дня до оплаты","oylik to‘lov yoki paket tugashiga 3 kun","b-t3", t3),
+    ("t1","💳","1 день до оплаты","oylik to‘lov yoki paket tugashiga 1 kun","b-t1", t1),
+    ("t0","⏰","Сегодня день оплаты","oylik to‘lov yoki paket bugun tugaydi","b-t0", t0),
     ("debtor","📋","Стал дебитором","списание прошло, оплаты нет · свежие первыми","b-debtor", debtors),
     ("frozen","🧊","Заморожен → Архив","заморожен за просрочку · каждый день до архива","b-frozen", frozen),
 ]
@@ -259,6 +297,11 @@ a.tnm:hover{color:var(--volttx);text-decoration:underline}
 .grp{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:1px 8px;font-size:11.5px;color:var(--mut)}
 a.grp{text-decoration:none}
 a.grp:hover{border-color:var(--volt);color:var(--txt)}
+.taskbadge{display:inline-block;margin-left:5px;border-radius:7px;padding:2px 8px;font-size:11.5px;font-weight:700}
+.taskbadge.monthly{background:rgba(124,58,237,.10);color:var(--violet)}
+.taskbadge.package{background:rgba(5,150,105,.11);color:var(--green)}
+.taskbadge.overdue{background:rgba(190,18,60,.10);color:var(--red)}
+.taskbadge.frozen{background:rgba(8,145,178,.11);color:var(--cyan)}
 .tright{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;flex:none}
 .m{font-size:11.5px;white-space:nowrap}
 .m-warn{color:var(--yellow);font-weight:700}.m-debt{color:var(--red);font-weight:800}.m-froz{color:var(--cyan);font-weight:700}.m-dim{color:var(--dim)}
