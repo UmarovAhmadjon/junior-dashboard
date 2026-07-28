@@ -134,15 +134,20 @@ def main():
     alld['cj'] = churn_pct(op, 'all', pm)
 
     # haftalik (iyul: 4 hafta chegarasi)
-    weeks = [('W1','2026-07-08','2026-07-01'),('W2','2026-07-15','2026-07-01'),('W3','2026-07-22','2026-07-01')]
+    weeks = [
+        ('W1','2026-07-08','2026-07-01'),
+        ('W2','2026-07-15','2026-07-01'),
+        ('W3','2026-07-22','2026-07-01'),
+        ('W4','2026-08-01','2026-07-01'),
+    ]
     id2key = {v[2]:k for k,v in CUR.items()}
     wk_all = weekly([v[2] for v in CUR.values()], weeks)
     W = {}
     for aid,key in id2key.items():
         wd = wk_all.get(aid)
-        W[key] = {w:wd.get(w,[0,0,0]) for w in ['W1','W2','W3']} if wd else None
+        W[key] = {w:wd.get(w,[0,0,0]) for w in ['W1','W2','W3','W4']} if wd else None
     # umumiy hafta = yig'indi
-    W['all'] = {w:[sum(wk_all.get(a,{}).get(w,[0,0,0])[i] for a in wk_all) for i in range(3)] for w in ['W1','W2','W3']}
+    W['all'] = {w:[sum(wk_all.get(a,{}).get(w,[0,0,0])[i] for a in wk_all) for i in range(3)] for w in ['W1','W2','W3','W4']}
 
     payload = {'M':M, 'W':W, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
