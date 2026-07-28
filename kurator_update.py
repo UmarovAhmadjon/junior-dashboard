@@ -3,13 +3,14 @@
 Manba: crm.junior-it.uz Analitika AJAX API. Login: .crm_login (phone / pass).
 Haftalik churn hodisalari: junior-lms MCP (student_status_logs).
 Deploy: GitHub Pages (kurator.html)."""
-import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar, time
+import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar, time, datetime, calendar
 
 HOME = pathlib.Path.home() / 'junior-dashboard'
 REPO = 'UmarovAhmadjon/junior-dashboard'
 CRM = 'https://crm.junior-it.uz'
 MCP = 'https://myclinic.agc.uz/new_junior_mcp.php'
-MONTH = os.environ.get('KURATOR_MONTH', '2026-07-01')  # oy boshidan
+TASHKENT_NOW = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5)))
+MONTH = os.environ.get('KURATOR_MONTH', TASHKENT_NOW.strftime('%Y-%m-01'))
 
 # admin_id lar (CRM admin-select)
 CUR = {
@@ -125,6 +126,45 @@ def weekly(admin_ids_list, weeks):
         out.setdefault(a,{}).setdefault(wk,[0,0,0])[s]=int(r['c'])
     return out
 
+def weekly_noaktiv_net(admin_ids_list, weeks):
+    """Hafta ichidagi Noaktiv qoldig'i o'zgarishi: kirganlar minus chiqqanlar."""
+    ids = ','.join(admin_ids_list)
+    when = " ".join([f"WHEN l.changed_at<'{w['end_exclusive']}' THEN '{w['key']}'" for w in weeks[:-1]])
+    last = weeks[-1]['key']
+    sql = (
+        f"SELECT t.admin, CASE {when} ELSE '{last}' END wk, "
+        f"SUM(CASE WHEN l.to_status='not_active' AND l.from_status<>'not_active' THEN 1 "
+        f"WHEN l.from_status='not_active' AND l.to_status<>'not_active' THEN -1 ELSE 0 END) net "
+        f"FROM (SELECT s.STUDENT_ID, MIN(g.ADMIN_ID) admin FROM group_list g "
+        f"JOIN subscribe_list s ON s.GROUP_ID=g.ID "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND s.STATUS IN ('active','freezed') GROUP BY s.STUDENT_ID) t "
+        f"JOIN student_status_logs l ON l.student_id=t.STUDENT_ID "
+        f"WHERE l.changed_at>='{weeks[0]['start']}' AND l.changed_at<'{weeks[-1]['end_exclusive']}' "
+        f"AND (l.to_status='not_active' OR l.from_status='not_active') GROUP BY t.admin,wk"
+    )
+    out = {}
+    for r in mcp(sql):
+        out.setdefault(str(r['admin']), {})[r['wk']] = int(r['net'] or 0)
+    return out
+
+def month_weeks(month):
+    """Oyni 1–7, 8–14, 15–21, 22–oy oxiri ko'rinishida avtomatik yaratadi."""
+    y, mo = map(int, month[:7].split('-'))
+    last = calendar.monthrange(y, mo)[1]
+    starts = (1, 8, 15, 22)
+    weeks = []
+    for i, day in enumerate(starts, 1):
+        end_day = starts[i] if i < 4 else last + 1
+        end_exclusive = (datetime.date(y, mo, last) + datetime.timedelta(days=1)) if end_day > last else datetime.date(y, mo, end_day)
+        weeks.append({
+            'key': f'W{i}',
+            'start': f'{y:04d}-{mo:02d}-{day:02d}',
+            'end_exclusive': end_exclusive.isoformat(),
+            'from_day': day,
+            'to_day': (starts[i] - 1) if i < 4 else last,
+        })
+    return weeks
+
 def main():
     print('CRM login...')
     op = crm_session()
@@ -140,13 +180,8 @@ def main():
     alld = grab(op,'all'); ta = grab(op,TEAM_A_IDS); tb = grab(op,TEAM_B_IDS)
     alld['cj'] = churn_pct(op, 'all', pm)
 
-    # haftalik (iyul: 4 hafta chegarasi)
-    weeks = [
-        ('W1','2026-07-08','2026-07-01'),
-        ('W2','2026-07-15','2026-07-01'),
-        ('W3','2026-07-22','2026-07-01'),
-        ('W4','2026-08-01','2026-07-01'),
-    ]
+    weeks_meta = month_weeks(MONTH)
+    weeks = [(w['key'], w['end_exclusive'], weeks_meta[0]['start']) for w in weeks_meta]
     id2key = {v[2]:k for k,v in CUR.items()}
     wk_all = weekly([v[2] for v in CUR.values()], weeks)
     if wk_all:
@@ -170,7 +205,25 @@ def main():
             W.setdefault(key, None)
         W.setdefault('all', {w:[0,0,0] for w in ['W1','W2','W3','W4']})
 
-    payload = {'M':M, 'W':W, 'all':alld, 'TA':ta, 'TB':tb,
+    # Noaktiv qoldig'i: joriy CRM snapshotidan orqaga, haftalik sof o'zgarishlar orqali.
+    net = weekly_noaktiv_net([v[2] for v in CUR.values()], weeks_meta)
+    N = {}
+    for key,(_,_,aid,_) in CUR.items():
+        current = int(M[key]['x'][0])
+        vals = {}
+        cursor = current
+        for wk in reversed(['W1','W2','W3','W4']):
+            vals[wk] = {'count': cursor, 'delta': int(net.get(aid,{}).get(wk,0))}
+            cursor -= vals[wk]['delta']
+        N[key] = vals
+    N['all'] = {}
+    for wk in ['W1','W2','W3','W4']:
+        N['all'][wk] = {
+            'count': sum(N[k][wk]['count'] for k in CUR),
+            'delta': sum(N[k][wk]['delta'] for k in CUR),
+        }
+
+    payload = {'M':M, 'W':W, 'N':N, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -192,8 +245,9 @@ def real_date():
 
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','weeks','all','TA','TB')}
     data['snap'] = real_date()
+    data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
     html = tpl.replace('/*__DATA__*/', js)
     (BASE/'kurator.html').write_text(html)
