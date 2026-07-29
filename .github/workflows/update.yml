@@ -39,5 +39,6 @@ jobs:
             echo "No changes - skip commit"
           else
             git commit -m "auto-update all dashboard periods"
+            git pull --rebase origin main
             git push
           fi
