@@ -310,17 +310,31 @@ function hero(){
 // ---------- UMUMIY AKTIVNOST ----------
 function activity(){
   const sets=[
-    ['Umumiy',DALL],
-    ['TEAM A',typeof DTA!=='undefined'?DTA:null],
-    ['TEAM B',typeof DTB!=='undefined'?DTB:null]
+    ['Umumiy',DALL,'all'],
+    ['TEAM A',typeof DTA!=='undefined'?DTA:null,'A'],
+    ['TEAM B',typeof DTB!=='undefined'?DTB:null,'B']
   ].filter(x=>x[1]&&x[1].a);
-  document.getElementById('activityGrid').innerHTML=sets.map(([name,d])=>{
+  document.getElementById('activityGrid').innerHTML=sets.map(([name,d,team])=>{
     const a=d.a||[0,0],p=d.p||[0,0],x=d.x||[0,0],y=d.y||[0,0];
     const sum=Math.max(1,a[0]+p[0]+x[0]+y[0]);
+    let churnPct=0,churnCount=0;
+    if(WEEK==='ALL'){
+      churnPct=d.chu&&d.chu[1]!=null?d.chu[1]:0;
+      churnCount=d.chu&&d.chu[2]!=null?d.chu[2]:0;
+    }else{
+      const keys=team==='all'?Object.keys(M):Object.keys(M).filter(k=>M[k].team===team);
+      const base=keys.reduce((s,k)=>s+studentDelta(k).now,0);
+      churnCount=keys.reduce((s,k)=>s+((W[k]&&W[k][WEEK])?W[k][WEEK][2]:0),0);
+      churnPct=base?churnCount/base*100:0;
+    }
     return `<div class="activity-card">
-      <div class="at"><div><div class="an">${name}</div><div class="as">${fmt(d.b||sum)} o‘quvchi</div></div><div class="av">${a[1].toFixed(1)}%</div></div>
+      <div class="at"><div><div class="an">${name}</div><div class="as">${fmt(team==='all'?TOTAL:Object.keys(M).filter(k=>M[k].team===team).reduce((s,k)=>s+studentDelta(k).now,0))} o‘quvchi</div></div><div class="av">${a[1].toFixed(1)}%</div></div>
       <div class="mini-status"><i style="width:${a[0]/sum*100}%;background:var(--good)"></i><i style="width:${p[0]/sum*100}%;background:var(--warn)"></i><i style="width:${x[0]/sum*100}%;background:var(--bad)"></i><i style="width:${y[0]/sum*100}%;background:#6c5ce7"></i></div>
       <div class="aleg"><span>Aktiv ${a[0]}</span><span>Passiv ${p[0]}</span><span>Noaktiv ${x[0]}</span>${y[0]?`<span>Yangi ${y[0]}</span>`:''}</div>
+      <div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase">Churn · ${WSHORT[WEEK]}</span>
+        <span class="chbadge z-${pzone(churnPct,WEEK==='ALL'?PLAN.churnM:PLAN.churnW)}">${churnPct.toFixed(1)}% · ${churnCount} ta</span>
+      </div>
     </div>`;
   }).join('');
 }
