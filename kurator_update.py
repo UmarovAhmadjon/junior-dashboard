@@ -208,20 +208,36 @@ def current_student_counts(admin_ids_list):
     )
     return {str(r['admin']):int(r['students']) for r in mcp(sql)}
 
-def monthly_churn_counts(admin_ids_list, month, month_end):
-    """Oyda not_active'ga o'tgan unik student; oxirgi relevant guruhi bo'yicha bir marta."""
+def status_churn_counts(admin_ids_list, weeks):
+    """Churn = davrda muzlatilib hozir frozen turgan + davrda terminal archive bo'lgan."""
     ids = ','.join(admin_ids_list)
+    when = " ".join([f"WHEN x.event_date<'{w['end_exclusive']}' THEN '{w['key']}'" for w in weeks[:-1]])
+    last = weeks[-1]['key']
     sql = (
-        f"SELECT g.ADMIN_ID admin,COUNT(DISTINCT l.student_id) churn_students "
-        f"FROM student_status_logs l "
-        f"JOIN subscribe_list s ON s.ID=(SELECT MAX(s2.ID) FROM subscribe_list s2 "
-        f"JOIN group_list g2 ON g2.ID=s2.GROUP_ID WHERE s2.STUDENT_ID=l.student_id "
-        f"AND g2.ADMIN_ID IN ({ids})) "
-        f"JOIN group_list g ON g.ID=s.GROUP_ID "
-        f"WHERE l.changed_at>='{month}' AND l.changed_at<'{month_end}' "
-        f"AND l.to_status='not_active' GROUP BY g.ADMIN_ID"
+        f"SELECT x.admin,CASE {when} ELSE '{last}' END wk,x.kind,"
+        f"COUNT(DISTINCT x.student_id) students FROM ("
+        f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'frozen' kind,f.START_DATE event_date "
+        f"FROM frozen_student_list f JOIN subscribe_list s ON s.STUDENT_ID=f.STUDENT_ID "
+        f"AND s.ACTIVE=1 AND s.STATUS='freezed' JOIN group_list g ON g.ID=s.GROUP_ID "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{weeks[0]['start']}' "
+        f"AND f.START_DATE<'{weeks[-1]['end_exclusive']}' "
+        f"UNION ALL "
+        f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'archive' kind,s.END_DATE event_date "
+        f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
+        f"WHERE s.ID=(SELECT MAX(s2.ID) FROM subscribe_list s2 JOIN group_list g2 ON g2.ID=s2.GROUP_ID "
+        f"WHERE s2.STUDENT_ID=s.STUDENT_ID AND s2.STATUS='archive' AND g2.ADMIN_ID IN ({ids})) "
+        f"AND s.STATUS='archive' AND s.END_DATE>='{weeks[0]['start']}' "
+        f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
+        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a WHERE a.STUDENT_ID=s.STUDENT_ID "
+        f"AND a.ACTIVE=1 AND a.STATUS IN ('active','freezed'))"
+        f") x GROUP BY x.admin,wk,x.kind"
     )
-    return {str(r['admin']):int(r['churn_students']) for r in mcp(sql)}
+    out = {}
+    for r in mcp(sql):
+        aid,wk,kind=str(r['admin']),r['wk'],r['kind']
+        out.setdefault(aid,{}).setdefault(wk,{'frozen':0,'archive':0})
+        out[aid][wk][kind]=int(r['students'])
+    return out
 
 def old_snapshots():
     try:
@@ -311,9 +327,7 @@ def main():
     events = period_kpis([v[2] for v in CUR.values()], weeks_meta)
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
     db_students = current_student_counts([v[2] for v in CUR.values()])
-    direct_churn = monthly_churn_counts(
-        [v[2] for v in CUR.values()], MONTH, weeks_meta[-1]['end_exclusive']
-    )
+    churn_status = status_churn_counts([v[2] for v in CUR.values()], weeks_meta)
     E = {}
     for key,(_,_,aid,_) in CUR.items():
         wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in ['W1','W2','W3','W4']}
@@ -329,14 +343,29 @@ def main():
         M[key]['qayta'] = E[key]['month']['fao']
         M[key]['qarz_plan'] = E[key]['month']['qarz_plan']
         M[key]['db_students'] = db_students.get(aid,0)
-        M[key]['db_churn'] = direct_churn.get(aid,0)
+        wk_churn = {}
+        for wk in ['W1','W2','W3','W4']:
+            parts=churn_status.get(aid,{}).get(wk,{'frozen':0,'archive':0})
+            wk_churn[wk]={'frozen':parts['frozen'],'archive':parts['archive'],
+                          'count':parts['frozen']+parts['archive']}
+        M[key]['db_churn'] = sum(x['count'] for x in wk_churn.values())
 
+    H={'curators':{},'teams':{'A':{},'B':{}},'all':{}}
     C = {'curators':{},'teams':{'A':{'count':0,'base':0},'B':{'count':0,'base':0}}}
     for key,(_,team,aid,_) in CUR.items():
-        cnt,base = direct_churn.get(aid,0),db_students.get(aid,0)
-        C['curators'][key] = {'count':cnt,'base':base,'pct':round(cnt/base*100,2) if base else 0}
+        H['curators'][key]={}
+        for wk in ['W1','W2','W3','W4']:
+            p=churn_status.get(aid,{}).get(wk,{'frozen':0,'archive':0})
+            H['curators'][key][wk]={'frozen':p['frozen'],'archive':p['archive'],'count':p['frozen']+p['archive']}
+        frozen=sum(x['frozen'] for x in H['curators'][key].values())
+        archive=sum(x['archive'] for x in H['curators'][key].values())
+        cnt,base = frozen+archive,db_students.get(aid,0)
+        C['curators'][key] = {'count':cnt,'frozen':frozen,'archive':archive,'base':base,'pct':round(cnt/base*100,2) if base else 0}
         C['teams'][team]['count'] += cnt
         C['teams'][team]['base'] += base
+        for wk in ['W1','W2','W3','W4']:
+            dst=H['teams'][team].setdefault(wk,{'count':0,'frozen':0,'archive':0})
+            for f in ('count','frozen','archive'): dst[f]+=H['curators'][key][wk][f]
     for team in ('A','B'):
         x=C['teams'][team]
         x['pct']=round(x['count']/x['base']*100,2) if x['base'] else 0
@@ -345,6 +374,10 @@ def main():
         'base':C['teams']['A']['base']+C['teams']['B']['base'],
     }
     C['all']['pct']=round(C['all']['count']/C['all']['base']*100,2) if C['all']['base'] else 0
+    C['all']['frozen']=C['curators'] and sum(x['frozen'] for x in C['curators'].values())
+    C['all']['archive']=C['curators'] and sum(x['archive'] for x in C['curators'].values())
+    for wk in ['W1','W2','W3','W4']:
+        H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
     today = TASHKENT_NOW.strftime('%Y-%m-%d')
     snapshots = old_snapshots()
@@ -358,7 +391,7 @@ def main():
         'manual': True, 'note': JULY_BASELINE['note']
     })
 
-    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -380,7 +413,7 @@ def real_date():
 
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','E','C','snapshots','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','C','H','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
