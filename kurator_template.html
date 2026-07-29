@@ -255,12 +255,15 @@
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
 /*__DATA__*/
-const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
+const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, S=__DATA__.snapshots||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
 const MONTH_NAMES=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
 const MY=(__DATA__.month||'2026-07-01').split('-'), MONTH_NAME=MONTH_NAMES[+MY[1]-1], MONTH_YEAR=MY[0], MM=MY[1];
 const WLBL={ALL:`${MONTH_NAME} ${MONTH_YEAR} · oy boshidan`}, WSHORT={ALL:MONTH_NAME.toLowerCase()};
 WM.forEach((w,i)=>{WLBL[w.key]=`${i+1}-hafta (${String(w.from_day).padStart(2,'0')}–${String(w.to_day).padStart(2,'0')}.${MM})`;WSHORT[w.key]=`${i+1}-hafta`;});
-const TOTAL=(__DATA__.all&&__DATA__.all.b)||2126;
+const SNAP_DATES=Object.keys(S).sort(), TODAY_SNAP=SNAP_DATES.length?S[SNAP_DATES[SNAP_DATES.length-1]]:null;
+const MONTH_PREFIX=(__DATA__.month||'').slice(0,7), MONTH_DATES=SNAP_DATES.filter(d=>d.startsWith(MONTH_PREFIX));
+const START_SNAP=MONTH_DATES.length?S[MONTH_DATES[0]]:null;
+const TOTAL=(TODAY_SNAP&&TODAY_SNAP.total)||Object.values(M).reduce((s,r)=>s+(r.db_students||0),0)||2126;
 const fmt=n=>n==null?'—':n.toLocaleString('ru-RU').replace(/,/g,' ');
 const mln=n=>(n/1e6).toFixed(1).replace('.',',')+' mln';
 let WEEK='ALL';
@@ -331,6 +334,11 @@ function periodKpi(k){
   const d=WEEK==='ALL'?e.month:(e.weeks[WEEK]||{yangi:0,fao:0});
   return {yangi:d.yangi||0,fao:d.fao||0,qarz_plan:(e.month&&e.month.qarz_plan)||0};
 }
+function studentDelta(k){
+  const now=(TODAY_SNAP&&TODAY_SNAP.curators&&TODAY_SNAP.curators[k]!=null)?TODAY_SNAP.curators[k]:(M[k].db_students||0);
+  const start=START_SNAP&&START_SNAP.curators?START_SNAP.curators[k]:null;
+  return {now,start,delta:start==null?null:now-start};
+}
 
 // ---------- NOAKTIV QOLDIQ CHART ----------
 function drawChart(){
@@ -374,13 +382,14 @@ function rating(){
   const rt=document.getElementById('rt'); rt.innerHTML='';
   sorted.forEach((k,i)=>{
     const r=M[k], c=pchurn(k), z=pzone(c.pct,c.plan);
+    const sd=studentDelta(k);
     const nw=WEEK==='ALL'?'W4':WEEK, nd=noaktivPoint(k,nw).delta;
     const trend=nd>0?`<span class="up">▲ +${nd} ta</span>`:nd<0?`<span class="down">▼ ${Math.abs(nd)} ta</span>`:`<span class="dim">0 ta</span>`;
     const pctTxt=c.has?(c.pct==null?'—':c.pct.toFixed(1)+'%'):'log yo\'q';
     rt.insertAdjacentHTML('beforeend',`<tr data-k="${k}" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">
       <td><span class="rk">${i+1}</span></td>
       <td><span class="nm">${r.name}</span><span class="tm ${r.team}">${r.team}</span></td>
-      <td class="num">${r.b}</td>
+      <td class="num">${sd.now}</td>
       <td class="num"><span class="chbadge z-${z}">${pctTxt}</span><span class="cbar" style="margin-left:auto"><i style="width:${Math.min((c.pct||0)*barScale,100)}%"></i></span></td>
       <td class="num strong">${c.cnt==null?'—':c.cnt}</td>
       <td class="num">${trend}</td>
@@ -392,7 +401,7 @@ function rating(){
   const o=orgChurn();
   const onw=WEEK==='ALL'?'W4':WEEK, ond=noaktivPoint('all',onw).delta;
   const oTrend=ond>0?`<span class="up">▲ +${ond} ta</span>`:ond<0?`<span class="down">▼ ${Math.abs(ond)} ta</span>`:`<span class="dim">0 ta</span>`;
-  const jBase=(typeof DALL!=='undefined'&&DALL.b)?DALL.b:TOTAL;
+  const jBase=TOTAL;
   const jNoa=(typeof DALL!=='undefined'&&DALL.x)?DALL.x[1].toFixed(1)+'%':'—';
   const jQarz=(typeof DALL!=='undefined'&&DALL.qarz!=null)?DALL.qarz:'—';
   const jFroz=(typeof DALL!=='undefined'&&DALL.froz!=null)?DALL.froz:'—';
@@ -437,6 +446,7 @@ function cards(){
   sorted.forEach(k=>{
     const r=M[k], w=W[k], c=pchurn(k);
     const pk=periodKpi(k);
+    const sd=studentDelta(k), sdText=sd.start==null?'1-iyul baseline yo‘q':`1-iyul ${sd.start} → hozir ${sd.now} (${sd.delta>0?'+':''}${sd.delta})`;
     const nvals=['W1','W2','W3','W4'].map(wk=>noaktivPoint(k,wk));
     const ntext=d=>`${d.count} (${d.delta>0?'+':''}${d.delta})`;
     const wkm=M[k].chu[1]==null?'—':M[k].chu[1].toFixed(1)+'%';
@@ -446,8 +456,8 @@ function cards(){
     el.insertAdjacentHTML('beforeend',`
     <div class="kk">
       <div class="top">
-        <div class="who"><div class="n1" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">${r.name} <span class="tm ${r.team}">TEAM ${r.team}</span></div><div class="n2">Kurator · ${r.grp} guruh</div></div>
-        <div class="cnt"><b>${r.b}</b><span>o'quvchi</span></div>
+        <div class="who"><div class="n1" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">${r.name} <span class="tm ${r.team}">TEAM ${r.team}</span></div><div class="n2">Kurator · ${r.grp} guruh · ${sdText}</div></div>
+        <div class="cnt"><b>${sd.now}</b><span>o'quvchi · bazadan</span></div>
       </div>
       <div class="churnrow">
         ${donut(c.pct,c.plan)}
@@ -499,6 +509,7 @@ function miniChart(k){
 function showDetail(k){
   const r=M[k], w=W[k];
   const pk=periodKpi(k);
+  const sd=studentDelta(k), sdText=sd.start==null?'1-iyul baseline yo‘q':`1-iyul ${sd.start} → hozir ${sd.now} (${sd.delta>0?'+':''}${sd.delta})`;
   const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
   const segsum=segs.reduce((s,x)=>s+x[1],0);
   const chuTxt=r.chu[1]==null?'—':r.chu[1].toFixed(1)+'%';
@@ -521,8 +532,8 @@ function showDetail(k){
     <div class="dhero">
       <div class="row">
         <div><h1>${r.name} <span class="tm ${r.team}" style="font-size:11px;vertical-align:4px">TEAM ${r.team}</span></h1>
-        <div class="meta">Kurator · ${r.grp} guruh · ${MONTH_NAME} ${MONTH_YEAR}, oy boshidan · yangilangan ${__DATA__.snap||'—'}</div></div>
-        <div class="bigb"><b>${r.b}</b><span>faol o'quvchi</span></div>
+        <div class="meta">Kurator · ${r.grp} guruh · ${sdText} · yangilangan ${__DATA__.snap||'—'}</div></div>
+        <div class="bigb"><b>${sd.now}</b><span>o'quvchi · bazadan</span></div>
       </div>
       <div class="dcards">
         <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
@@ -605,7 +616,11 @@ function applyLive(){
   var grp=Object.values(M).reduce(function(s,r){return s+(r.grp||0)},0);
   var ncur=Object.keys(M).length;
   var set=function(id,v){var e=document.getElementById(id); if(e)e.textContent=v;};
-  set('hBaseV', fmt(TOTAL)); set('hBaseN', ncur+" kurator · "+grp+" guruh");
+  const startTotal=START_SNAP?START_SNAP.total:null, totalDelta=startTotal==null?null:TOTAL-startTotal;
+  set('hBaseV', fmt(TOTAL));
+  set('hBaseN',startTotal==null
+    ? `${ncur} kurator · ${grp} guruh · bazadan`
+    : `1-iyul ${fmt(startTotal)} → hozir ${fmt(TOTAL)} (${totalDelta>0?'+':''}${fmt(totalDelta)})`);
   const ek=Object.keys(M).reduce((s,k)=>s+periodKpi(k).fao,0);
   set('hFaoV',fmt(ek)); set('hFaoN',WLBL[WEEK]+" · active’ga qaytgan");
   if(DALL.qarz!=null) set('hQarzV', DALL.qarz);
