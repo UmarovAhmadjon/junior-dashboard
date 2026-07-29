@@ -22,8 +22,8 @@ jobs:
         run: |
           git config user.name "dashboard-bot"
           git config user.email "dashboard-bot@users.noreply.github.com"
-          if ! git diff --quiet kurator.html; then
-            git add kurator.html
+          if ! git diff --quiet kurator.html kurator-rating-test.html; then
+            git add kurator.html kurator-rating-test.html
             git commit -m "Kurator tahlili auto-update"
             git push
             echo "kurator.html yangilandi va push qilindi"
