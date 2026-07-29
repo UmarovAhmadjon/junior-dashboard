@@ -289,7 +289,7 @@ function pzone(pct,plan){
   return pct<=plan*0.72?'good':pct<=plan?'warn':'bad';
 }
 function orgChurn(){
-  if(WEEK==='ALL')return {pct:C.all?C.all.pct:(DALL.chu?DALL.chu[1]:0),cnt:C.all?C.all.count:(DALL.chu?DALL.chu[2]:0),frozen:C.all?C.all.frozen:0,archive:C.all?C.all.archive:0,plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
+  if(WEEK==='ALL')return {pct:C.all?C.all.pct:(DALL.chu?DALL.chu[1]:0),cnt:C.all?C.all.count:(DALL.chu?DALL.chu[2]:0),frozen:C.all?C.all.frozen:0,archive:C.all?C.all.archive:0,other:C.all?C.all.other:0,plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
   const hd=H.all&&H.all[WEEK],cnt=hd?hd.count:0,pct=cnt/TOTAL*100;
   const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
   const prevData=prevKey&&H.all[prevKey];
@@ -302,7 +302,8 @@ function hero(){
   const o=orgChurn();
   document.getElementById('hChuL').textContent='Churn — '+WSHORT[WEEK][0].toUpperCase()+WSHORT[WEEK].slice(1);
   document.getElementById('hChuV').textContent=o.pct.toFixed(1)+'%';
-  document.getElementById('hChuN').textContent=`${o.cnt} ta · muzlatilgan ${o.frozen||0} + arxiv ${o.archive||0} · plan ≤${o.plan}%`;
+  const other=o.other?` + boshqa ${o.other}`:'';
+  document.getElementById('hChuN').textContent=`${o.cnt} ta · muzlatilgan ${o.frozen||0} + ketdi/arxiv ${o.archive||0}${other} · plan ≤${o.plan}%`;
   const tl=document.getElementById('hTrL'),tv=document.getElementById('hTrV'),tn=document.getElementById('hTrN');
   const nw=WEEK==='ALL'?'W4':WEEK, nd=noaktivPoint('all',nw), before=nd.count-nd.delta;
   tl.textContent=`Noaktiv · ${WSHORT[nw]} o‘zgarishi`;
@@ -483,7 +484,7 @@ function cards(){
         ${donut(c.pct,c.plan)}
         <div class="churninfo">
           <div class="t">Churn — ${WLBL[WEEK]}${c.has?'':' · log yo\'q (oylik son)'}</div>
-          <div class="big"><b>${ketgan}</b> churn · muzlatilgan ${c.frozen||0} + arxiv ${c.archive||0}</div>
+          <div class="big"><b>${ketgan}</b> churn · muzlatilgan ${c.frozen||0} + ketdi/arxiv ${c.archive||0}</div>
           <div class="wboxes">
             ${nvals.map((d,i)=>`<div class="wb ${WEEK===`W${i+1}`||(WEEK==='ALL'&&i===3)?'hl':''}"><div class="l">Noaktiv · ${i+1}-hafta</div><div class="v">${ntext(d)}</div></div>`).join('')}
           </div>
@@ -557,7 +558,7 @@ function showDetail(k){
         <div class="bigb"><b>${sd.now}</b><span>o'quvchi · bazadan</span></div>
       </div>
       <div class="dcards">
-        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${detailChurnCount} ta · muzlatilgan ${dc?dc.frozen:0} + arxiv ${dc?dc.archive:0}</div></div>
+        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${detailChurnCount} ta · muzlatilgan ${dc?dc.frozen:0} + ketdi/arxiv ${dc?dc.archive:0}</div></div>
         <div class="hc"><div class="l">Faollashtirilgan</div><div class="v orange">${pk.fao}</div><div class="n">${WLBL[WEEK]} · active’ga qaytgan</div></div>
         <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
         <div class="hc"><div class="l">Qarzdorlik rejasi — ${MONTH_NAME}</div><div class="v">${pk.qarz_plan}</div><div class="n">yangi: ${pk.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
@@ -652,7 +653,7 @@ function applyLive(){
   select.innerHTML=`<option value="ALL">${MONTH_NAME} ${MONTH_YEAR} · oy boshidan · yangilangan ${__DATA__.snap||'—'}</option>`+
     WM.map((w,i)=>`<option value="${w.key}">${String(w.from_day).padStart(2,'0')}.${MM}–${String(w.to_day).padStart(2,'0')}.${MM} · ${i+1}-hafta</option>`).join('');
   select.value=selected;
-  document.getElementById('sourceNote').innerHTML=`<b>Ma’lumotlar qayerdan olinadi:</b> Aktiv/Passiv/Noaktiv, baza, churn, joriy qarzdor, muzlatilgan va ota-ona bot — CRM Analitika API’dan. <b>Qarzdorlik rejasi</b> — debtors_plan.DATA’даги ${MONTH_NAME} рўйхати; <b>Yangi</b> — LMS MCP student_status_logs’да selected period’да new бўлган уникал ўқувчилар; <b>Faollashtirilgan</b> — passive/not_active’dan active’га қайтган уникал ўқувчилар. Kurator–guruh боғланиши — group_list + subscribe_list.`;
+  document.getElementById('sourceNote').innerHTML=`<b>Ma’lumotlar qayerdan olinadi:</b> Aktiv/Passiv/Noaktiv, baza, joriy qarzdor, muzlatilgan va ota-ona bot — CRM Analitika API’dan. <b>Oylik churn</b> — CRM’dagi “Muzlatildi” + “Ketdi/Arxiv” kartalari; Team A/B shu qismlar bo‘yicha hisoblanadi. <b>Qarzdorlik rejasi</b> — debtors_plan.DATA’даги ${MONTH_NAME} рўйхати; <b>Yangi</b> — LMS MCP student_status_logs’да selected period’да new бўлган уникал ўқувчилар; <b>Faollashtirilgan</b> — passive/not_active’dan active’га қайтган уникал ўқувчилар. Kurator–guruh боғланиши — group_list + subscribe_list.`;
 }
 
 function renderAll(){
