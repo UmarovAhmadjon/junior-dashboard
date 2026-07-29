@@ -208,6 +208,21 @@ def current_student_counts(admin_ids_list):
     )
     return {str(r['admin']):int(r['students']) for r in mcp(sql)}
 
+def monthly_churn_counts(admin_ids_list, month, month_end):
+    """Oyda not_active'ga o'tgan unik student; oxirgi relevant guruhi bo'yicha bir marta."""
+    ids = ','.join(admin_ids_list)
+    sql = (
+        f"SELECT g.ADMIN_ID admin,COUNT(DISTINCT l.student_id) churn_students "
+        f"FROM student_status_logs l "
+        f"JOIN subscribe_list s ON s.ID=(SELECT MAX(s2.ID) FROM subscribe_list s2 "
+        f"JOIN group_list g2 ON g2.ID=s2.GROUP_ID WHERE s2.STUDENT_ID=l.student_id "
+        f"AND g2.ADMIN_ID IN ({ids})) "
+        f"JOIN group_list g ON g.ID=s.GROUP_ID "
+        f"WHERE l.changed_at>='{month}' AND l.changed_at<'{month_end}' "
+        f"AND l.to_status='not_active' GROUP BY g.ADMIN_ID"
+    )
+    return {str(r['admin']):int(r['churn_students']) for r in mcp(sql)}
+
 def old_snapshots():
     try:
         old = (BASE/'kurator.html').read_text()
@@ -296,6 +311,9 @@ def main():
     events = period_kpis([v[2] for v in CUR.values()], weeks_meta)
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
     db_students = current_student_counts([v[2] for v in CUR.values()])
+    direct_churn = monthly_churn_counts(
+        [v[2] for v in CUR.values()], MONTH, weeks_meta[-1]['end_exclusive']
+    )
     E = {}
     for key,(_,_,aid,_) in CUR.items():
         wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in ['W1','W2','W3','W4']}
@@ -311,6 +329,22 @@ def main():
         M[key]['qayta'] = E[key]['month']['fao']
         M[key]['qarz_plan'] = E[key]['month']['qarz_plan']
         M[key]['db_students'] = db_students.get(aid,0)
+        M[key]['db_churn'] = direct_churn.get(aid,0)
+
+    C = {'curators':{},'teams':{'A':{'count':0,'base':0},'B':{'count':0,'base':0}}}
+    for key,(_,team,aid,_) in CUR.items():
+        cnt,base = direct_churn.get(aid,0),db_students.get(aid,0)
+        C['curators'][key] = {'count':cnt,'base':base,'pct':round(cnt/base*100,2) if base else 0}
+        C['teams'][team]['count'] += cnt
+        C['teams'][team]['base'] += base
+    for team in ('A','B'):
+        x=C['teams'][team]
+        x['pct']=round(x['count']/x['base']*100,2) if x['base'] else 0
+    C['all']={
+        'count':C['teams']['A']['count']+C['teams']['B']['count'],
+        'base':C['teams']['A']['base']+C['teams']['B']['base'],
+    }
+    C['all']['pct']=round(C['all']['count']/C['all']['base']*100,2) if C['all']['base'] else 0
 
     today = TASHKENT_NOW.strftime('%Y-%m-%d')
     snapshots = old_snapshots()
@@ -324,7 +358,7 @@ def main():
         'manual': True, 'note': JULY_BASELINE['note']
     })
 
-    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -346,7 +380,7 @@ def real_date():
 
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','E','snapshots','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','C','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
