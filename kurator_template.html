@@ -255,7 +255,7 @@
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
 /*__DATA__*/
-const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, S=__DATA__.snapshots||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
+const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, C=__DATA__.C||{}, S=__DATA__.snapshots||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
 const MONTH_NAMES=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
 const MY=(__DATA__.month||'2026-07-01').split('-'), MONTH_NAME=MONTH_NAMES[+MY[1]-1], MONTH_YEAR=MY[0], MM=MY[1];
 const WLBL={ALL:`${MONTH_NAME} ${MONTH_YEAR} · oy boshidan`}, WSHORT={ALL:MONTH_NAME.toLowerCase()};
@@ -272,7 +272,8 @@ let WEEK='ALL';
 function pchurn(k){
   const r=M[k], w=W[k];
   if(WEEK==='ALL'){
-    return {pct:r.chu[1], cnt:r.chu[2], plan:PLAN.churnM, has:true,
+    const dc=C.curators&&C.curators[k];
+    return {pct:dc?dc.pct:r.chu[1], cnt:dc?dc.count:r.chu[2], plan:PLAN.churnM, has:true,
       prev:(r.cj!=null&&r.chu[1]!=null)?{pct:r.cj,lbl:'iyun'}:null};
   }
   if(!w) return {pct:null,cnt:null,plan:PLAN.churnW,has:false,prev:null};
@@ -286,7 +287,7 @@ function pzone(pct,plan){
   return pct<=plan*0.72?'good':pct<=plan?'warn':'bad';
 }
 function orgChurn(){
-  if(WEEK==='ALL')return {pct:DALL.chu?DALL.chu[1]:0,cnt:DALL.chu?DALL.chu[2]:0,plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
+  if(WEEK==='ALL')return {pct:C.all?C.all.pct:(DALL.chu?DALL.chu[1]:0),cnt:C.all?C.all.count:(DALL.chu?DALL.chu[2]:0),plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
   const cnt=W.all[WEEK][2], pct=cnt/TOTAL*100;
   const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
   const prev=prevKey?{pct:W.all[prevKey][2]/TOTAL*100,cnt:W.all[prevKey][2],lbl:WSHORT[prevKey]}:null;
@@ -319,8 +320,9 @@ function activity(){
     const sum=Math.max(1,a[0]+p[0]+x[0]+y[0]);
     let churnPct=0,churnCount=0;
     if(WEEK==='ALL'){
-      churnPct=d.chu&&d.chu[1]!=null?d.chu[1]:0;
-      churnCount=d.chu&&d.chu[2]!=null?d.chu[2]:0;
+      const direct=team==='all'?C.all:(C.teams&&C.teams[team]);
+      churnPct=direct?direct.pct:(d.chu&&d.chu[1]!=null?d.chu[1]:0);
+      churnCount=direct?direct.count:(d.chu&&d.chu[2]!=null?d.chu[2]:0);
     }else{
       const keys=team==='all'?Object.keys(M):Object.keys(M).filter(k=>M[k].team===team);
       const base=keys.reduce((s,k)=>s+studentDelta(k).now,0);
@@ -526,7 +528,8 @@ function showDetail(k){
   const sd=studentDelta(k), sdText=sd.start==null?'1-iyul baseline yo‘q':`1-iyul ${sd.start} → hozir ${sd.now} (${sd.delta>0?'+':''}${sd.delta})`;
   const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
   const segsum=segs.reduce((s,x)=>s+x[1],0);
-  const chuTxt=r.chu[1]==null?'—':r.chu[1].toFixed(1)+'%';
+  const dc=C.curators&&C.curators[k], detailChurnPct=dc?dc.pct:r.chu[1], detailChurnCount=dc?dc.count:r.chu[2];
+  const chuTxt=detailChurnPct==null?'—':detailChurnPct.toFixed(1)+'%';
   const prevMonthName=MONTH_NAMES[(+MY[1]+10)%12].toLowerCase();
   const trend=(r.cj!=null&&r.chu[1]!=null)
     ? (r.chu[1]<=r.cj?`<span style="color:#43d17c">▼ ${(r.cj-r.chu[1]).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`:`<span style="color:#ff8a75">▲ ${(r.chu[1]-r.cj).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`)
@@ -550,7 +553,7 @@ function showDetail(k){
         <div class="bigb"><b>${sd.now}</b><span>o'quvchi · bazadan</span></div>
       </div>
       <div class="dcards">
-        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${r.chu[2]} o'quvchi ketgan · ${trend}</div></div>
+        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${detailChurnCount} unik o'quvchi · bazadan</div></div>
         <div class="hc"><div class="l">Faollashtirilgan</div><div class="v orange">${pk.fao}</div><div class="n">${WLBL[WEEK]} · active’ga qaytgan</div></div>
         <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
         <div class="hc"><div class="l">Qarzdorlik rejasi — ${MONTH_NAME}</div><div class="v">${pk.qarz_plan}</div><div class="n">yangi: ${pk.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
