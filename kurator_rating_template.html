@@ -43,13 +43,13 @@ header{background:var(--nav);color:#fff;position:sticky;top:0;z-index:20;box-sha
 /*__DATA__*/
 const {M,W,N,E,C,H,weeks:WM,all:ALL,TA,TB}=__DATA__; let PERIOD='ALL',TEAM='ALL',SORT='score';
 const keys=Object.keys(M), fmt=n=>Number(n||0).toLocaleString('ru-RU'), pct=n=>Number(n||0).toFixed(1)+'%';
-const monthDate=new Date(__DATA__.month+'T00:00:00'), monthName=monthDate.toLocaleString('uz-UZ',{month:'long',year:'numeric'});
+const monthDate=new Date(__DATA__.month+'T00:00:00'), monthNames=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'],monthName=monthNames[monthDate.getMonth()]+' '+monthDate.getFullYear();
 function selected(){return keys.filter(k=>TEAM==='ALL'||M[k].team===TEAM)}
 function pKpi(k){const e=E[k]||{};return PERIOD==='ALL'?(e.month||{}):((e.weeks||{})[PERIOD]||{})}
 function noact(k){return M[k].x?M[k].x[0]:0}
 function churn(k){if(PERIOD==='ALL')return (C.curators||{})[k]||{count:0,pct:0,frozen:0,archive:0};const h=H.curators?.[k]?.[PERIOD]||{count:0,frozen:0,archive:0};return {...h,pct:M[k].b?h.count/M[k].b*100:0}}
-function metric(k){const r=M[k],base=r.b||1,a=r.a?.[0]||0,x=noact(k),c=churn(k),active=a/base*100,np=x/base*100,bot=r.ota?.[1]||0;const score=Math.max(0,Math.min(100,active*.45+Math.max(0,100-c.pct*3)*.3+Math.max(0,100-np*2)*.15+bot*.1));return{k,name:r.name,team:r.team,base:r.b,active,c,noactive:x,noactivePct:np,debt:r.qarz||0,new:pKpi(k).yangi||0,fao:pKpi(k).fao||0,bot,score}}
-function aggregate(list){const rs=list.map(k=>M[k]),base=rs.reduce((s,r)=>s+r.b,0),a=rs.reduce((s,r)=>s+(r.a?.[0]||0),0),p=rs.reduce((s,r)=>s+(r.p?.[0]||0),0),x=rs.reduce((s,r)=>s+(r.x?.[0]||0),0),y=rs.reduce((s,r)=>s+(r.y?.[0]||0),0),debt=rs.reduce((s,r)=>s+(r.qarz||0),0),cc=list.reduce((s,k)=>s+churn(k).count,0);return{base,a,p,x,y,debt,cc,active:base?a/base*100:0,churn:base?cc/base*100:0}}
+function metric(k){const r=M[k],base=r.b||1,a=r.a?.[0]||0,x=noact(k),c=churn(k),active=a/base*100,np=x/base*100,bot=r.ota?.[1]||0,maxBase=Math.max(...keys.map(x=>M[x].b||0),1),size=r.b/maxBase*100;const score=Math.max(0,Math.min(100,active*.3+Math.max(0,100-c.pct*3)*.25+Math.max(0,100-np*2)*.15+bot*.1+size*.2));return{k,name:r.name,team:r.team,base:r.b,active,c,noactive:x,noactivePct:np,debt:r.qarz||0,new:pKpi(k).yangi||0,fao:pKpi(k).fao||0,bot,score}}
+function aggregate(list){const rs=list.map(k=>M[k]),base=rs.reduce((s,r)=>s+r.b,0),a=rs.reduce((s,r)=>s+(r.a?.[0]||0),0),p=rs.reduce((s,r)=>s+(r.p?.[0]||0),0),x=rs.reduce((s,r)=>s+(r.x?.[0]||0),0),y=rs.reduce((s,r)=>s+(r.y?.[0]||0),0),debt=rs.reduce((s,r)=>s+(r.qarz||0),0);let cc=list.reduce((s,k)=>s+churn(k).count,0),cp=base?cc/base*100:0;if(PERIOD==='ALL'&&TEAM==='ALL'&&C.all){cc=C.all.count;cp=C.all.pct}if(PERIOD==='ALL'&&TEAM!=='ALL'&&C.teams?.[TEAM]){cc=C.teams[TEAM].count;cp=C.teams[TEAM].pct}return{base,a,p,x,y,debt,cc,active:base?a/base*100:0,churn:cp}}
 function scoreTeam(team){const ms=keys.filter(k=>M[k].team===team).map(metric);return ms.length?ms.reduce((s,m)=>s+m.score,0)/ms.length:0}
 function pill(v,reverse=false){const good=reverse?v<=14:v>=65,warn=reverse?v<=20:v>=50;return good?'good':warn?'warn':'bad'}
 function render(){
