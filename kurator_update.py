@@ -86,6 +86,8 @@ def grab(op, admin):
         'x': p_status(g('status-student/status-student-noactive')),
         'y': p_status(g('status-student/status-student-new')),
         'chu': p_plan(g('plan-cards/churn-student-plan-card')),
+        'churn_frozen': p_int(g('left-students-cards/frozen-left-card')),
+        'churn_archive': p_int(g('left-students-cards/center-invite-left-card')),
         'fao': p_plan(g('plan-cards/activate-student-plan-card')),
         'b': p_int(g('top-cards/active-student-card')),
         'kassa': p_int(g('plan-cards/cashier-plan-card').replace('Student Kassa','')),
@@ -351,7 +353,7 @@ def main():
         M[key]['db_churn'] = sum(x['count'] for x in wk_churn.values())
 
     H={'curators':{},'teams':{'A':{},'B':{}},'all':{}}
-    C = {'curators':{},'teams':{'A':{'count':0,'base':0},'B':{'count':0,'base':0}}}
+    C = {'curators':{},'teams':{},'all':{}}
     for key,(_,team,aid,_) in CUR.items():
         H['curators'][key]={}
         for wk in ['W1','W2','W3','W4']:
@@ -360,22 +362,23 @@ def main():
         frozen=sum(x['frozen'] for x in H['curators'][key].values())
         archive=sum(x['archive'] for x in H['curators'][key].values())
         cnt,base = frozen+archive,db_students.get(aid,0)
+        # Kurator oy kesimi CRM Analitika tarkibi: Muzlatildi + Ketdi/Arxiv.
+        frozen,archive=M[key]['churn_frozen'],M[key]['churn_archive']
+        cnt,base=frozen+archive,M[key]['b']
         C['curators'][key] = {'count':cnt,'frozen':frozen,'archive':archive,'base':base,'pct':round(cnt/base*100,2) if base else 0}
-        C['teams'][team]['count'] += cnt
-        C['teams'][team]['base'] += base
         for wk in ['W1','W2','W3','W4']:
             dst=H['teams'][team].setdefault(wk,{'count':0,'frozen':0,'archive':0})
             for f in ('count','frozen','archive'): dst[f]+=H['curators'][key][wk][f]
-    for team in ('A','B'):
-        x=C['teams'][team]
-        x['pct']=round(x['count']/x['base']*100,2) if x['base'] else 0
-    C['all']={
-        'count':C['teams']['A']['count']+C['teams']['B']['count'],
-        'base':C['teams']['A']['base']+C['teams']['B']['base'],
-    }
-    C['all']['pct']=round(C['all']['count']/C['all']['base']*100,2) if C['all']['base'] else 0
-    C['all']['frozen']=C['curators'] and sum(x['frozen'] for x in C['curators'].values())
-    C['all']['archive']=C['curators'] and sum(x['archive'] for x in C['curators'].values())
+    # Team churn CRM'ning tarkib kartalaridan olinadi. Bu Team churn kartasidagi
+    # ko'chgan o'quvchi dublikatlarini yo'qotadi: A + B = Umumiy.
+    for team,d in (('A',ta),('B',tb)):
+        cnt=d['churn_frozen']+d['churn_archive']
+        C['teams'][team]={'count':cnt,'frozen':d['churn_frozen'],'archive':d['churn_archive'],
+                          'base':d['b'],'pct':round(cnt/d['b']*100,2) if d['b'] else 0}
+    official_count=alld['chu'][2] if alld.get('chu') else alld['churn_frozen']+alld['churn_archive']
+    C['all']={'count':official_count,'frozen':alld['churn_frozen'],'archive':alld['churn_archive'],
+              'other':max(0,official_count-alld['churn_frozen']-alld['churn_archive']),
+              'base':alld['b'],'pct':alld['chu'][1] if alld.get('chu') else 0}
     for wk in ['W1','W2','W3','W4']:
         H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
