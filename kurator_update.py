@@ -210,6 +210,37 @@ def current_student_counts(admin_ids_list):
     )
     return {str(r['admin']):int(r['students']) for r in mcp(sql)}
 
+def module_progress(admin_ids_list):
+    """Amaldagi o'quvchilarning asosiy onlayn kursidagi eng oxirgi ko'rilgan moduli."""
+    ids = ','.join(admin_ids_list)
+    students = (
+        f"(SELECT s.STUDENT_ID user_id,MIN(g.ADMIN_ID) admin FROM subscribe_list s "
+        f"JOIN group_list g ON g.ID=s.GROUP_ID WHERE s.ACTIVE=1 AND s.STATUS='active' "
+        f"AND g.ADMIN_ID IN ({ids}) GROUP BY s.STUDENT_ID)"
+    )
+    progress = (
+        "(SELECT lp.user_id,sl.course_id,MAX(sm.`order`) module_order "
+        "FROM lesson_progress lp JOIN student_lessons sl ON sl.id=lp.lesson_id AND sl.status='active' "
+        "JOIN student_modules sm ON sm.id=sl.module_id AND sm.status='active' "
+        "WHERE lp.watched=1 GROUP BY lp.user_id,sl.course_id)"
+    )
+    rows_sql = (
+        f"SELECT t.admin,p.course_id,sc.name course_name,p.module_order,sm.title module_name,"
+        f"COUNT(DISTINCT p.user_id) students FROM {students} t JOIN {progress} p ON p.user_id=t.user_id "
+        f"JOIN student_course_access ca ON ca.user_id=p.user_id AND ca.course_id=p.course_id AND ca.type='main' "
+        f"JOIN student_courses sc ON sc.id=p.course_id "
+        f"JOIN student_modules sm ON sm.course_id=p.course_id AND sm.`order`=p.module_order AND sm.status='active' "
+        f"GROUP BY t.admin,p.course_id,sc.name,p.module_order,sm.title "
+        f"ORDER BY sc.name,p.module_order,t.admin"
+    )
+    coverage_sql = (
+        f"SELECT t.admin,COUNT(DISTINCT p.user_id) linked FROM {students} t "
+        f"JOIN {progress} p ON p.user_id=t.user_id "
+        f"JOIN student_course_access ca ON ca.user_id=p.user_id AND ca.course_id=p.course_id AND ca.type='main' "
+        f"GROUP BY t.admin"
+    )
+    return mcp(rows_sql), {str(r['admin']):int(r['linked']) for r in mcp(coverage_sql)}
+
 def status_churn_counts(admin_ids_list, weeks):
     """Churn = davrda muzlatilib hozir frozen turgan + davrda terminal archive bo'lgan."""
     ids = ','.join(admin_ids_list)
@@ -330,6 +361,7 @@ def main():
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
     db_students = current_student_counts([v[2] for v in CUR.values()])
     churn_status = status_churn_counts([v[2] for v in CUR.values()], weeks_meta)
+    progress_rows, progress_coverage = module_progress([v[2] for v in CUR.values()])
     E = {}
     for key,(_,_,aid,_) in CUR.items():
         wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in ['W1','W2','W3','W4']}
@@ -382,6 +414,19 @@ def main():
     for wk in ['W1','W2','W3','W4']:
         H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
+    admin_to_key = {aid:key for key,(_,_,aid,_) in CUR.items()}
+    P = {'rows':[], 'coverage':{}}
+    for key,(_,_,aid,_) in CUR.items():
+        P['coverage'][key] = {'linked':progress_coverage.get(aid,0),'base':M[key]['b']}
+    for r in progress_rows:
+        key = admin_to_key.get(str(r['admin']))
+        if key:
+            P['rows'].append({
+                'k':key,'course_id':int(r['course_id']),'course':r['course_name'],
+                'module_order':int(r['module_order']),'module':r['module_name'],
+                'students':int(r['students'])
+            })
+
     today = TASHKENT_NOW.strftime('%Y-%m-%d')
     snapshots = old_snapshots()
     snapshots[today] = {
@@ -394,7 +439,7 @@ def main():
         'manual': True, 'note': JULY_BASELINE['note']
     })
 
-    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'P':P, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -417,7 +462,7 @@ def real_date():
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
     rating_tpl = (BASE/'kurator_rating_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','E','C','H','snapshots','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','C','H','P','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
