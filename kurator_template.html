@@ -255,7 +255,7 @@
 // ================== JONLI MA'LUMOT · 16.07.2026 ==================
 const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
 /*__DATA__*/
-const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, C=__DATA__.C||{}, S=__DATA__.snapshots||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
+const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, C=__DATA__.C||{}, H=__DATA__.H||{}, S=__DATA__.snapshots||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
 const MONTH_NAMES=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
 const MY=(__DATA__.month||'2026-07-01').split('-'), MONTH_NAME=MONTH_NAMES[+MY[1]-1], MONTH_YEAR=MY[0], MM=MY[1];
 const WLBL={ALL:`${MONTH_NAME} ${MONTH_YEAR} · oy boshidan`}, WSHORT={ALL:MONTH_NAME.toLowerCase()};
@@ -273,25 +273,28 @@ function pchurn(k){
   const r=M[k], w=W[k];
   if(WEEK==='ALL'){
     const dc=C.curators&&C.curators[k];
-    return {pct:dc?dc.pct:r.chu[1], cnt:dc?dc.count:r.chu[2], plan:PLAN.churnM, has:true,
+    return {pct:dc?dc.pct:r.chu[1], cnt:dc?dc.count:r.chu[2], frozen:dc?dc.frozen:0,archive:dc?dc.archive:0,plan:PLAN.churnM, has:true,
       prev:(r.cj!=null&&r.chu[1]!=null)?{pct:r.cj,lbl:'iyun'}:null};
   }
-  if(!w) return {pct:null,cnt:null,plan:PLAN.churnW,has:false,prev:null};
-  const cnt=w[WEEK][2], pct=cnt/r.b*100;
+  const hd=H.curators&&H.curators[k]&&H.curators[k][WEEK];
+  if(!hd) return {pct:null,cnt:null,plan:PLAN.churnW,has:false,prev:null};
+  const cnt=hd.count, pct=cnt/studentDelta(k).now*100;
   const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
-  const prev=prevKey?{pct:w[prevKey][2]/r.b*100,cnt:w[prevKey][2],lbl:WSHORT[prevKey]}:null;
-  return {pct,cnt,plan:PLAN.churnW,has:true,prev};
+  const prevData=prevKey&&H.curators[k][prevKey];
+  const prev=prevData?{pct:prevData.count/studentDelta(k).now*100,cnt:prevData.count,lbl:WSHORT[prevKey]}:null;
+  return {pct,cnt,frozen:hd.frozen,archive:hd.archive,plan:PLAN.churnW,has:true,prev};
 }
 function pzone(pct,plan){
   if(pct==null)return 'na';
   return pct<=plan*0.72?'good':pct<=plan?'warn':'bad';
 }
 function orgChurn(){
-  if(WEEK==='ALL')return {pct:C.all?C.all.pct:(DALL.chu?DALL.chu[1]:0),cnt:C.all?C.all.count:(DALL.chu?DALL.chu[2]:0),plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
-  const cnt=W.all[WEEK][2], pct=cnt/TOTAL*100;
+  if(WEEK==='ALL')return {pct:C.all?C.all.pct:(DALL.chu?DALL.chu[1]:0),cnt:C.all?C.all.count:(DALL.chu?DALL.chu[2]:0),frozen:C.all?C.all.frozen:0,archive:C.all?C.all.archive:0,plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
+  const hd=H.all&&H.all[WEEK],cnt=hd?hd.count:0,pct=cnt/TOTAL*100;
   const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
-  const prev=prevKey?{pct:W.all[prevKey][2]/TOTAL*100,cnt:W.all[prevKey][2],lbl:WSHORT[prevKey]}:null;
-  return {pct,cnt,plan:PLAN.churnW,prev};
+  const prevData=prevKey&&H.all[prevKey];
+  const prev=prevData?{pct:prevData.count/TOTAL*100,cnt:prevData.count,lbl:WSHORT[prevKey]}:null;
+  return {pct,cnt,frozen:hd?hd.frozen:0,archive:hd?hd.archive:0,plan:PLAN.churnW,prev};
 }
 
 // ---------- HERO ----------
@@ -299,7 +302,7 @@ function hero(){
   const o=orgChurn();
   document.getElementById('hChuL').textContent='Churn — '+WSHORT[WEEK][0].toUpperCase()+WSHORT[WEEK].slice(1);
   document.getElementById('hChuV').textContent=o.pct.toFixed(1)+'%';
-  document.getElementById('hChuN').textContent=`${o.cnt} o'quvchi ketgan · plan ≤${o.plan}%`;
+  document.getElementById('hChuN').textContent=`${o.cnt} ta · muzlatilgan ${o.frozen||0} + arxiv ${o.archive||0} · plan ≤${o.plan}%`;
   const tl=document.getElementById('hTrL'),tv=document.getElementById('hTrV'),tn=document.getElementById('hTrN');
   const nw=WEEK==='ALL'?'W4':WEEK, nd=noaktivPoint('all',nw), before=nd.count-nd.delta;
   tl.textContent=`Noaktiv · ${WSHORT[nw]} o‘zgarishi`;
@@ -326,7 +329,8 @@ function activity(){
     }else{
       const keys=team==='all'?Object.keys(M):Object.keys(M).filter(k=>M[k].team===team);
       const base=keys.reduce((s,k)=>s+studentDelta(k).now,0);
-      churnCount=keys.reduce((s,k)=>s+((W[k]&&W[k][WEEK])?W[k][WEEK][2]:0),0);
+      const hd=team==='all'?(H.all&&H.all[WEEK]):(H.teams&&H.teams[team]&&H.teams[team][WEEK]);
+      churnCount=hd?hd.count:0;
       churnPct=base?churnCount/base*100:0;
     }
     return `<div class="activity-card">
@@ -479,7 +483,7 @@ function cards(){
         ${donut(c.pct,c.plan)}
         <div class="churninfo">
           <div class="t">Churn — ${WLBL[WEEK]}${c.has?'':' · log yo\'q (oylik son)'}</div>
-          <div class="big"><b>${ketgan}</b> o'quvchi ketgan</div>
+          <div class="big"><b>${ketgan}</b> churn · muzlatilgan ${c.frozen||0} + arxiv ${c.archive||0}</div>
           <div class="wboxes">
             ${nvals.map((d,i)=>`<div class="wb ${WEEK===`W${i+1}`||(WEEK==='ALL'&&i===3)?'hl':''}"><div class="l">Noaktiv · ${i+1}-hafta</div><div class="v">${ntext(d)}</div></div>`).join('')}
           </div>
@@ -535,14 +539,14 @@ function showDetail(k){
     ? (r.chu[1]<=r.cj?`<span style="color:#43d17c">▼ ${(r.cj-r.chu[1]).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`:`<span style="color:#ff8a75">▲ ${(r.chu[1]-r.cj).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`)
     : `<span style="opacity:.6">${prevMonthName} bazasi yo'q</span>`;
   let wrows='';
-  if(w){
+  if(H.curators&&H.curators[k]){
     WM.forEach((wm,i)=>{
       const lbl=`${i+1}-hafta (${String(wm.from_day).padStart(2,'0')}–${String(wm.to_day).padStart(2,'0')}.${MM})`,wk=wm.key;
-      const d=w[wk];
-      wrows+=`<tr class="${WEEK===wk?'cur':''}"><td>${lbl}</td><td class="num" style="color:var(--good)">${d[0]}</td><td class="num" style="color:var(--warn)">${d[1]}</td><td class="num" style="color:var(--bad);font-weight:700">${d[2]}</td><td class="num">${(d[2]/r.b*100).toFixed(1)}%</td></tr>`;
+      const d=H.curators[k][wk];
+      wrows+=`<tr class="${WEEK===wk?'cur':''}"><td>${lbl}</td><td class="num" style="color:var(--warn)">${d.frozen}</td><td class="num" style="color:var(--bad)">${d.archive}</td><td class="num" style="font-weight:700">${d.count}</td><td class="num">${(d.count/studentDelta(k).now*100).toFixed(1)}%</td></tr>`;
     });
-    const t=[w.W1,w.W2,w.W3,w.W4].reduce((s,x)=>[s[0]+x[0],s[1]+x[1],s[2]+x[2]],[0,0,0]);
-    wrows+=`<tr class="cur"><td>Oy boshidan</td><td class="num" style="color:var(--good)">${t[0]}</td><td class="num" style="color:var(--warn)">${t[1]}</td><td class="num" style="color:var(--bad);font-weight:700">${t[2]}</td><td class="num">${(t[2]/r.b*100).toFixed(1)}%</td></tr>`;
+    const t=C.curators[k];
+    wrows+=`<tr class="cur"><td>Oy boshidan</td><td class="num" style="color:var(--warn)">${t.frozen}</td><td class="num" style="color:var(--bad)">${t.archive}</td><td class="num" style="font-weight:700">${t.count}</td><td class="num">${t.pct.toFixed(1)}%</td></tr>`;
   } else wrows=`<tr><td colspan="5" style="color:var(--muted)">Haftalik log hali yig'ilmagan</td></tr>`;
   document.getElementById('dcontent').innerHTML=`
     <button class="backbtn" onclick="hideDetail()">← Orqaga · umumiy dashboard</button>
@@ -553,7 +557,7 @@ function showDetail(k){
         <div class="bigb"><b>${sd.now}</b><span>o'quvchi · bazadan</span></div>
       </div>
       <div class="dcards">
-        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${detailChurnCount} unik o'quvchi · bazadan</div></div>
+        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${detailChurnCount} ta · muzlatilgan ${dc?dc.frozen:0} + arxiv ${dc?dc.archive:0}</div></div>
         <div class="hc"><div class="l">Faollashtirilgan</div><div class="v orange">${pk.fao}</div><div class="n">${WLBL[WEEK]} · active’ga qaytgan</div></div>
         <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
         <div class="hc"><div class="l">Qarzdorlik rejasi — ${MONTH_NAME}</div><div class="v">${pk.qarz_plan}</div><div class="n">yangi: ${pk.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
@@ -566,8 +570,8 @@ function showDetail(k){
     </div>
     <div class="dgrid2">
       <div class="panel"><h2>Haftalik Noaktiv dinamikasi</h2><div class="sub">Hafta oxiridagi Noaktiv qoldig‘i; qavsda oldingi haftaga nisbatan ± o‘zgarish.</div>${miniChart(k)}</div>
-      <div class="panel"><h2>Haftalik hodisalar</h2><div class="sub">Jonli status-o'zgarishlar</div>
-        <table class="wtable"><thead><tr><th>Davr</th><th class="num">Faollashdi</th><th class="num">Passivga</th><th class="num">Churn</th><th class="num">%</th></tr></thead><tbody>${wrows}</tbody></table>
+      <div class="panel"><h2>Haftalik churn</h2><div class="sub">Muzlatilgan + arxiv statuslari</div>
+        <table class="wtable"><thead><tr><th>Davr</th><th class="num">Muzlatilgan</th><th class="num">Arxiv</th><th class="num">Jami churn</th><th class="num">%</th></tr></thead><tbody>${wrows}</tbody></table>
       </div>
     </div>
     <div class="panel">
