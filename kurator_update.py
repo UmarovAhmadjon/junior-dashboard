@@ -429,9 +429,18 @@ def main():
 
     today = TASHKENT_NOW.strftime('%Y-%m-%d')
     snapshots = old_snapshots()
+    progress_snapshot = {}
+    for r in P['rows']:
+        course = progress_snapshot.setdefault(str(r['course_id']), {'name':r['course'],'modules':{}})
+        module = course['modules'].setdefault(str(r['module_order']), {'name':r['module'],'students':0})
+        module['students'] += r['students']
     snapshots[today] = {
         'total': sum(db_students.values()),
-        'curators': {key:db_students.get(aid,0) for key,(_,_,aid,_) in CUR.items()}
+        'curators': {key:db_students.get(aid,0) for key,(_,_,aid,_) in CUR.items()},
+        'module_progress': {
+            'coverage': P['coverage'],
+            'courses': progress_snapshot
+        }
     }
     # Iyulning yo'qolgan boshlang'ich nuqtasini foydalanuvchi bergan raqamlar bilan tiklaymiz.
     snapshots.setdefault(JULY_BASELINE['date'], {
