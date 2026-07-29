@@ -416,13 +416,17 @@ def real_date():
 
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
+    rating_tpl = (BASE/'kurator_rating_template.html').read_text()
     data = {k:d[k] for k in ('M','W','N','E','C','H','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
     html = tpl.replace('/*__DATA__*/', js)
+    rating_html = rating_tpl.replace('/*__DATA__*/', js)
     (BASE/'kurator.html').write_text(html)
+    (BASE/'kurator-rating-test.html').write_text(rating_html)
     print('kurator.html yozildi:', len(html), 'belgi')
+    print('kurator-rating-test.html yozildi:', len(rating_html), 'belgi')
     if CI:
         print('CI: git commit workflow tomonidan qilinadi (API deploy o\'tkazib yuborildi)')
     else:
