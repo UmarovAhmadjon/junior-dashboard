@@ -21,6 +21,14 @@ CUR = {
  'Azi':('Aziza Qurvonaliyeva','B','17542',5), 'Sab':('Sabrina Salimova','B','18307',6),
  'Mun':('Munisa Sobirjonova','B','18784',7),
 }
+JULY_BASELINE = {
+    'date':'2026-07-01', 'total':2127,
+    'curators': {
+        'Fot':171, 'Dil':280, 'Mad':212, 'Jas':250, 'Nai':187,
+        'Mun':171, 'Mar':238, 'Xal':246, 'Azi':175, 'Sab':197,
+    },
+    'note':'Foydalanuvchi bergan 01.07.2026 ro‘yxati; eski Munisa → Naima, Maryam → Munisa. New kurator olib tashlangan.'
+}
 TEAM_A_IDS = '13799,14241,14974,16005,16876,21463'
 TEAM_B_IDS = '14451,16386,17542,18307,18784'
 
@@ -189,6 +197,25 @@ def monthly_debtor_plan(admin_ids_list, month):
     )
     return {str(r['admin']):int(r['qarz_plan']) for r in mcp(sql)}
 
+def current_student_counts(admin_ids_list):
+    """Analitika API emas: amaldagi active obunalar bo'yicha unik o'quvchilar."""
+    ids = ','.join(admin_ids_list)
+    sql = (
+        f"SELECT g.ADMIN_ID admin,COUNT(DISTINCT s.STUDENT_ID) students "
+        f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND s.ACTIVE=1 AND s.STATUS='active' "
+        f"GROUP BY g.ADMIN_ID"
+    )
+    return {str(r['admin']):int(r['students']) for r in mcp(sql)}
+
+def old_snapshots():
+    try:
+        old = (BASE/'kurator.html').read_text()
+        match = re.search(r'const __DATA__=(\{.*?\});', old)
+        return json.loads(match.group(1)).get('snapshots',{}) if match else {}
+    except Exception:
+        return {}
+
 def month_weeks(month):
     """Oyni 1–7, 8–14, 15–21, 22–oy oxiri ko'rinishida avtomatik yaratadi."""
     y, mo = map(int, month[:7].split('-'))
@@ -268,6 +295,7 @@ def main():
     # Filtrga bog'liq yangi/faollashtirilgan va oylik qarzdorlik rejasi.
     events = period_kpis([v[2] for v in CUR.values()], weeks_meta)
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
+    db_students = current_student_counts([v[2] for v in CUR.values()])
     E = {}
     for key,(_,_,aid,_) in CUR.items():
         wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in ['W1','W2','W3','W4']}
@@ -282,8 +310,21 @@ def main():
         M[key]['yangi'] = E[key]['month']['yangi']
         M[key]['qayta'] = E[key]['month']['fao']
         M[key]['qarz_plan'] = E[key]['month']['qarz_plan']
+        M[key]['db_students'] = db_students.get(aid,0)
 
-    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    today = TASHKENT_NOW.strftime('%Y-%m-%d')
+    snapshots = old_snapshots()
+    snapshots[today] = {
+        'total': sum(db_students.values()),
+        'curators': {key:db_students.get(aid,0) for key,(_,_,aid,_) in CUR.items()}
+    }
+    # Iyulning yo'qolgan boshlang'ich nuqtasini foydalanuvchi bergan raqamlar bilan tiklaymiz.
+    snapshots.setdefault(JULY_BASELINE['date'], {
+        'total': JULY_BASELINE['total'], 'curators': JULY_BASELINE['curators'],
+        'manual': True, 'note': JULY_BASELINE['note']
+    })
+
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -305,7 +346,7 @@ def real_date():
 
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','E','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
