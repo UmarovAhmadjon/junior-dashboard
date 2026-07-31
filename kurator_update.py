@@ -241,6 +241,70 @@ def module_progress(admin_ids_list):
     )
     return mcp(rows_sql), {str(r['admin']):int(r['linked']) for r in mcp(coverage_sql)}
 
+def group_attendance(admin_ids_list, month):
+    """Asosiy kurs guruhlari bo'yicha oylik, shaxssizlantirilgan davomat matritsasi."""
+    ids = ','.join(admin_ids_list)
+    sql = (
+        f"SELECT g.ID group_id,g.NAME group_name,g.ADMIN_ID admin,g.START_DATE start_date,"
+        f"g.COURSE_STUDENT_ID course_ids,COALESCE(sc.students,0) students,gls.data "
+        f"FROM group_list g "
+        f"LEFT JOIN (SELECT GROUP_ID,COUNT(DISTINCT STUDENT_ID) students FROM subscribe_list "
+        f"WHERE ACTIVE=1 AND STATUS='active' GROUP BY GROUP_ID) sc ON sc.GROUP_ID=g.ID "
+        f"LEFT JOIN group_lesson_statuses gls ON gls.id=("
+        f"SELECT MAX(x.id) FROM group_lesson_statuses x WHERE x.group_id=g.ID) "
+        f"WHERE g.STATUS='active' AND g.ADMIN_ID IN ({ids}) AND COALESCE(sc.students,0)>0 "
+        f"ORDER BY g.ADMIN_ID,g.NAME"
+    )
+    course_rows = mcp("SELECT id,name FROM student_courses WHERE status='active'")
+    course_names = {str(r['id']):r['name'].strip() for r in course_rows}
+    y, mo = map(int, month[:7].split('-'))
+    out = []
+    for r in mcp(sql):
+        name = (r.get('group_name') or '').strip()
+        low = name.lower()
+        family = ('Junior' if 'junior' in low else 'Kids' if 'kid' in low else
+                  'Senior' if 'senior' in low else 'Dizayn' if 'dizayn' in low or 'design' in low
+                  else (name.split()[0].title() if name else 'Boshqa'))
+        ids_list = [x.strip() for x in str(r.get('course_ids') or '').split(',') if x.strip()]
+        tracks = [course_names[x] for x in ids_list if x in course_names and
+                  not any(skip in course_names[x].lower() for skip in ('english','matematika','typing'))]
+        if not tracks:
+            tracks = [course_names[x] for x in ids_list if x in course_names]
+        try:
+            raw = json.loads(r.get('data') or '{}')
+        except Exception:
+            raw = {}
+        days = {}
+        totals = {'active':0,'passive':0,'noactive':0,'new':0,'total':0}
+        for date_s, students in raw.items():
+            if not date_s.startswith(month[:7]) or not isinstance(students,dict):
+                continue
+            counts = {'active':0,'passive':0,'noactive':0,'new':0,'total':0}
+            for code in students.values():
+                field = {'4':'active','2':'passive','3':'noactive','1':'new'}.get(str(code))
+                if field:
+                    counts[field] += 1
+                    counts['total'] += 1
+            if counts['total']:
+                day = int(date_s[-2:])
+                counts['pct'] = round(counts['active']*100/counts['total'],1)
+                days[str(day)] = counts
+                for f in totals:
+                    totals[f] += counts[f]
+        totals['pct'] = round(totals['active']*100/totals['total'],1) if totals['total'] else 0
+        start = str(r.get('start_date') or '')[:10]
+        try:
+            sy, sm = map(int,start[:7].split('-'))
+            stage = max(1,(y-sy)*12+mo-sm+1)
+        except Exception:
+            stage = 1
+        out.append({
+            'id':int(r['group_id']),'name':name,'family':family,'k_admin':str(r['admin']),
+            'students':int(r.get('students') or 0),'tracks':tracks,'stage':stage,
+            'days':days,'totals':totals
+        })
+    return out
+
 def status_churn_counts(admin_ids_list, weeks):
     """Churn = davrda muzlatilib hozir frozen turgan + davrda terminal archive bo'lgan."""
     ids = ','.join(admin_ids_list)
@@ -361,7 +425,7 @@ def main():
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
     db_students = current_student_counts([v[2] for v in CUR.values()])
     churn_status = status_churn_counts([v[2] for v in CUR.values()], weeks_meta)
-    progress_rows, progress_coverage = module_progress([v[2] for v in CUR.values()])
+    attendance_groups = group_attendance([v[2] for v in CUR.values()], MONTH)
     E = {}
     for key,(_,_,aid,_) in CUR.items():
         wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in ['W1','W2','W3','W4']}
@@ -415,31 +479,20 @@ def main():
         H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
     admin_to_key = {aid:key for key,(_,_,aid,_) in CUR.items()}
-    P = {'rows':[], 'coverage':{}}
-    for key,(_,_,aid,_) in CUR.items():
-        P['coverage'][key] = {'linked':progress_coverage.get(aid,0),'base':M[key]['b']}
-    for r in progress_rows:
-        key = admin_to_key.get(str(r['admin']))
+    G = {'groups':[]}
+    for r in attendance_groups:
+        key = admin_to_key.get(r.pop('k_admin'))
         if key:
-            P['rows'].append({
-                'k':key,'course_id':int(r['course_id']),'course':r['course_name'],
-                'module_order':int(r['module_order']),'module':r['module_name'],
-                'students':int(r['students'])
-            })
+            r['k'] = key
+            G['groups'].append(r)
 
     today = TASHKENT_NOW.strftime('%Y-%m-%d')
     snapshots = old_snapshots()
-    progress_snapshot = {}
-    for r in P['rows']:
-        course = progress_snapshot.setdefault(str(r['course_id']), {'name':r['course'],'modules':{}})
-        module = course['modules'].setdefault(str(r['module_order']), {'name':r['module'],'students':0})
-        module['students'] += r['students']
     snapshots[today] = {
         'total': sum(db_students.values()),
         'curators': {key:db_students.get(aid,0) for key,(_,_,aid,_) in CUR.items()},
-        'module_progress': {
-            'coverage': P['coverage'],
-            'courses': progress_snapshot
+        'group_attendance': {
+            'groups': {str(g['id']):{'pct':g['totals']['pct'],'stage':g['stage']} for g in G['groups']}
         }
     }
     # Iyulning yo'qolgan boshlang'ich nuqtasini foydalanuvchi bergan raqamlar bilan tiklaymiz.
@@ -448,7 +501,7 @@ def main():
         'manual': True, 'note': JULY_BASELINE['note']
     })
 
-    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'P':P, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'G':G, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -471,7 +524,7 @@ def real_date():
 def render_and_deploy(d):
     tpl = (BASE/'kurator_template.html').read_text()
     rating_tpl = (BASE/'kurator_rating_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','E','C','H','P','snapshots','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','C','H','G','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
