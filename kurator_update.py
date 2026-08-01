@@ -205,7 +205,9 @@ def current_student_counts(admin_ids_list):
     sql = (
         f"SELECT g.ADMIN_ID admin,COUNT(DISTINCT s.STUDENT_ID) students "
         f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
-        f"WHERE g.ADMIN_ID IN ({ids}) AND s.ACTIVE=1 AND s.STATUS='active' "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND g.STATUS='active' "
+        f"AND LOWER(g.NAME) NOT LIKE '%test%' AND s.ACTIVE=1 "
+        f"AND s.STATUS='active' AND s.TYPE='monthly' "
         f"GROUP BY g.ADMIN_ID"
     )
     return {str(r['admin']):int(r['students']) for r in mcp(sql)}
