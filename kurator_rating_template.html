@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kurator Tahlili — Test reyting</title>
+<title>Junior Online — Kurator Tahlili</title>
 <style>
 :root{--bg:#f3f1eb;--paper:#fff;--ink:#18202d;--muted:#7d8797;--line:#e7e4dd;--nav:#172033;--green:#18a66a;--red:#e04b3d;--orange:#e58d16;--blue:#2f6de0;--purple:#7557d9}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:1280px;margin:auto;padding:0 18px 50px}
@@ -20,7 +20,7 @@ header{background:var(--nav);color:#fff;position:sticky;top:0;z-index:20;box-sha
 </style>
 </head>
 <body>
-<header><div class="head"><div><div class="brand"><b>⚡</b> KURATOR TAHLILI <span style="font-size:9px;background:#ffb31a;color:#172033;padding:3px 6px;border-radius:5px">TEST</span></div><div class="live"><i></i>CRM Analytics + LMS MCP · yangilandi <span id="snap"></span></div></div><div class="spacer"></div><div class="control"><label>📅 Davr</label><select id="period"></select></div></div></header>
+<header><div class="head"><div><div class="brand"><b>⚡</b> KURATOR TAHLILI</div><div class="live"><i></i>CRM Analytics + LMS MCP · yangilandi <span id="snap"></span></div></div><div class="spacer"></div><div class="control"><label>📅 Davr</label><select id="period"></select></div></div></header>
 <main class="wrap">
  <div class="cycle"><div><b id="cycleTitle">OY BOSHLANDI</b><br><span id="cycleSub"></span></div><div class="team-filter"><button data-team="ALL" class="on">Barchasi</button><button data-team="A">Team A</button><button data-team="B">Team B</button></div></div>
  <section class="kpis">
@@ -39,7 +39,7 @@ header{background:var(--nav);color:#fff;position:sticky;top:0;z-index:20;box-sha
  </section>
  <div class="ticker"><div class="ticker-track" id="ticker"></div></div>
  <section class="rating">
-  <div class="rating-head"><div><h2>Kuratorlar umumiy reytingi</h2><p>O‘quvchilar, churn, aktivlik, noaktiv va qo‘shimcha KPI bo‘yicha</p></div><div class="sorts"><button data-sort="score" class="on">Umumiy</button><button data-sort="students">O‘quvchilar</button><button data-sort="churn">Churn</button><button data-sort="active">Aktivlik</button><button data-sort="noactive">Noaktiv</button></div></div>
+  <div class="rating-head"><div><h2>Kuratorlar umumiy reytingi</h2><p>KPI indeksi (0–100): aktivlik, churn, noaktiv, ota-ona bot va o‘quvchi bazasi bo‘yicha</p></div><div class="sorts"><button data-sort="score" class="on">Umumiy</button><button data-sort="students">O‘quvchilar</button><button data-sort="churn">Churn</button><button data-sort="active">Aktivlik</button><button data-sort="noactive">Noaktiv</button></div></div>
   <div class="table-scroll"><table><thead><tr><th class="pos">Poz</th><th>Kurator</th><th>Umumiy ball</th><th>O‘quvchilar</th><th>Aktivlik</th><th>Churn</th><th>Noaktiv</th><th>Qarzdor</th><th>Yangi</th><th>Faollashgan</th><th>Ota-ona bot</th></tr></thead><tbody id="rows"></tbody><tfoot id="total"></tfoot></table></div>
  </section>
 </main>
