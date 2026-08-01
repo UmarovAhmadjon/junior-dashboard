@@ -504,10 +504,11 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     with open(os.path.join(BASE,"plan_source.html"),encoding="utf-8") as f: src=f.read()
     CSS=re.search(r"<style>.*?</style>",src,re.S).group(0)
 
-    # VARIANT 3: reyting = grafik bajarilishi % (fakt / bugungacha muddati kelganlar)
+    # Reyting = umumiy reja bajarilishi: FAKT / PLAN.
+    # Bugungi grafik alohida oq marker va "otryv" ustunida qoladi.
     for x in rows:
         x['pace_pct'] = round(x['paid']/x['due']*100) if x.get('due',0)>0 else (100 if x['paid']>=0 else 0)
-    ALL=sorted(rows,key=lambda x:(-x['pace_pct'],-x['paid']))
+    ALL=sorted(rows,key=lambda x:(-x['pct'],-x['paid']))
     for i,x in enumerate(ALL,1): x['pos']=i
     def team_tot(t):
         rr=[x for x in rows if x['team']==t]
@@ -553,7 +554,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         posc=f"p{r['pos']}" if r['pos']<=3 else ""; tpc=f"tp{r['pos']}" if r['pos']<=3 else ""
         pace=r.get('pace_pct',0)
         fill="goldf" if r['pct']>=100 else ("okf" if r['pct']>=40 else "lagf")
-        gap="goldg" if pace>=100 else ("okg" if pace>=80 else "badg")
+        gap="goldg" if r['pct']>=100 else ("okg" if r['pct']>=80 else "badg")
         badge=f'<span class="tbadge t{r["team"]}">{r["team"]}</span>'
         # grafik: bugungacha muddati kelganlar (due) — oq marker; otryv = fakt - due
         due=r.get('due',0); plan=max(1,r['plan'])
@@ -568,9 +569,9 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     <span class="lnm">{badge}{esc(r['short'])}</span>
     <span class="track"><span class="fill {fill}" style="--w:{min(100,r['pct'])}%"></span>{marker}<span class="tfin"></span></span>
     <span class="fact"><b>{r['paid']}</b><i>/{r['plan']} · {mln(r['sob'])}м</i></span>
-    <span class="gap {gap}">{pace}%</span><span class="wk">{chip}</span></div>"""
-    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению графика</span><span class="lbleg">% = факт ÷ график к сегодня · белая метка = график · отрыв = факт − график</span></div>
-  <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% граф.</span><span>Отрыв</span></div>
+    <span class="gap {gap}">{r['pct']}%</span><span class="wk">{chip}</span></div>"""
+    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · отрыв = факт − график</span></div>
+  <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Отрыв</span></div>
   {"".join(row_html(r) for r in ALL)}
   <div class="ltot">Всего: оплатили <b>{TOTAL_PAID}</b> из <b>{TOTAL_PLAN}</b> · <b>{PCT}%</b> · по графику к {today.strftime('%d.%m')} должно быть <b>{due_total}</b> · отрыв <b>{TOTAL_PAID-due_total:+d}</b> · собрано <b>{mln(TOTAL_SOB)} млн</b></div></div>"""
 
