@@ -22,7 +22,7 @@ jobs:
         run: |
           git config user.name "dashboard-bot"
           git config user.email "dashboard-bot@users.noreply.github.com"
-          git add kurator.html kurator-rating-test.html
+          git add kurator.html kurator-rating-test.html kurator-attendance-test.html
           if ! git diff --cached --quiet; then
             git commit -m "Kurator tahlili auto-update"
             git push
