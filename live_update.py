@@ -674,15 +674,15 @@ def cashier_section(rows):
         data.append(dict(name=cname,team=team,curs=curs,paid=paid,plan=plan,sob=sob,due=due,
                          pct=round(paid/plan*100) if plan else 0,
                          pace=round(paid/due*100) if due else 100))
-    # v3: reyting grafik bajarilishi bo'yicha
-    data.sort(key=lambda x:(-x['pace'],-x['paid']))
+    # Kassir reytingi ham yagona qoida bo'yicha: FAKT / UMUMIY PLAN.
+    data.sort(key=lambda x:(-x['pct'],-x['paid']))
     for i,d in enumerate(data,1): d['pos']=i
     tp=sum(d['paid'] for d in data); tpl=sum(d['plan'] for d in data); tsob=sum(d['sob'] for d in data)
     tdue=sum(d['due'] for d in data)
     def crow(d):
         posc=f"p{d['pos']}" if d['pos']<=3 else ""; tpc=f"tp{d['pos']}" if d['pos']<=3 else ""
         fill="goldf" if d['pct']>=100 else ("okf" if d['pct']>=40 else "lagf")
-        gap="goldg" if d['pace']>=100 else ("okg" if d['pace']>=80 else "badg")
+        gap="goldg" if d['pct']>=100 else ("okg" if d['pct']>=80 else "badg")
         badge=f'<span class="tbadge t{d["team"]}">{d["team"]}</span>'
         sub=", ".join(d['curs'])
         plan=max(1,d['plan']); pacepct=min(100, round(d['due']/plan*100))
@@ -696,9 +696,9 @@ def cashier_section(rows):
     <span class="lnm">{badge}{esc(d['name'])} <i style="color:var(--mut);font-weight:600;font-size:.78em">· {esc(sub)}</i></span>
     <span class="track"><span class="fill {fill}" style="--w:{min(100,d['pct'])}%"></span>{marker}<span class="tfin"></span></span>
     <span class="fact"><b>{d['paid']}</b><i>/{d['plan']} · {mln(d['sob'])}м</i></span>
-    <span class="gap {gap}">{d['pace']}%</span><span class="wk">{chip}</span></div>"""
-    return f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Кассиры <i class="sl">//</i> по выполнению графика</span><span class="lbleg">% = факт ÷ график к сегодня · белая метка = график · отрыв = факт − график</span></div>
-  <div class="lhead"><span>Поз</span><span>Кассир · кураторы</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% граф.</span><span>Отрыв</span></div>
+    <span class="gap {gap}">{d['pct']}%</span><span class="wk">{chip}</span></div>"""
+    return f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Кассиры <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · отрыв = факт − график</span></div>
+  <div class="lhead"><span>Поз</span><span>Кассир · кураторы</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Отрыв</span></div>
   {"".join(crow(d) for d in data)}
   <div class="ltot">Всего по кассирам: оплатили <b>{tp}</b> из <b>{tpl}</b> · по графику должно быть <b>{tdue}</b> · отрыв <b>{tp-tdue:+d}</b> · собрано <b>{mln(tsob)} млн</b></div></div>"""
 
