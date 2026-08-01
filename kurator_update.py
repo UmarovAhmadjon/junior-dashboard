@@ -522,14 +522,14 @@ def real_date():
     return MONTH
 
 def render_and_deploy(d):
-    tpl = (BASE/'kurator_template.html').read_text()
     rating_tpl = (BASE/'kurator_rating_template.html').read_text()
     attendance_tpl = (BASE/'kurator_attendance_template.html').read_text()
     data = {k:d[k] for k in ('M','W','N','E','C','H','G','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
-    html = tpl.replace('/*__DATA__*/', js)
+    # Reyting formati endi asosiy kurator sahifasi ham hisoblanadi.
+    html = rating_tpl.replace('/*__DATA__*/', js)
     rating_html = rating_tpl.replace('/*__DATA__*/', js)
     attendance_html = attendance_tpl.replace('/*__DATA__*/', js)
     (BASE/'kurator.html').write_text(html)
