@@ -10,7 +10,7 @@ Manba: kuratorlar o'zlari yuritadigan jadval (To'lagan/Qarzdor statuslari — an
 
 TAMOYIL: SON birinchi, summa ikkinchi.
 """
-import json, re, os, csv, io, datetime, sys, hashlib, urllib.request, urllib.parse, calendar, email.utils, base64, zipfile
+import json, re, os, csv, io, datetime, sys, hashlib, urllib.request, urllib.parse, calendar, email.utils, base64, zipfile, time
 import xml.etree.ElementTree as ET
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +71,21 @@ def _parse_sheet(z, path, ss):
 
 def load_workbook():
     url=f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx"
-    data=urllib.request.urlopen(urllib.request.Request(url,headers={"User-Agent":"junior-dash"}),timeout=120).read()
+    cache_path="/tmp/junior-dashboard-sheet.xlsx" if IS_CI else ""
+    if cache_path and os.path.isfile(cache_path):
+        with open(cache_path,"rb") as f: data=f.read()
+    else:
+        last_error=None
+        for attempt in range(4):
+            try:
+                data=urllib.request.urlopen(urllib.request.Request(url,headers={"User-Agent":"junior-dash"}),timeout=120).read()
+                if cache_path:
+                    with open(cache_path,"wb") as f: f.write(data)
+                break
+            except Exception as e:
+                last_error=e
+                if attempt==3: raise
+                time.sleep(2*(attempt+1))
     z=zipfile.ZipFile(io.BytesIO(data))
     ss=["".join(t.text or "" for t in si.iter(_M+'t')) for si in ET.fromstring(z.read('xl/sharedStrings.xml')).findall(_M+'si')] if 'xl/sharedStrings.xml' in z.namelist() else []
     rels={r.get('Id'):r.get('Target') for r in ET.fromstring(z.read('xl/_rels/workbook.xml.rels'))}
