@@ -1,671 +1,88 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="uz">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Junior Online — Kurator Tahlili</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kurator Tahlili — Test reyting</title>
 <style>
-  :root{
-    --bg:#eef1f6; --card:#fff; --ink:#141a26; --muted:#7d8698; --line:#e6e9f0;
-    --good:#2e9e64; --goodbg:#e5f5ec; --warn:#c9962b; --warnbg:#faf3df; --bad:#d24a35; --badbg:#fbe9e5;
-    --blue:#3564c4; --bluebg:#e8effc; --newc:#6c5ce7; --hero:#141b2e; --hero2:#1d2742;
-    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5;padding:22px 14px 60px}
-  .page{max-width:1220px;margin:0 auto}
-
-  .hero{background:radial-gradient(900px 400px at 85% -20%,rgba(84,110,255,.25),transparent),linear-gradient(135deg,var(--hero),var(--hero2));color:#fff;border-radius:22px;padding:30px 34px 30px;margin-bottom:18px}
-  .hero h1{font-size:25px;font-weight:750;letter-spacing:-.3px}
-  .hero .desc{font-size:13.5px;opacity:.75;max-width:760px;margin-top:8px}
-  .hero .desc b{opacity:1}
-  .srcbadge{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:7px 14px;border-radius:10px;font-size:12.5px;margin-top:14px}
-  .srcbadge .dot{width:8px;height:8px;border-radius:50%;background:#43d17c;box-shadow:0 0 8px #43d17c}
-  .hcards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px}
-  .hc{background:#fff;color:var(--ink);border-radius:14px;padding:14px 16px}
-  .hc .l{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
-  .hc .v{font-size:25px;font-weight:750;margin-top:5px;letter-spacing:-.5px}
-  .hc .v.red{color:var(--bad)} .hc .v.orange{color:#d78a1e} .hc .v.green{color:var(--good)}
-  .hc .n{font-size:11.5px;color:var(--muted);margin-top:2px}
-
-  .davr{display:flex;align-items:center;gap:10px;margin:16px 2px 14px;flex-wrap:wrap}
-  .davr .lbl{font-size:13px;color:var(--muted);font-weight:600}
-  .period-select{min-width:330px;max-width:100%;font:650 13px var(--font);color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 42px 10px 14px;cursor:pointer;box-shadow:0 1px 3px rgba(16,22,40,.05)}
-  .period-select:focus{outline:3px solid rgba(84,110,255,.18);border-color:var(--blue)}
-  .seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px}
-  .seg button{font-family:var(--font);font-size:12.5px;font-weight:650;padding:8px 15px;border:none;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
-  .seg button.on{background:var(--hero);color:#fff}
-  .davr .showing{margin-left:auto;font-size:12.5px;color:var(--muted)}
-
-  .panel{background:#fff;border-radius:18px;padding:24px 28px;margin-bottom:18px;box-shadow:0 1px 3px rgba(16,22,40,.05)}
-  .panel h2{font-size:16.5px;font-weight:750;letter-spacing:-.2px}
-  .panel .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
-  .activity-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
-  .activity-card{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:#fbfcff}
-  .activity-card .at{display:flex;justify-content:space-between;align-items:center;gap:10px}
-  .activity-card .an{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-  .activity-card .av{font-size:28px;font-weight:850;color:var(--good);letter-spacing:-.8px}
-  .activity-card .as{font-size:11px;color:var(--muted);margin-top:2px}
-  .activity-card .mini-status{height:9px;border-radius:7px;overflow:hidden;display:flex;margin-top:12px;background:#eef0f5}
-  .activity-card .mini-status i{display:block;height:100%}
-  .activity-card .aleg{font-size:10.5px;color:var(--muted);display:flex;gap:9px;flex-wrap:wrap;margin-top:7px}
-  .chartwrap{margin-top:16px;overflow-x:auto}
-  svg text{font-family:var(--font)}
-
-  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:14px}
-  thead th{text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;padding:10px 10px;border-bottom:1px solid var(--line)}
-  thead th.num{text-align:right}
-  tbody td{padding:12px 10px;border-top:1px solid var(--line);vertical-align:middle}
-  tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
-  tbody tr:hover{background:#fafbfd}
-  tr.jami td{background:#f4f6fa;font-weight:750;border-top:2px solid var(--line)}
-  .rk{display:inline-flex;width:24px;height:24px;border-radius:7px;background:#f0f2f7;color:var(--muted);font-size:12px;font-weight:700;align-items:center;justify-content:center}
-  .nm{font-weight:700}
-  .tm{display:inline-block;font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:6px;margin-left:7px;vertical-align:1px}
-  .tm.A{background:var(--bluebg);color:var(--blue)} .tm.B{background:#fdeee4;color:#c4703d}
-  .chbadge{display:inline-block;font-size:12px;font-weight:750;padding:3px 10px;border-radius:16px}
-  .z-good{background:var(--goodbg);color:var(--good)} .z-warn{background:var(--warnbg);color:var(--warn)} .z-bad{background:var(--badbg);color:var(--bad)} .z-na{background:#f0f2f7;color:var(--muted)}
-  .cbar{display:block;height:8px;background:#f0f2f7;border-radius:6px;overflow:hidden;width:130px;margin-top:5px}
-  .cbar i{display:block;height:100%;border-radius:6px;background:var(--bad)}
-  .up{color:var(--bad);font-weight:750} .down{color:var(--good);font-weight:750}
-  .dim{color:var(--muted)}
-  .strong{font-weight:700}
-
-  .cardsgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .kk{background:#fff;border-radius:18px;padding:22px 24px;box-shadow:0 1px 3px rgba(16,22,40,.05)}
-  .kk .top{display:flex;justify-content:space-between;align-items:flex-start}
-  .kk .who .n1{font-size:17px;font-weight:750}
-  .kk .who .n2{font-size:12px;color:var(--muted)}
-  .kk .cnt{text-align:right}
-  .kk .cnt b{font-size:24px;font-weight:750;letter-spacing:-.5px}
-  .kk .cnt span{display:block;font-size:11.5px;color:var(--muted);margin-top:-3px}
-  .churnrow{display:flex;gap:16px;align-items:center;margin-top:16px}
-  .donut{position:relative;width:86px;height:86px;flex:none}
-  .donut svg{transform:rotate(-90deg)}
-  .donut .dl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .donut .dl b{font-size:15.5px;font-weight:800;color:var(--bad)}
-  .donut .dl small{font-size:8.5px;color:var(--muted)}
-  .churninfo{flex:1}
-  .churninfo .t{font-size:12px;color:var(--muted)}
-  .churninfo .big{font-size:15px;margin-top:2px}
-  .churninfo .big b{font-size:21px;color:var(--bad);font-weight:800}
-  .wboxes{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}
-  .wb{border:1px solid var(--line);border-radius:10px;padding:8px 11px}
-  .wb.hl{border-color:var(--hero);box-shadow:0 0 0 1px var(--hero)}
-  .wb .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
-  .wb .v{font-size:16.5px;font-weight:750;margin-top:1px}
-  .stt{font-size:12px;font-weight:700;color:var(--muted);margin:16px 0 7px}
-  .stack{display:flex;height:24px;border-radius:7px;overflow:hidden;font-size:11px;font-weight:700;color:#fff}
-  .stack i{display:flex;align-items:center;justify-content:center;min-width:0}
-  .stlegend{display:flex;gap:13px;font-size:11.5px;color:var(--muted);margin-top:7px;flex-wrap:wrap}
-  .stlegend .d{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px}
-  .boxes3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
-  .b3{border:1px solid var(--line);border-radius:10px;padding:9px 12px}
-  .metric-click{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
-  .metric-click:hover{transform:translateY(-2px);border-color:#9aa9ff;box-shadow:0 8px 22px rgba(52,70,150,.12)}
-  .metric-click:focus-visible{outline:3px solid rgba(84,110,255,.25);outline-offset:2px}
-  .b3 .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
-  .b3 .v{font-size:19px;font-weight:800;margin-top:1px}
-  .b3 .v.or{color:#d78a1e} .b3 .v.rd{color:var(--bad)}
-  .b3 .n{font-size:10.5px;color:var(--muted)}
-  .tavs{background:#fdf9ef;border:1px solid #eee0b8;border-radius:12px;padding:13px 16px;margin-top:14px}
-  .tavs .th{font-size:11px;letter-spacing:.07em;font-weight:800;color:#a5802a;text-transform:uppercase;margin-bottom:7px}
-  .tavs ul{list-style:none}
-  .tavs li{font-size:12.5px;padding:3px 0;color:#4c4632}
-  .tavs li b{color:var(--ink)}
-  .extras{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
-  .extra-kpi{border:1px solid var(--line);background:#f8f9fc;border-radius:11px;padding:11px 12px}
-  .extra-kpi .el{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:750}
-  .extra-kpi .ev{font-size:18px;font-weight:850;color:var(--ink);margin-top:2px}
-  .extra-kpi .en{font-size:10px;color:var(--muted)}
-
-  .foot{font-size:12px;color:var(--muted);line-height:1.7;margin-top:20px;padding:0 6px}
-  .foot b{color:#5a6272}
-
-  /* detail view */
-  tbody tr[data-k]{cursor:pointer}
-  .kk .who .n1{cursor:pointer}
-  .kk .who .n1:hover,.nm:hover{color:var(--blue)}
-  #detail{position:fixed;inset:0;background:var(--bg);z-index:50;overflow-y:auto;display:none;padding:22px 14px 60px}
-  #detail.open{display:block}
-  #metricModal{position:fixed;inset:0;background:rgba(17,25,48,.58);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}
-  #metricModal.open{display:flex}
-  .metric-dialog{width:min(760px,100%);max-height:min(760px,92vh);overflow:auto;background:#fff;border-radius:20px;box-shadow:0 28px 80px rgba(15,24,55,.3)}
-  .metric-head{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:20px 22px 14px;z-index:2}
-  .metric-headrow{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
-  .metric-title{font-size:21px;font-weight:800}
-  .metric-sub{font-size:12px;color:var(--muted);margin-top:4px}
-  .metric-close{border:1px solid var(--line);background:#f7f8fb;border-radius:9px;width:34px;height:34px;cursor:pointer;font-size:19px;color:var(--muted)}
-  .metric-tabs{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
-  .metric-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:700 12px var(--font);cursor:pointer;color:var(--muted)}
-  .metric-tab.on{background:var(--hero);color:#fff;border-color:var(--hero)}
-  .metric-body{padding:8px 22px 22px}
-  .metric-table{width:100%;border-collapse:collapse}
-  .metric-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:11px 8px;text-align:left;border-bottom:1px solid var(--line)}
-  .metric-table th.num,.metric-table td.num{text-align:right}
-  .metric-table td{font-size:13px;padding:11px 8px;border-bottom:1px solid #eef0f5}
-  .metric-table tr.focus td{background:#f3f5ff;font-weight:700}
-  .metric-rank{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#f0f2f7;font-size:11px;font-weight:800;color:var(--muted)}
-  .metric-val{font-size:16px;font-weight:800;color:var(--ink)}
-  .dpage{max-width:980px;margin:0 auto}
-  .backbtn{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:9px 18px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;font-family:var(--font);margin-bottom:14px}
-  .backbtn:hover{border-color:var(--blue);color:var(--blue)}
-  .dhero{background:radial-gradient(700px 300px at 85% -20%,rgba(84,110,255,.25),transparent),linear-gradient(135deg,var(--hero),var(--hero2));color:#fff;border-radius:20px;padding:26px 30px;margin-bottom:16px}
-  .dhero .row{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px}
-  .dhero h1{font-size:23px;font-weight:750}
-  .dhero .meta{font-size:13px;opacity:.75;margin-top:4px}
-  .dhero .bigb{text-align:right}
-  .dhero .bigb b{font-size:34px;font-weight:800;letter-spacing:-1px}
-  .dhero .bigb span{display:block;font-size:12px;opacity:.7;margin-top:-4px}
-  .dcards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
-  .dgrid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .wtable{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
-  .wtable th{text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;padding:9px 8px;border-bottom:1px solid var(--line)}
-  .wtable th.num,.wtable td.num{text-align:right}
-  .wtable td{padding:10px 8px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
-  .wtable tr.cur td{background:#f4f6fa;font-weight:700}
-  @media(max-width:920px){.hcards{grid-template-columns:repeat(2,1fr)}.cardsgrid{grid-template-columns:1fr}.hide-sm{display:none}.dcards{grid-template-columns:repeat(2,1fr)}.dgrid2{grid-template-columns:1fr}.activity-grid{grid-template-columns:1fr}.extras{grid-template-columns:repeat(2,1fr)}}
+:root{--bg:#f3f1eb;--paper:#fff;--ink:#18202d;--muted:#7d8797;--line:#e7e4dd;--nav:#172033;--green:#18a66a;--red:#e04b3d;--orange:#e58d16;--blue:#2f6de0;--purple:#7557d9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:1280px;margin:auto;padding:0 18px 50px}
+header{background:var(--nav);color:#fff;position:sticky;top:0;z-index:20;box-shadow:0 5px 22px #17203325}.head{max-width:1280px;margin:auto;min-height:66px;padding:10px 18px;display:flex;gap:18px;align-items:center}.brand{font-weight:900;font-size:18px;white-space:nowrap}.brand b{color:#ffb31a}.live{font-size:11px;color:#b9c3d6}.live i{display:inline-block;width:7px;height:7px;background:#31d17d;border-radius:50%;margin-right:5px;box-shadow:0 0 8px #31d17d}.spacer{flex:1}.control{display:flex;align-items:center;gap:8px}.control label{font-size:11px;color:#b9c3d6;text-transform:uppercase;font-weight:800}.control select{background:#222d43;color:white;border:1px solid #3b4861;border-radius:9px;padding:9px 35px 9px 11px;font-weight:700}.cycle{margin:18px 0 12px;background:#e8e3d8;border-radius:15px;padding:12px 17px;display:flex;gap:18px;align-items:center}.cycle b{font-size:12px;letter-spacing:.08em}.cycle span{color:#6c706f;font-size:12px}.cycle .team-filter{margin-left:auto;display:flex;background:#d8d1c3;padding:3px;border-radius:10px}.team-filter button,.sorts button{border:0;background:transparent;padding:7px 12px;border-radius:8px;font-weight:800;color:#6e706f;cursor:pointer}.team-filter button.on{background:#fff;color:#172033;box-shadow:0 1px 5px #0001}
+.kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}.kpi{background:var(--paper);padding:16px;border-radius:16px;border:1px solid var(--line);min-height:115px}.kpi small{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:900}.kpi strong{display:block;font-size:27px;letter-spacing:-1px;margin:6px 0 1px}.kpi p{margin:0;color:var(--muted);font-size:11px}.green{color:var(--green)}.red{color:var(--red)}.orange{color:var(--orange)}.blue{color:var(--blue)}
+.status{margin:12px 0;display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}.panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px}.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin:0 0 12px}.statusline{display:flex;height:11px;border-radius:8px;overflow:hidden;background:#eee}.statusline i{height:100%}.legend{display:flex;gap:16px;margin-top:10px;color:var(--muted);font-size:11px}.legend b{color:var(--ink)}.team-card{display:flex;justify-content:space-between;align-items:center}.team-card strong{font-size:29px}.team-card span{font-size:11px;color:var(--muted)}.ticker{background:#172033;color:#dce4f3;border-radius:12px;padding:11px 16px;margin:12px 0;white-space:nowrap;overflow:hidden}.ticker-track{display:inline-block;animation:move 30s linear infinite}.ticker b{color:#ffb31a}.ticker em{font-style:normal;color:#65728b;padding:0 17px}@keyframes move{from{transform:translateX(3%)}to{transform:translateX(-55%)}}
+.rating{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden}.rating-head{padding:18px 20px 12px;display:flex;gap:15px;align-items:flex-end}.rating-head h2{margin:0;font-size:19px}.rating-head p{margin:2px 0 0;color:var(--muted);font-size:12px}.sorts{margin-left:auto;display:flex;gap:3px;background:#f0eee9;padding:3px;border-radius:10px}.sorts button{font-size:11px}.sorts button.on{background:#172033;color:#fff}
+.progress{background:#fff;border:1px solid var(--line);border-radius:18px;margin:12px 0;padding:20px}.progress-top{display:flex;align-items:flex-end;gap:14px}.progress-top h2{margin:0;font-size:19px}.progress-top p{margin:2px 0 0;color:var(--muted);font-size:12px}.course-select{margin-left:auto;background:#f4f2ed;border:1px solid #dedad2;border-radius:10px;padding:9px 34px 9px 11px;font-weight:800;max-width:290px}.coverage{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:15px}.cov{background:#f6f5f1;border-radius:12px;padding:12px}.cov small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;font-weight:850}.cov b{font-size:21px}.module-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:17px}.module-bars{display:grid;gap:10px}.module-row{display:grid;grid-template-columns:155px 1fr 45px;gap:10px;align-items:center}.module-row .mn{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.module-row .track{height:12px;background:#eeece7;border-radius:8px;overflow:hidden}.module-row .track i{display:block;height:100%;background:linear-gradient(90deg,#2f6de0,#7557d9);border-radius:8px}.module-row b{text-align:right}.cur-progress{border-left:1px solid var(--line);padding-left:17px}.cur-progress h3{font-size:11px;text-transform:uppercase;color:var(--muted);margin:0 0 8px}.cp{display:grid;grid-template-columns:1fr 62px 52px;gap:8px;padding:7px 0;border-bottom:1px solid #efede8;font-size:11px}.cp b{text-align:right}.cp em{font-style:normal;text-align:right;color:var(--muted)}
+.attendance-scroll{overflow:auto;max-width:100%}.att-table{border-collapse:separate;border-spacing:4px;min-width:900px;width:auto}.att-table th,.att-table td{border:0;padding:2px;text-align:center;font-size:9px}.att-table th:first-child,.att-table td:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:2;min-width:135px}.att-table th:nth-child(2),.att-table td:nth-child(2){min-width:62px}.att-table tbody tr:hover{background:transparent}.daydot{display:inline-grid;place-items:center;width:23px;height:23px;border-radius:50%;font-size:8px;font-weight:850;color:#fff}.daydot.good{background:#28bd76}.daydot.warn{background:#f3a133}.daydot.bad{background:#ec5b58}.daydot.empty{background:#fff;border:1px solid #e8e9ed;color:#a9afba}.group-meta{display:block;color:var(--muted);font-size:9px;font-weight:500}.att-legend{display:flex;gap:13px;flex-wrap:wrap;margin:9px 0 0;color:var(--muted);font-size:10px}.att-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.cur-progress{max-height:440px;overflow:auto}
+.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:980px}th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;text-align:right;padding:10px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}th:nth-child(2){text-align:left}td{padding:13px 12px;text-align:right;border-bottom:1px solid #efede8;font-variant-numeric:tabular-nums}tbody tr{cursor:pointer}tbody tr:hover{background:#faf9f6}.pos{text-align:center;width:45px}.pos b{display:inline-grid;place-items:center;width:27px;height:27px;background:#eeece7;border-radius:8px}.who{text-align:left;font-weight:850}.tag{font-size:9px;border-radius:6px;padding:2px 6px;margin-left:6px;background:#e7efff;color:#2f6de0}.tag.B{background:#fff0e6;color:#ca7137}.score{font-weight:900;font-size:16px}.meter{display:inline-block;vertical-align:middle;width:70px;height:7px;background:#eceae5;border-radius:8px;overflow:hidden;margin-right:7px}.meter i{display:block;height:100%;border-radius:8px}.pill{display:inline-block;padding:4px 9px;border-radius:15px;font-weight:850;font-size:11px}.pill.good{background:#e2f6ec;color:#178756}.pill.warn{background:#fff1d9;color:#c57609}.pill.bad{background:#fde8e5;color:#cf4134}tfoot td{font-weight:900;background:#f4f2ed;border:0}
+.modal{position:fixed;inset:0;background:#111827aa;z-index:50;display:none;place-items:center;padding:18px}.modal.open{display:grid}.sheet{background:#fff;width:min(760px,100%);border-radius:20px;padding:24px;box-shadow:0 25px 80px #0005}.sheet-head{display:flex;justify-content:space-between}.sheet h2{margin:0}.close{border:0;background:#efede8;width:34px;height:34px;border-radius:10px;cursor:pointer;font-size:18px}.detail{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}.d{background:#f6f5f1;border-radius:12px;padding:13px}.d small{color:var(--muted);font-size:10px;text-transform:uppercase;font-weight:800}.d b{display:block;font-size:20px;margin-top:4px}.note{color:var(--muted);font-size:11px;margin-top:14px}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.status{grid-template-columns:1fr 1fr}.status .panel:first-child{grid-column:1/-1}.rating-head,.progress-top{align-items:flex-start;flex-direction:column}.sorts,.course-select{margin:0;overflow:auto;max-width:100%}.module-grid{grid-template-columns:1fr}.cur-progress{border-left:0;border-top:1px solid var(--line);padding:14px 0 0}.head{flex-wrap:wrap}.spacer{display:none}.control{width:100%}.control select{flex:1}.detail{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.kpis,.coverage{grid-template-columns:1fr}.status{grid-template-columns:1fr}.status .panel:first-child{grid-column:auto}.cycle{align-items:flex-start;flex-wrap:wrap}.cycle .team-filter{margin-left:0}.brand{font-size:16px}.module-row{grid-template-columns:110px 1fr 35px}}
+@media(max-width:1100px) and (min-width:901px){.kpis{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
-<div class="page">
-
-  <!-- HERO -->
-  <div class="hero">
-    <h1>Junior Online — Kurator Tahlili</h1>
-    <div class="desc">Har bir kurator bo'yicha o'quvchilar soni, churn darajasi, status taqsimoti (Aktiv/Passiv/Noaktiv), qarzdorlik, kassa va faollashtirish. <b>Churn = tanlangan davrda ketgan o'quvchilar ÷ aktiv baza. Oylik plan: ≤ 14%.</b></div>
-    <div class="srcbadge"><span class="dot"></span> Ma'lumot manbasi: <b>CRM Analitika + LMS MCP</b> · Snapshot: <b id="snapdate">—</b> · <span id="srcMonth">joriy oy</span></div>
-    <div class="hcards">
-      <div class="hc"><div class="l">Aktiv baza</div><div class="v" id="hBaseV">2 126</div><div class="n" id="hBaseN">10 kurator · 51 guruh</div></div>
-      <div class="hc"><div class="l" id="hChuL">Churn — Iyul</div><div class="v red" id="hChuV">12.6%</div><div class="n" id="hChuN">266 o'quvchi ketgan · plan ≤14%</div></div>
-      <div class="hc"><div class="l" id="hTrL">Iyunga nisbatan</div><div class="v green" id="hTrV">▼ 4.6p</div><div class="n" id="hTrN">iyun 17.2% → iyul 12.6%</div></div>
-      <div class="hc"><div class="l">Faollashtirish</div><div class="v orange" id="hFaoV">45.7%</div><div class="n" id="hFaoN">344 ta noaktivdan qaytarildi</div></div>
-      <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz')" title="Bosing — kuratorlar kesimi"><div class="l">Qarzdorlar</div><div class="v orange" id="hQarzV">238</div><div class="n" id="hQarzN">muzlatilganlar: 215 ta · batafsil →</div></div>
-    </div>
-  </div>
-
-  <!-- DAVR -->
-  <div class="davr">
-    <span class="lbl">Davr:</span>
-    <select class="period-select" id="periodSelect" aria-label="Davrni tanlang">
-      <option value="ALL" id="monthOption">Joriy oy · oy boshidan</option>
-    </select>
-    <span class="showing" id="showing">Ko'rsatilmoqda: Iyul 2026, oy boshidan</span>
-  </div>
-
-  <!-- UMUMIY AKTIVNOST -->
-  <div class="panel">
-    <h2>Umumiy aktivnost</h2>
-    <div class="sub">Aktiv / Passiv / Noaktiv kesimi — umumiy va jamoalar bo‘yicha.</div>
-    <div class="activity-grid" id="activityGrid"></div>
-  </div>
-
-  <!-- CHART -->
-  <div class="panel">
-    <h2>Haftalik Noaktiv dinamikasi</h2>
-    <div class="sub">Hafta oxiridagi Noaktiv qoldig‘i va oldingi haftaga nisbatan ko‘payish/kamayish. CRM snapshot + LMS status hodisalari asosida.</div>
-    <div class="chartwrap"><svg id="chart" width="900" height="230" viewBox="0 0 900 230"></svg></div>
-  </div>
-
-  <!-- RATING -->
-  <div class="panel">
-    <h2 id="rtTitle">Kurator reytingi — churn bo'yicha</h2>
-    <div class="sub" id="rtSub">Yuqorida — eng yuqori churn (harakat talab qiladi).</div>
-    <table>
-      <thead><tr>
-        <th style="width:34px"></th><th>Kurator</th>
-        <th class="num">Baza</th>
-        <th class="num" style="width:180px" id="thChurn">Churn · iyul</th>
-        <th class="num">Ketgan</th>
-        <th class="num" id="thTrend">Trend</th>
-        <th class="num hide-sm">Noaktiv %</th>
-        <th class="num">Qarzdor</th>
-        <th class="num hide-sm">Muzlatilgan</th>
-      </tr></thead>
-      <tbody id="rt"></tbody>
-    </table>
-  </div>
-
-  <!-- CURATOR CARDS -->
-  <div class="panel" style="background:transparent;box-shadow:none;padding:4px 6px 0">
-    <h2>Kurator kartalari</h2>
-    <div class="sub">Har bir kurator bo'yicha to'liq kesim: churn plan bilan, status taqsimoti, qarzdorlik, kassa va tavsiyalar.</div>
-  </div>
-  <div class="cardsgrid" id="cards"></div>
-
-  <div class="foot" id="sourceNote"></div>
-</div>
-
-<!-- KURATOR DETAIL SAHIFASI -->
-<div id="detail"><div class="dpage" id="dcontent"></div></div>
-<div id="metricModal" onclick="if(event.target===this)closeMetric()">
-  <div class="metric-dialog" role="dialog" aria-modal="true" aria-labelledby="metricTitle">
-    <div class="metric-head">
-      <div class="metric-headrow">
-        <div><div class="metric-title" id="metricTitle"></div><div class="metric-sub" id="metricSub"></div></div>
-        <button class="metric-close" onclick="closeMetric()" aria-label="Yopish">×</button>
-      </div>
-      <div class="metric-tabs" id="metricTabs"></div>
-    </div>
-    <div class="metric-body" id="metricBody"></div>
-  </div>
-</div>
-
+<header><div class="head"><div><div class="brand"><b>⚡</b> KURATOR TAHLILI <span style="font-size:9px;background:#ffb31a;color:#172033;padding:3px 6px;border-radius:5px">TEST</span></div><div class="live"><i></i>CRM Analytics + LMS MCP · yangilandi <span id="snap"></span></div></div><div class="spacer"></div><div class="control"><label>📅 Davr</label><select id="period"></select></div></div></header>
+<main class="wrap">
+ <div class="cycle"><div><b id="cycleTitle">OY BOSHLANDI</b><br><span id="cycleSub"></span></div><div class="team-filter"><button data-team="ALL" class="on">Barchasi</button><button data-team="A">Team A</button><button data-team="B">Team B</button></div></div>
+ <section class="kpis">
+  <article class="kpi"><small>O‘quvchilar bazasi</small><strong id="kBase">—</strong><p id="kBaseN">kuratorlar kesimida</p></article>
+  <article class="kpi"><small>Aktivlik</small><strong class="green" id="kActive">—</strong><p id="kActiveN">active status</p></article>
+  <article class="kpi"><small>Churn</small><strong class="red" id="kChurn">—</strong><p id="kChurnN">muzlatildi + ketdi/arxiv</p></article>
+  <article class="kpi"><small>Noaktiv</small><strong class="orange" id="kNoactive">—</strong><p id="kNoactiveN">joriy holat</p></article>
+  <article class="kpi"><small>Qarzdorlar</small><strong class="blue" id="kDebt">—</strong><p id="kDebtN">joriy qarzdorlik</p></article>
+  <article class="kpi"><small>Yangi o‘quvchilar</small><strong id="kNew" style="color:var(--purple)">—</strong><p id="kNewN">tanlangan davr</p></article>
+  <article class="kpi"><small>Ota-ona bot</small><strong class="green" id="kBot">—</strong><p id="kBotN">ro‘yxatdan o‘tgan</p></article>
+ </section>
+ <section class="status">
+  <article class="panel"><h2>Statuslar // tanlangan jamoa</h2><div class="statusline" id="statusline"></div><div class="legend" id="legend"></div></article>
+  <article class="panel team-card"><div><h2>🏆 Team A</h2><span id="taSub"></span></div><strong id="taScore">—</strong></article>
+  <article class="panel team-card"><div><h2>Team B</h2><span id="tbSub"></span></div><strong id="tbScore">—</strong></article>
+ </section>
+ <div class="ticker"><div class="ticker-track" id="ticker"></div></div>
+ <section class="rating">
+  <div class="rating-head"><div><h2>Kuratorlar umumiy reytingi</h2><p>O‘quvchilar, churn, aktivlik, noaktiv va qo‘shimcha KPI bo‘yicha</p></div><div class="sorts"><button data-sort="score" class="on">Umumiy</button><button data-sort="students">O‘quvchilar</button><button data-sort="churn">Churn</button><button data-sort="active">Aktivlik</button><button data-sort="noactive">Noaktiv</button></div></div>
+  <div class="table-scroll"><table><thead><tr><th class="pos">Poz</th><th>Kurator</th><th>Umumiy ball</th><th>O‘quvchilar</th><th>Aktivlik</th><th>Churn</th><th>Noaktiv</th><th>Qarzdor</th><th>Yangi</th><th>Faollashgan</th><th>Ota-ona bot</th></tr></thead><tbody id="rows"></tbody><tfoot id="total"></tfoot></table></div>
+ </section>
+</main>
+<div class="modal" id="modal" onclick="if(event.target===this)closeDetail()"><div class="sheet"><div class="sheet-head"><div><h2 id="dName"></h2><div class="note" id="dTeam"></div></div><button class="close" onclick="closeDetail()">×</button></div><div class="detail" id="detail"></div><div class="note">Churn va Noaktiv — ikki xil ko‘rsatkich. Churn: muzlatildi + ketdi/arxiv. Noaktiv: hozirgi status va haftalik o‘zgarish.</div></div></div>
 <script>
-// ================== JONLI MA'LUMOT · 16.07.2026 ==================
-const PLAN={churnM:14,churnW:3.5,aktiv:70,ota:90};
-const __DATA__={"M": {"Fot": {"a": [186, 72.4], "p": [23, 8.9], "x": [47, 18.3], "y": [1, 0.4], "chu": [205, 2.44, 5], "churn_frozen": 3, "churn_archive": 0, "fao": [null, 52.0, 26], "b": 257, "kassa": 3500000, "yangi": 11, "qayta": 2, "ota": [217, 84.0], "froz": 16, "qarz": 20, "cj": 27.22, "name": "Fotimabonu Abdulkhakova", "team": "A", "grp": 5, "qarz_plan": 199, "db_students": 261, "db_churn": 4}, "Mad": {"a": [228, 63.0], "p": [52, 14.4], "x": [82, 22.6], "y": [0, 0.0], "chu": [233, 3.86, 9], "churn_frozen": 7, "churn_archive": 0, "fao": [null, 96.0, 24], "b": 362, "kassa": 14300000, "yangi": 13, "qayta": 0, "ota": [270, 75.0], "froz": 17, "qarz": 62, "cj": 15.84, "name": "Madina Normatova", "team": "A", "grp": 5, "qarz_plan": 286, "db_students": 363, "db_churn": 8}, "Dil": {"a": [194, 60.1], "p": [35, 10.8], "x": [93, 28.8], "y": [1, 0.3], "chu": [270, 2.22, 6], "churn_frozen": 5, "churn_archive": 0, "fao": [null, 85.29, 29], "b": 323, "kassa": 8000000, "yangi": 6, "qayta": 0, "ota": [203, 63.0], "froz": 16, "qarz": 31, "cj": 26.64, "name": "Dilafruz Shokirova", "team": "A", "grp": 6, "qarz_plan": 244, "db_students": 323, "db_churn": 5}, "Jas": {"a": [268, 74.2], "p": [43, 11.9], "x": [50, 13.9], "y": [0, 0.0], "chu": [196, 4.59, 9], "churn_frozen": 3, "churn_archive": 1, "fao": [null, 100.0, 32], "b": 361, "kassa": 7300000, "yangi": 13, "qayta": 0, "ota": [279, 77.0], "froz": 4, "qarz": 42, "cj": 28.05, "name": "Jasmina Tolibova", "team": "A", "grp": 4, "qarz_plan": 255, "db_students": 363, "db_churn": 3}, "Nai": {"a": [0, 0.0], "p": [0, 0.0], "x": [0, 0.0], "y": [0, 0.0], "chu": [195, 0.0, 0], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 0.0, 0], "b": 0, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [0, 0.0], "froz": 1, "qarz": 0, "cj": 0.0, "name": "Naima Ikramova", "team": "A", "grp": 4, "qarz_plan": 0, "db_students": 0, "db_churn": 0}, "Shx": {"a": [133, 86.9], "p": [12, 7.8], "x": [5, 3.3], "y": [3, 2.0], "chu": [83, 0.0, 0], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 48.8, 61], "b": 153, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [110, 72.0], "froz": 17, "qarz": 1, "cj": 0.0, "name": "Shaxlo Ziyodova", "team": "A", "grp": 3, "qarz_plan": 146, "db_students": 153, "db_churn": 7}, "Mar": {"a": [141, 60.3], "p": [30, 12.8], "x": [62, 26.5], "y": [1, 0.4], "chu": [173, 4.05, 7], "churn_frozen": 3, "churn_archive": 0, "fao": [null, 100.0, 19], "b": 234, "kassa": 0, "yangi": 12, "qayta": 1, "ota": [178, 76.0], "froz": 4, "qarz": 24, "cj": 34.04, "name": "Marjona Pardayeva", "team": "B", "grp": 5, "qarz_plan": 165, "db_students": 236, "db_churn": 4}, "Xal": {"a": [145, 63.3], "p": [19, 8.3], "x": [62, 27.1], "y": [3, 1.3], "chu": [195, 2.56, 5], "churn_frozen": 0, "churn_archive": 5, "fao": [null, 92.85, 26], "b": 229, "kassa": 0, "yangi": 11, "qayta": 1, "ota": [172, 75.0], "froz": 1, "qarz": 20, "cj": 27.24, "name": "Xalima Ismoiljonova", "team": "B", "grp": 6, "qarz_plan": 176, "db_students": 229, "db_churn": 0}, "Azi": {"a": [102, 54.3], "p": [25, 13.3], "x": [60, 31.9], "y": [1, 0.5], "chu": [185, 0.0, 0], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 100.0, 11], "b": 188, "kassa": 20400000, "yangi": 2, "qayta": 1, "ota": [135, 72.0], "froz": 0, "qarz": 23, "cj": 25.57, "name": "Aziza Qurvonaliyeva", "team": "B", "grp": 5, "qarz_plan": 131, "db_students": 189, "db_churn": 0}, "Sab": {"a": [0, 0.0], "p": [0, 0.0], "x": [0, 0.0], "y": [0, 0.0], "chu": [183, 1.09, 2], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 0.0, 0], "b": 0, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [0, 0.0], "froz": 0, "qarz": 0, "cj": 0.0, "name": "Sabrina Salimova", "team": "B", "grp": 6, "qarz_plan": 0, "db_students": 0, "db_churn": 0}, "Mun": {"a": [0, 0.0], "p": [0, 0.0], "x": [3, 30.0], "y": [7, 70.0], "chu": [193, 0.52, 1], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 0.0, 0], "b": 10, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [2, 20.0], "froz": 0, "qarz": 0, "cj": 15.68, "name": "Munisa Sobirjonova", "team": "B", "grp": 7, "qarz_plan": 3, "db_students": 11, "db_churn": 0}}, "W": {"Fot": {"W1": [19, 11, 10], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Mad": {"W1": [30, 6, 2], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Dil": {"W1": [22, 4, 1], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Jas": {"W1": [14, 4, 7], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Nai": null, "Shx": null, "Mar": {"W1": [20, 8, 5], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Xal": {"W1": [2, 6, 1], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Azi": {"W1": [2, 1, 1], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Sab": {"W1": [2, 0, 0], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Mun": {"W1": [6, 0, 4], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "all": {"W1": [117, 40, 31], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}}, "N": {"Fot": {"W4": {"count": 47, "delta": 0}, "W3": {"count": 47, "delta": 0}, "W2": {"count": 47, "delta": 0}, "W1": {"count": 47, "delta": 0}}, "Mad": {"W4": {"count": 82, "delta": 0}, "W3": {"count": 82, "delta": 0}, "W2": {"count": 82, "delta": 0}, "W1": {"count": 82, "delta": 0}}, "Dil": {"W4": {"count": 93, "delta": 0}, "W3": {"count": 93, "delta": 0}, "W2": {"count": 93, "delta": 0}, "W1": {"count": 93, "delta": 0}}, "Jas": {"W4": {"count": 50, "delta": 0}, "W3": {"count": 50, "delta": 0}, "W2": {"count": 50, "delta": 0}, "W1": {"count": 50, "delta": 2}}, "Nai": {"W4": {"count": 0, "delta": 0}, "W3": {"count": 0, "delta": 0}, "W2": {"count": 0, "delta": 0}, "W1": {"count": 0, "delta": 0}}, "Shx": {"W4": {"count": 5, "delta": 0}, "W3": {"count": 5, "delta": 0}, "W2": {"count": 5, "delta": 0}, "W1": {"count": 5, "delta": 0}}, "Mar": {"W4": {"count": 62, "delta": 0}, "W3": {"count": 62, "delta": 0}, "W2": {"count": 62, "delta": 0}, "W1": {"count": 62, "delta": 0}}, "Xal": {"W4": {"count": 62, "delta": 0}, "W3": {"count": 62, "delta": 0}, "W2": {"count": 62, "delta": 0}, "W1": {"count": 62, "delta": 0}}, "Azi": {"W4": {"count": 60, "delta": 0}, "W3": {"count": 60, "delta": 0}, "W2": {"count": 60, "delta": 0}, "W1": {"count": 60, "delta": 1}}, "Sab": {"W4": {"count": 0, "delta": 0}, "W3": {"count": 0, "delta": 0}, "W2": {"count": 0, "delta": 0}, "W1": {"count": 0, "delta": 0}}, "Mun": {"W4": {"count": 3, "delta": 0}, "W3": {"count": 3, "delta": 0}, "W2": {"count": 3, "delta": 0}, "W1": {"count": 3, "delta": 0}}, "all": {"W1": {"count": 464, "delta": 3}, "W2": {"count": 464, "delta": 0}, "W3": {"count": 464, "delta": 0}, "W4": {"count": 464, "delta": 0}}}, "E": {"Fot": {"weeks": {"W1": {"yangi": 11, "fao": 2}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 11, "fao": 2, "qarz_plan": 199}}, "Mad": {"weeks": {"W1": {"yangi": 13, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 13, "fao": 0, "qarz_plan": 286}}, "Dil": {"weeks": {"W1": {"yangi": 6, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 6, "fao": 0, "qarz_plan": 244}}, "Jas": {"weeks": {"W1": {"yangi": 13, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 13, "fao": 0, "qarz_plan": 255}}, "Nai": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 0}}, "Shx": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 146}}, "Mar": {"weeks": {"W1": {"yangi": 12, "fao": 1}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 12, "fao": 1, "qarz_plan": 165}}, "Xal": {"weeks": {"W1": {"yangi": 11, "fao": 1}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 11, "fao": 1, "qarz_plan": 176}}, "Azi": {"weeks": {"W1": {"yangi": 2, "fao": 1}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 2, "fao": 1, "qarz_plan": 131}}, "Sab": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 0}}, "Mun": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 3}}}, "C": {"curators": {"Fot": {"count": 3, "frozen": 3, "archive": 0, "base": 257, "pct": 1.17}, "Mad": {"count": 7, "frozen": 7, "archive": 0, "base": 362, "pct": 1.93}, "Dil": {"count": 5, "frozen": 5, "archive": 0, "base": 323, "pct": 1.55}, "Jas": {"count": 4, "frozen": 3, "archive": 1, "base": 361, "pct": 1.11}, "Nai": {"count": 0, "frozen": 0, "archive": 0, "base": 0, "pct": 0}, "Shx": {"count": 0, "frozen": 0, "archive": 0, "base": 153, "pct": 0.0}, "Mar": {"count": 3, "frozen": 3, "archive": 0, "base": 234, "pct": 1.28}, "Xal": {"count": 5, "frozen": 0, "archive": 5, "base": 229, "pct": 2.18}, "Azi": {"count": 0, "frozen": 0, "archive": 0, "base": 188, "pct": 0.0}, "Sab": {"count": 0, "frozen": 0, "archive": 0, "base": 0, "pct": 0}, "Mun": {"count": 0, "frozen": 0, "archive": 0, "base": 10, "pct": 0.0}}, "teams": {"A": {"count": 19, "frozen": 18, "archive": 1, "base": 1456, "pct": 1.3}, "B": {"count": 8, "frozen": 3, "archive": 5, "base": 661, "pct": 1.21}}, "all": {"count": 27, "frozen": 21, "archive": 6, "other": 0, "base": 2117, "pct": 1.28}}, "H": {"curators": {"Fot": {"W1": {"frozen": 4, "archive": 0, "count": 4}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Mad": {"W1": {"frozen": 7, "archive": 1, "count": 8}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Dil": {"W1": {"frozen": 5, "archive": 0, "count": 5}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Jas": {"W1": {"frozen": 3, "archive": 0, "count": 3}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Nai": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Shx": {"W1": {"frozen": 7, "archive": 0, "count": 7}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Mar": {"W1": {"frozen": 4, "archive": 0, "count": 4}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Xal": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Azi": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Sab": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Mun": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}}, "teams": {"A": {"W1": {"count": 27, "frozen": 26, "archive": 1}, "W2": {"count": 0, "frozen": 0, "archive": 0}, "W3": {"count": 0, "frozen": 0, "archive": 0}, "W4": {"count": 0, "frozen": 0, "archive": 0}}, "B": {"W1": {"count": 4, "frozen": 4, "archive": 0}, "W2": {"count": 0, "frozen": 0, "archive": 0}, "W3": {"count": 0, "frozen": 0, "archive": 0}, "W4": {"count": 0, "frozen": 0, "archive": 0}}}, "all": {"W1": {"count": 31, "frozen": 30, "archive": 1}, "W2": {"count": 0, "frozen": 0, "archive": 0}, "W3": {"count": 0, "frozen": 0, "archive": 0}, "W4": {"count": 0, "frozen": 0, "archive": 0}}}, "G": {"groups": [{"id": 469, "name": "Backend group A", "family": "Backend", "students": 25, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 7, "days": {"1": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}}, "totals": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}, "k": "Fot"}, {"id": 376, "name": "Junior 11", "family": "Junior", "students": 41, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 4, "passive": 0, "noactive": 2, "new": 0, "total": 6, "pct": 66.7}}, "totals": {"active": 4, "passive": 0, "noactive": 2, "new": 0, "total": 6, "pct": 66.7}, "k": "Fot"}, {"id": 494, "name": "Senior 10", "family": "Senior", "students": 46, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 5, "days": {"1": {"active": 2, "passive": 1, "noactive": 6, "new": 0, "total": 9, "pct": 22.2}}, "totals": {"active": 2, "passive": 1, "noactive": 6, "new": 0, "total": 9, "pct": 22.2}, "k": "Fot"}, {"id": 504, "name": "Senior 11", "family": "Senior", "students": 56, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 11, "passive": 0, "noactive": 3, "new": 0, "total": 14, "pct": 78.6}}, "totals": {"active": 11, "passive": 0, "noactive": 3, "new": 0, "total": 14, "pct": 78.6}, "k": "Fot"}, {"id": 511, "name": "Senior 12", "family": "Senior", "students": 57, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 6, "passive": 2, "noactive": 7, "new": 0, "total": 15, "pct": 40.0}}, "totals": {"active": 6, "passive": 2, "noactive": 7, "new": 0, "total": 15, "pct": 40.0}, "k": "Fot"}, {"id": 461, "name": "Senior 6", "family": "Senior", "students": 31, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}}, "totals": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}, "k": "Fot"}, {"id": 507, "name": "Junior 31 RU", "family": "Junior", "students": 113, "tracks": ["Веб программирование"], "stage": 3, "days": {"1": {"active": 12, "passive": 2, "noactive": 2, "new": 0, "total": 16, "pct": 75.0}}, "totals": {"active": 12, "passive": 2, "noactive": 2, "new": 0, "total": 16, "pct": 75.0}, "k": "Dil"}, {"id": 442, "name": "Junior 32 RU", "family": "Junior", "students": 57, "tracks": ["Веб программирование"], "stage": 11, "days": {"1": {"active": 3, "passive": 0, "noactive": 2, "new": 0, "total": 5, "pct": 60.0}}, "totals": {"active": 3, "passive": 0, "noactive": 2, "new": 0, "total": 5, "pct": 60.0}, "k": "Dil"}, {"id": 480, "name": "Junior 34  International", "family": "Junior", "students": 25, "tracks": ["Веб программирование"], "stage": 6, "days": {}, "totals": {"active": 0, "passive": 0, "noactive": 0, "new": 0, "total": 0, "pct": 0}, "k": "Dil"}, {"id": 495, "name": "Junior 35 RU", "family": "Junior", "students": 77, "tracks": ["Веб программирование"], "stage": 5, "days": {"1": {"active": 4, "passive": 1, "noactive": 4, "new": 0, "total": 9, "pct": 44.4}}, "totals": {"active": 4, "passive": 1, "noactive": 4, "new": 0, "total": 9, "pct": 44.4}, "k": "Dil"}, {"id": 466, "name": "Senior 7", "family": "Senior", "students": 51, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}}, "totals": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}, "k": "Dil"}, {"id": 408, "name": "Junior 61", "family": "Junior", "students": 60, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 15, "days": {"1": {"active": 1, "passive": 0, "noactive": 4, "new": 0, "total": 5, "pct": 20.0}}, "totals": {"active": 1, "passive": 0, "noactive": 4, "new": 0, "total": 5, "pct": 20.0}, "k": "Mar"}, {"id": 468, "name": "Junior 62", "family": "Junior", "students": 51, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 7, "days": {"1": {"active": 0, "passive": 0, "noactive": 6, "new": 0, "total": 6, "pct": 0.0}}, "totals": {"active": 0, "passive": 0, "noactive": 6, "new": 0, "total": 6, "pct": 0.0}, "k": "Mar"}, {"id": 483, "name": "Junior 64", "family": "Junior", "students": 20, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 6, "days": {"1": {"active": 1, "passive": 1, "noactive": 2, "new": 0, "total": 4, "pct": 25.0}}, "totals": {"active": 1, "passive": 1, "noactive": 2, "new": 0, "total": 4, "pct": 25.0}, "k": "Mar"}, {"id": 508, "name": "Junior 65", "family": "Junior", "students": 44, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 6, "passive": 0, "noactive": 0, "new": 0, "total": 6, "pct": 100.0}}, "totals": {"active": 6, "passive": 0, "noactive": 0, "new": 0, "total": 6, "pct": 100.0}, "k": "Mar"}, {"id": 509, "name": "Kids 13", "family": "Kids", "students": 60, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 10, "passive": 0, "noactive": 2, "new": 0, "total": 12, "pct": 83.3}}, "totals": {"active": 10, "passive": 0, "noactive": 2, "new": 0, "total": 12, "pct": 83.3}, "k": "Mar"}, {"id": 462, "name": "Junior 84", "family": "Junior", "students": 75, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 1, "passive": 0, "noactive": 6, "new": 0, "total": 7, "pct": 14.3}}, "totals": {"active": 1, "passive": 0, "noactive": 6, "new": 0, "total": 7, "pct": 14.3}, "k": "Jas"}, {"id": 433, "name": "Junior 91", "family": "Junior", "students": 45, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 12, "days": {"1": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}}, "totals": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}, "k": "Jas"}, {"id": 465, "name": "Junior 92", "family": "Junior", "students": 55, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 1, "passive": 0, "noactive": 5, "new": 0, "total": 6, "pct": 16.7}}, "totals": {"active": 1, "passive": 0, "noactive": 5, "new": 0, "total": 6, "pct": 16.7}, "k": "Jas"}, {"id": 486, "name": "Junior 94", "family": "Junior", "students": 36, "tracks": ["Web dasturlash", "Grafik dizayn"], "stage": 6, "days": {"1": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}}, "totals": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}, "k": "Jas"}, {"id": 506, "name": "Junior 95", "family": "Junior", "students": 60, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 8, "passive": 0, "noactive": 3, "new": 0, "total": 11, "pct": 72.7}}, "totals": {"active": 8, "passive": 0, "noactive": 3, "new": 0, "total": 11, "pct": 72.7}, "k": "Jas"}, {"id": 489, "name": "Kids 4", "family": "Kids", "students": 56, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 5, "days": {"1": {"active": 6, "passive": 1, "noactive": 4, "new": 0, "total": 11, "pct": 54.5}}, "totals": {"active": 6, "passive": 1, "noactive": 4, "new": 0, "total": 11, "pct": 54.5}, "k": "Jas"}, {"id": 487, "name": "Senior 9", "family": "Senior", "students": 35, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 6, "days": {"1": {"active": 0, "passive": 1, "noactive": 1, "new": 0, "total": 2, "pct": 0.0}}, "totals": {"active": 0, "passive": 1, "noactive": 1, "new": 0, "total": 2, "pct": 0.0}, "k": "Jas"}, {"id": 457, "name": "Junior 23", "family": "Junior", "students": 72, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 11, "days": {"1": {"active": 6, "passive": 1, "noactive": 2, "new": 0, "total": 9, "pct": 66.7}}, "totals": {"active": 6, "passive": 1, "noactive": 2, "new": 0, "total": 9, "pct": 66.7}, "k": "Mad"}, {"id": 473, "name": "Junior 24", "family": "Junior", "students": 96, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 7, "days": {"1": {"active": 17, "passive": 0, "noactive": 6, "new": 1, "total": 24, "pct": 70.8}}, "totals": {"active": 17, "passive": 0, "noactive": 6, "new": 1, "total": 24, "pct": 70.8}, "k": "Mad"}, {"id": 510, "name": "Junior 25", "family": "Junior", "students": 121, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 7, "passive": 2, "noactive": 6, "new": 1, "total": 16, "pct": 43.8}}, "totals": {"active": 7, "passive": 2, "noactive": 6, "new": 1, "total": 16, "pct": 43.8}, "k": "Mad"}, {"id": 443, "name": "Junior 26", "family": "Junior", "students": 73, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 11, "days": {"1": {"active": 1, "passive": 1, "noactive": 6, "new": 0, "total": 8, "pct": 12.5}}, "totals": {"active": 1, "passive": 1, "noactive": 6, "new": 0, "total": 8, "pct": 12.5}, "k": "Mad"}, {"id": 427, "name": "Backend group", "family": "Backend", "students": 12, "tracks": ["Web dasturlash", "Веб программирование", "Grafik dizayn"], "stage": 13, "days": {"1": {"active": 1, "passive": 0, "noactive": 0, "new": 0, "total": 1, "pct": 100.0}}, "totals": {"active": 1, "passive": 0, "noactive": 0, "new": 0, "total": 1, "pct": 100.0}, "k": "Xal"}, {"id": 516, "name": "Dizayn 1", "family": "Dizayn", "students": 13, "tracks": ["Grafik dizayn"], "stage": 2, "days": {"1": {"active": 3, "passive": 2, "noactive": 0, "new": 0, "total": 5, "pct": 60.0}}, "totals": {"active": 3, "passive": 2, "noactive": 0, "new": 0, "total": 5, "pct": 60.0}, "k": "Xal"}, {"id": 481, "name": "Dizayn 5", "family": "Dizayn", "students": 72, "tracks": ["Grafik dizayn"], "stage": 6, "days": {"1": {"active": 5, "passive": 0, "noactive": 2, "new": 0, "total": 7, "pct": 71.4}}, "totals": {"active": 5, "passive": 0, "noactive": 2, "new": 0, "total": 7, "pct": 71.4}, "k": "Xal"}, {"id": 496, "name": "Dizayn 6", "family": "Dizayn", "students": 31, "tracks": ["Grafik dizayn"], "stage": 4, "days": {"1": {"active": 3, "passive": 1, "noactive": 1, "new": 0, "total": 5, "pct": 60.0}}, "totals": {"active": 3, "passive": 1, "noactive": 1, "new": 0, "total": 5, "pct": 60.0}, "k": "Xal"}, {"id": 502, "name": "Junior 40", "family": "Junior", "students": 63, "tracks": ["Dasturlash kursi"], "stage": 4, "days": {"1": {"active": 9, "passive": 0, "noactive": 8, "new": 0, "total": 17, "pct": 52.9}}, "totals": {"active": 9, "passive": 0, "noactive": 8, "new": 0, "total": 17, "pct": 52.9}, "k": "Xal"}, {"id": 515, "name": "Kids 1", "family": "Kids", "students": 38, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}}, "totals": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}, "k": "Xal"}, {"id": 404, "name": "American Group", "family": "American", "students": 40, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 18, "days": {"1": {"active": 3, "passive": 0, "noactive": 4, "new": 0, "total": 7, "pct": 42.9}}, "totals": {"active": 3, "passive": 0, "noactive": 4, "new": 0, "total": 7, "pct": 42.9}, "k": "Azi"}, {"id": 452, "name": "Kids 6", "family": "Kids", "students": 58, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 10, "days": {"1": {"active": 4, "passive": 0, "noactive": 3, "new": 0, "total": 7, "pct": 57.1}}, "totals": {"active": 4, "passive": 0, "noactive": 3, "new": 0, "total": 7, "pct": 57.1}, "k": "Azi"}, {"id": 467, "name": "Kids 7", "family": "Kids", "students": 47, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 5, "passive": 0, "noactive": 3, "new": 0, "total": 8, "pct": 62.5}}, "totals": {"active": 5, "passive": 0, "noactive": 3, "new": 0, "total": 8, "pct": 62.5}, "k": "Azi"}, {"id": 512, "name": "Kids 9", "family": "Kids", "students": 44, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 4, "passive": 0, "noactive": 1, "new": 0, "total": 5, "pct": 80.0}}, "totals": {"active": 4, "passive": 0, "noactive": 1, "new": 0, "total": 5, "pct": 80.0}, "k": "Azi"}, {"id": 415, "name": "test", "family": "Test", "students": 7, "tracks": ["Junior Kurs", "New Year Event", "2 Test Course for Mustahkamlash"], "stage": 15, "days": {}, "totals": {"active": 0, "passive": 0, "noactive": 0, "new": 0, "total": 0, "pct": 0}, "k": "Mun"}, {"id": 517, "name": "Junior 28", "family": "Junior", "students": 62, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 8, "passive": 2, "noactive": 9, "new": 1, "total": 20, "pct": 40.0}}, "totals": {"active": 8, "passive": 2, "noactive": 9, "new": 1, "total": 20, "pct": 40.0}, "k": "Shx"}, {"id": 518, "name": "Junior 29", "family": "Junior", "students": 38, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 7, "passive": 1, "noactive": 3, "new": 1, "total": 12, "pct": 58.3}}, "totals": {"active": 7, "passive": 1, "noactive": 3, "new": 1, "total": 12, "pct": 58.3}, "k": "Shx"}, {"id": 520, "name": "Junior RU  40", "family": "Junior", "students": 21, "tracks": ["Веб программирование"], "stage": 2, "days": {"1": {"active": 2, "passive": 1, "noactive": 1, "new": 1, "total": 5, "pct": 40.0}}, "totals": {"active": 2, "passive": 1, "noactive": 1, "new": 1, "total": 5, "pct": 40.0}, "k": "Shx"}, {"id": 521, "name": "Kids  1 RU", "family": "Kids", "students": 1, "tracks": ["Веб программирование"], "stage": 2, "days": {}, "totals": {"active": 0, "passive": 0, "noactive": 0, "new": 0, "total": 0, "pct": 0}, "k": "Shx"}, {"id": 519, "name": "Kids 11", "family": "Kids", "students": 31, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 10, "passive": 1, "noactive": 4, "new": 0, "total": 15, "pct": 66.7}}, "totals": {"active": 10, "passive": 1, "noactive": 4, "new": 0, "total": 15, "pct": 66.7}, "k": "Shx"}]}, "snapshots": {"2026-07-29": {"total": 2127, "curators": {"Fot": 207, "Mad": 228, "Dil": 279, "Jas": 202, "Nai": 197, "Shx": 74, "Mar": 179, "Xal": 195, "Azi": 192, "Sab": 179, "Mun": 195}}, "2026-07-01": {"total": 2127, "curators": {"Fot": 171, "Dil": 280, "Mad": 212, "Jas": 250, "Nai": 187, "Mun": 171, "Mar": 238, "Xal": 246, "Azi": 175, "Sab": 197}, "manual": true, "note": "Foydalanuvchi bergan 01.07.2026 ro‘yxati; eski Munisa → Naima, Maryam → Munisa. New kurator olib tashlangan."}, "2026-07-30": {"total": 2104, "curators": {"Fot": 205, "Mad": 227, "Dil": 275, "Jas": 201, "Nai": 197, "Shx": 76, "Mar": 172, "Xal": 192, "Azi": 188, "Sab": 178, "Mun": 193}, "module_progress": {"coverage": {"Fot": {"linked": 65, "base": 201}, "Mad": {"linked": 22, "base": 226}, "Dil": {"linked": 26, "base": 275}, "Jas": {"linked": 11, "base": 199}, "Nai": {"linked": 1, "base": 197}, "Shx": {"linked": 0, "base": 76}, "Mar": {"linked": 41, "base": 170}, "Xal": {"linked": 30, "base": 192}, "Azi": {"linked": 10, "base": 187}, "Sab": {"linked": 39, "base": 178}, "Mun": {"linked": 18, "base": 192}}, "courses": {"51": {"name": "Dasturlash kursi", "modules": {"5": {"name": "HTML", "students": 90}, "10": {"name": "CSS", "students": 42}, "15": {"name": "Bootstrap", "students": 6}, "20": {"name": "Tilda", "students": 4}, "25": {"name": "Git", "students": 1}, "30": {"name": "Javascript", "students": 6}, "40": {"name": "Python", "students": 1}}}, "36": {"name": "English", "modules": {"1": {"name": "Beginner", "students": 31}, "2": {"name": "Elementary", "students": 8}, "3": {"name": "Pre-Intermediate", "students": 5}, "4": {"name": "Intermediate", "students": 6}}}, "47": {"name": "Grafik dizayn", "modules": {"1": {"name": "Canva", "students": 9}, "2": {"name": "Figma", "students": 3}, "7": {"name": "Blender", "students": 3}}}, "48": {"name": "Junior Kurs", "modules": {"1": {"name": "Kompyuter savodxonligi", "students": 20}, "2": {"name": "Scratch", "students": 14}, "5": {"name": "Blockly dasturlash", "students": 5}, "10": {"name": "HTML", "students": 26}}}, "82": {"name": "Kids English", "modules": {"0": {"name": "Kids English lessons", "students": 2}}}, "43": {"name": "Kompyuter Savodxonligi", "modules": {"1": {"name": "Kompyuter savodxonligi", "students": 14}}}, "55": {"name": "Startup maktabi", "modules": {"1": {"name": "Startup", "students": 3}}}, "42": {"name": "Suniy Intellekt", "modules": {"1": {"name": "AI", "students": 20}}}, "41": {"name": "Telegram Bot", "modules": {"1": {"name": "Telegram Bot", "students": 3}}}, "40": {"name": "Web dasturlash ", "modules": {"1": {"name": "HTML", "students": 8}, "7": {"name": "React", "students": 1}}}, "46": {"name": "Веб программирование", "modules": {"1": {"name": "HTML", "students": 18}, "2": {"name": "CSS", "students": 14}, "4": {"name": "Bootstrap", "students": 1}, "8": {"name": "React", "students": 2}}}, "80": {"name": "Умный компьютер", "modules": {"5": {"name": "Kopyuter", "students": 3}}}}}}, "2026-07-31": {"total": 2131, "curators": {"Fot": 213, "Mad": 229, "Dil": 273, "Jas": 199, "Nai": 196, "Shx": 82, "Mar": 176, "Xal": 195, "Azi": 191, "Sab": 179, "Mun": 198}, "group_attendance": {"groups": {"469": {"pct": 42.5, "stage": 6}, "376": {"pct": 50.0, "stage": 7}, "494": {"pct": 45.3, "stage": 4}, "511": {"pct": 63.7, "stage": 2}, "461": {"pct": 50.0, "stage": 7}, "507": {"pct": 53.5, "stage": 2}, "442": {"pct": 49.1, "stage": 10}, "472": {"pct": 46.2, "stage": 6}, "480": {"pct": 47.9, "stage": 5}, "495": {"pct": 50.4, "stage": 4}, "514": {"pct": 63.8, "stage": 1}, "408": {"pct": 51.3, "stage": 14}, "468": {"pct": 41.0, "stage": 6}, "483": {"pct": 53.6, "stage": 5}, "508": {"pct": 62.8, "stage": 2}, "454": {"pct": 52.5, "stage": 8}, "433": {"pct": 51.7, "stage": 11}, "465": {"pct": 46.6, "stage": 7}, "486": {"pct": 47.5, "stage": 5}, "506": {"pct": 56.2, "stage": 2}, "457": {"pct": 52.3, "stage": 10}, "473": {"pct": 53.1, "stage": 6}, "490": {"pct": 45.0, "stage": 4}, "510": {"pct": 52.9, "stage": 2}, "449": {"pct": 46.7, "stage": 9}, "427": {"pct": 41.6, "stage": 12}, "516": {"pct": 44.2, "stage": 1}, "441": {"pct": 38.5, "stage": 10}, "481": {"pct": 40.6, "stage": 5}, "496": {"pct": 54.9, "stage": 3}, "502": {"pct": 57.7, "stage": 3}, "513": {"pct": 55.7, "stage": 2}, "504": {"pct": 58.0, "stage": 2}, "466": {"pct": 50.4, "stage": 7}, "487": {"pct": 44.0, "stage": 5}, "404": {"pct": 35.4, "stage": 17}, "452": {"pct": 71.2, "stage": 9}, "467": {"pct": 61.8, "stage": 7}, "505": {"pct": 75.6, "stage": 2}, "512": {"pct": 84.8, "stage": 2}, "443": {"pct": 54.4, "stage": 10}, "450": {"pct": 53.6, "stage": 9}, "491": {"pct": 55.8, "stage": 4}, "462": {"pct": 51.2, "stage": 7}, "460": {"pct": 51.8, "stage": 7}, "518": {"pct": 55.7, "stage": 1}, "515": {"pct": 78.1, "stage": 1}, "519": {"pct": 89.4, "stage": 1}, "509": {"pct": 77.5, "stage": 2}, "413": {"pct": 58.0, "stage": 14}, "489": {"pct": 63.6, "stage": 4}, "503": {"pct": 64.5, "stage": 3}, "415": {"pct": 34.6, "stage": 14}, "517": {"pct": 64.8, "stage": 1}, "520": {"pct": 79.2, "stage": 1}, "521": {"pct": 100.0, "stage": 1}}}}, "2026-08-01": {"total": 2128, "curators": {"Fot": 261, "Mad": 363, "Dil": 323, "Jas": 363, "Nai": 0, "Shx": 153, "Mar": 236, "Xal": 229, "Azi": 189, "Sab": 0, "Mun": 11}, "group_attendance": {"groups": {"469": {"pct": 100.0, "stage": 7}, "376": {"pct": 66.7, "stage": 8}, "494": {"pct": 22.2, "stage": 5}, "504": {"pct": 78.6, "stage": 3}, "511": {"pct": 40.0, "stage": 3}, "461": {"pct": 100.0, "stage": 8}, "507": {"pct": 75.0, "stage": 3}, "442": {"pct": 60.0, "stage": 11}, "480": {"pct": 0, "stage": 6}, "495": {"pct": 44.4, "stage": 5}, "466": {"pct": 83.3, "stage": 8}, "408": {"pct": 20.0, "stage": 15}, "468": {"pct": 0.0, "stage": 7}, "483": {"pct": 25.0, "stage": 6}, "508": {"pct": 100.0, "stage": 3}, "509": {"pct": 83.3, "stage": 3}, "462": {"pct": 14.3, "stage": 8}, "433": {"pct": 83.3, "stage": 12}, "465": {"pct": 16.7, "stage": 8}, "486": {"pct": 66.7, "stage": 6}, "506": {"pct": 72.7, "stage": 3}, "489": {"pct": 54.5, "stage": 5}, "487": {"pct": 0.0, "stage": 6}, "457": {"pct": 66.7, "stage": 11}, "473": {"pct": 70.8, "stage": 7}, "510": {"pct": 43.8, "stage": 3}, "443": {"pct": 12.5, "stage": 11}, "427": {"pct": 100.0, "stage": 13}, "516": {"pct": 60.0, "stage": 2}, "481": {"pct": 71.4, "stage": 6}, "496": {"pct": 60.0, "stage": 4}, "502": {"pct": 52.9, "stage": 4}, "515": {"pct": 66.7, "stage": 2}, "404": {"pct": 42.9, "stage": 18}, "452": {"pct": 57.1, "stage": 10}, "467": {"pct": 62.5, "stage": 8}, "512": {"pct": 80.0, "stage": 3}, "415": {"pct": 0, "stage": 15}, "517": {"pct": 40.0, "stage": 2}, "518": {"pct": 58.3, "stage": 2}, "520": {"pct": 40.0, "stage": 2}, "521": {"pct": 0, "stage": 2}, "519": {"pct": 66.7, "stage": 2}}}}}, "weeks": [{"key": "W1", "start": "2026-08-01", "end_exclusive": "2026-08-08", "from_day": 1, "to_day": 7}, {"key": "W2", "start": "2026-08-08", "end_exclusive": "2026-08-15", "from_day": 8, "to_day": 14}, {"key": "W3", "start": "2026-08-15", "end_exclusive": "2026-08-22", "from_day": 15, "to_day": 21}, {"key": "W4", "start": "2026-08-22", "end_exclusive": "2026-09-01", "from_day": 22, "to_day": 31}], "all": {"a": [1397, 66.0], "p": [239, 11.3], "x": [464, 21.9], "y": [17, 0.8], "chu": [2111, 1.28, 27], "churn_frozen": 21, "churn_archive": 6, "fao": [null, 38.79, 412], "b": 2117, "kassa": 53500000, "yangi": 0, "qayta": 0, "ota": [1566, 74.0], "froz": 76, "qarz": 223, "cj": 19.42}, "TA": {"a": [1009, 69.3], "p": [165, 11.3], "x": [277, 19.0], "y": [5, 0.4], "chu": [1182, 2.45, 29], "churn_frozen": 18, "churn_archive": 1, "fao": [null, 64.41, 172], "b": 1456, "kassa": 33100000, "yangi": 0, "qayta": 0, "ota": [1079, 74.0], "froz": 71, "qarz": 156}, "TB": {"a": [388, 58.7], "p": [74, 11.2], "x": [187, 28.3], "y": [12, 1.8], "chu": [929, 0.86, 8], "churn_frozen": 3, "churn_archive": 5, "fao": [null, 96.55, 56], "b": 661, "kassa": 20400000, "yangi": 0, "qayta": 0, "ota": [487, 74.0], "froz": 5, "qarz": 67}, "snap": "01.08.2026", "month": "2026-08-01"};
-const M=__DATA__.M, W=__DATA__.W, N=__DATA__.N||{}, E=__DATA__.E||{}, C=__DATA__.C||{}, H=__DATA__.H||{}, S=__DATA__.snapshots||{}, WM=__DATA__.weeks||[], DALL=__DATA__.all||{}, DTA=__DATA__.TA||{}, DTB=__DATA__.TB||{};
-const MONTH_NAMES=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
-const MY=(__DATA__.month||'2026-07-01').split('-'), MONTH_NAME=MONTH_NAMES[+MY[1]-1], MONTH_YEAR=MY[0], MM=MY[1];
-const WLBL={ALL:`${MONTH_NAME} ${MONTH_YEAR} · oy boshidan`}, WSHORT={ALL:MONTH_NAME.toLowerCase()};
-WM.forEach((w,i)=>{WLBL[w.key]=`${i+1}-hafta (${String(w.from_day).padStart(2,'0')}–${String(w.to_day).padStart(2,'0')}.${MM})`;WSHORT[w.key]=`${i+1}-hafta`;});
-const SNAP_DATES=Object.keys(S).sort(), TODAY_SNAP=SNAP_DATES.length?S[SNAP_DATES[SNAP_DATES.length-1]]:null;
-const MONTH_PREFIX=(__DATA__.month||'').slice(0,7), MONTH_DATES=SNAP_DATES.filter(d=>d.startsWith(MONTH_PREFIX));
-const START_SNAP=MONTH_DATES.length?S[MONTH_DATES[0]]:null;
-const TOTAL=(TODAY_SNAP&&TODAY_SNAP.total)||Object.values(M).reduce((s,r)=>s+(r.db_students||0),0)||2126;
-const fmt=n=>n==null?'—':n.toLocaleString('ru-RU').replace(/,/g,' ');
-const mln=n=>(n/1e6).toFixed(1).replace('.',',')+' mln';
-let WEEK='ALL';
-
-// tanlangan davr uchun kurator churn'i: {pct,cnt,plan,prev:{pct,cnt,lbl},has}
-function pchurn(k){
-  const r=M[k], w=W[k];
-  if(WEEK==='ALL'){
-    const dc=C.curators&&C.curators[k];
-    return {pct:dc?dc.pct:r.chu[1], cnt:dc?dc.count:r.chu[2], frozen:dc?dc.frozen:0,archive:dc?dc.archive:0,plan:PLAN.churnM, has:true,
-      prev:(r.cj!=null&&r.chu[1]!=null)?{pct:r.cj,lbl:'iyun'}:null};
-  }
-  const hd=H.curators&&H.curators[k]&&H.curators[k][WEEK];
-  if(!hd) return {pct:null,cnt:null,plan:PLAN.churnW,has:false,prev:null};
-  const cnt=hd.count, pct=cnt/studentDelta(k).now*100;
-  const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
-  const prevData=prevKey&&H.curators[k][prevKey];
-  const prev=prevData?{pct:prevData.count/studentDelta(k).now*100,cnt:prevData.count,lbl:WSHORT[prevKey]}:null;
-  return {pct,cnt,frozen:hd.frozen,archive:hd.archive,plan:PLAN.churnW,has:true,prev};
+const __DATA__={"M": {"Fot": {"a": [219, 72.1], "p": [31, 10.2], "x": [53, 17.4], "y": [1, 0.3], "chu": [205, 2.44, 5], "churn_frozen": 3, "churn_archive": 0, "fao": [null, 55.55, 30], "b": 304, "kassa": 11100000, "yangi": 11, "qayta": 2, "ota": [259, 85.0], "froz": 16, "qarz": 22, "cj": 34.91, "name": "Fotimabonu Abdulkhakova", "team": "A", "grp": 5, "qarz_plan": 233, "db_students": 308, "db_churn": 4}, "Mad": {"a": [228, 63.0], "p": [52, 14.4], "x": [82, 22.6], "y": [0, 0.0], "chu": [233, 3.86, 9], "churn_frozen": 7, "churn_archive": 0, "fao": [null, 93.54, 29], "b": 362, "kassa": 14300000, "yangi": 13, "qayta": 0, "ota": [270, 75.0], "froz": 17, "qarz": 62, "cj": 15.84, "name": "Madina Normatova", "team": "A", "grp": 5, "qarz_plan": 286, "db_students": 363, "db_churn": 8}, "Dil": {"a": [194, 60.1], "p": [35, 10.8], "x": [93, 28.8], "y": [1, 0.3], "chu": [270, 2.22, 6], "churn_frozen": 5, "churn_archive": 0, "fao": [null, 86.48, 32], "b": 323, "kassa": 8000000, "yangi": 6, "qayta": 0, "ota": [203, 63.0], "froz": 16, "qarz": 31, "cj": 26.64, "name": "Dilafruz Shokirova", "team": "A", "grp": 6, "qarz_plan": 244, "db_students": 323, "db_churn": 5}, "Jas": {"a": [268, 74.2], "p": [43, 11.9], "x": [50, 13.9], "y": [0, 0.0], "chu": [196, 4.59, 9], "churn_frozen": 3, "churn_archive": 1, "fao": [null, 100.0, 39], "b": 361, "kassa": 7300000, "yangi": 13, "qayta": 0, "ota": [279, 77.0], "froz": 4, "qarz": 42, "cj": 28.05, "name": "Jasmina Tolibova", "team": "A", "grp": 4, "qarz_plan": 255, "db_students": 363, "db_churn": 3}, "Nai": {"a": [0, 0.0], "p": [0, 0.0], "x": [0, 0.0], "y": [0, 0.0], "chu": [195, 0.0, 0], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 0.0, 0], "b": 0, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [0, 0.0], "froz": 1, "qarz": 0, "cj": 0.0, "name": "Naima Ikramova", "team": "A", "grp": 4, "qarz_plan": 0, "db_students": 0, "db_churn": 0}, "Shx": {"a": [133, 86.9], "p": [12, 7.8], "x": [5, 3.3], "y": [3, 2.0], "chu": [83, 0.0, 0], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 48.8, 61], "b": 153, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [110, 72.0], "froz": 17, "qarz": 1, "cj": 0.0, "name": "Shaxlo Ziyodova", "team": "A", "grp": 3, "qarz_plan": 146, "db_students": 153, "db_churn": 7}, "Mar": {"a": [192, 58.0], "p": [42, 12.7], "x": [95, 28.7], "y": [2, 0.6], "chu": [173, 8.67, 15], "churn_frozen": 3, "churn_archive": 0, "fao": [null, 100.0, 33], "b": 331, "kassa": 9800000, "yangi": 14, "qayta": 2, "ota": [233, 70.0], "froz": 4, "qarz": 33, "cj": 38.72, "name": "Marjona Pardayeva", "team": "B", "grp": 5, "qarz_plan": 218, "db_students": 334, "db_churn": 4}, "Xal": {"a": [163, 59.7], "p": [24, 8.8], "x": [83, 30.4], "y": [3, 1.1], "chu": [195, 2.56, 5], "churn_frozen": 0, "churn_archive": 5, "fao": [null, 93.54, 29], "b": 273, "kassa": 3000000, "yangi": 11, "qayta": 1, "ota": [210, 77.0], "froz": 1, "qarz": 32, "cj": 27.24, "name": "Xalima Ismoiljonova", "team": "B", "grp": 6, "qarz_plan": 220, "db_students": 273, "db_churn": 0}, "Azi": {"a": [0, 0.0], "p": [0, 0.0], "x": [0, 0.0], "y": [0, 0.0], "chu": [185, 1.08, 2], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 0.0, 0], "b": 0, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [0, 0.0], "froz": 0, "qarz": 0, "cj": 15.34, "name": "Aziza Qurvonaliyeva", "team": "B", "grp": 5, "qarz_plan": 0, "db_students": 0, "db_churn": 0}, "Sab": {"a": [0, 0.0], "p": [0, 0.0], "x": [0, 0.0], "y": [0, 0.0], "chu": [0, 0.0, 2], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 0.0, 0], "b": 0, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [0, 0.0], "froz": 0, "qarz": 0, "cj": 0.0, "name": "Sabrina Salimova", "team": "B", "grp": 6, "qarz_plan": 0, "db_students": 0, "db_churn": 0}, "Mun": {"a": [0, 0.0], "p": [0, 0.0], "x": [3, 30.0], "y": [7, 70.0], "chu": [193, 0.52, 1], "churn_frozen": 0, "churn_archive": 0, "fao": [null, 0.0, 0], "b": 10, "kassa": 0, "yangi": 0, "qayta": 0, "ota": [2, 20.0], "froz": 0, "qarz": 0, "cj": 15.68, "name": "Munisa Sobirjonova", "team": "B", "grp": 7, "qarz_plan": 3, "db_students": 11, "db_churn": 0}}, "W": {"Fot": {"W1": [19, 11, 10], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Mad": {"W1": [30, 6, 2], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Dil": {"W1": [22, 4, 1], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Jas": {"W1": [13, 4, 7], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Nai": null, "Shx": null, "Mar": {"W1": [23, 9, 6], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Xal": {"W1": [2, 6, 1], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Azi": null, "Sab": {"W1": [2, 0, 0], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "Mun": {"W1": [6, 0, 4], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}, "all": {"W1": [117, 40, 31], "W2": [0, 0, 0], "W3": [0, 0, 0], "W4": [0, 0, 0]}}, "N": {"Fot": {"W4": {"count": 53, "delta": 0}, "W3": {"count": 53, "delta": 0}, "W2": {"count": 53, "delta": 0}, "W1": {"count": 53, "delta": 0}}, "Mad": {"W4": {"count": 82, "delta": 0}, "W3": {"count": 82, "delta": 0}, "W2": {"count": 82, "delta": 0}, "W1": {"count": 82, "delta": 0}}, "Dil": {"W4": {"count": 93, "delta": 0}, "W3": {"count": 93, "delta": 0}, "W2": {"count": 93, "delta": 0}, "W1": {"count": 93, "delta": 0}}, "Jas": {"W4": {"count": 50, "delta": 0}, "W3": {"count": 50, "delta": 0}, "W2": {"count": 50, "delta": 0}, "W1": {"count": 50, "delta": 2}}, "Nai": {"W4": {"count": 0, "delta": 0}, "W3": {"count": 0, "delta": 0}, "W2": {"count": 0, "delta": 0}, "W1": {"count": 0, "delta": 0}}, "Shx": {"W4": {"count": 5, "delta": 0}, "W3": {"count": 5, "delta": 0}, "W2": {"count": 5, "delta": 0}, "W1": {"count": 5, "delta": 0}}, "Mar": {"W4": {"count": 95, "delta": 0}, "W3": {"count": 95, "delta": 0}, "W2": {"count": 95, "delta": 0}, "W1": {"count": 95, "delta": 1}}, "Xal": {"W4": {"count": 83, "delta": 0}, "W3": {"count": 83, "delta": 0}, "W2": {"count": 83, "delta": 0}, "W1": {"count": 83, "delta": 0}}, "Azi": {"W4": {"count": 0, "delta": 0}, "W3": {"count": 0, "delta": 0}, "W2": {"count": 0, "delta": 0}, "W1": {"count": 0, "delta": 0}}, "Sab": {"W4": {"count": 0, "delta": 0}, "W3": {"count": 0, "delta": 0}, "W2": {"count": 0, "delta": 0}, "W1": {"count": 0, "delta": 0}}, "Mun": {"W4": {"count": 3, "delta": 0}, "W3": {"count": 3, "delta": 0}, "W2": {"count": 3, "delta": 0}, "W1": {"count": 3, "delta": 0}}, "all": {"W1": {"count": 464, "delta": 3}, "W2": {"count": 464, "delta": 0}, "W3": {"count": 464, "delta": 0}, "W4": {"count": 464, "delta": 0}}}, "E": {"Fot": {"weeks": {"W1": {"yangi": 11, "fao": 2}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 11, "fao": 2, "qarz_plan": 233}}, "Mad": {"weeks": {"W1": {"yangi": 13, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 13, "fao": 0, "qarz_plan": 286}}, "Dil": {"weeks": {"W1": {"yangi": 6, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 6, "fao": 0, "qarz_plan": 244}}, "Jas": {"weeks": {"W1": {"yangi": 13, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 13, "fao": 0, "qarz_plan": 255}}, "Nai": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 0}}, "Shx": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 146}}, "Mar": {"weeks": {"W1": {"yangi": 14, "fao": 2}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 14, "fao": 2, "qarz_plan": 218}}, "Xal": {"weeks": {"W1": {"yangi": 11, "fao": 1}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 11, "fao": 1, "qarz_plan": 220}}, "Azi": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 0}}, "Sab": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 0}}, "Mun": {"weeks": {"W1": {"yangi": 0, "fao": 0}, "W2": {"yangi": 0, "fao": 0}, "W3": {"yangi": 0, "fao": 0}, "W4": {"yangi": 0, "fao": 0}}, "month": {"yangi": 0, "fao": 0, "qarz_plan": 3}}}, "C": {"curators": {"Fot": {"count": 3, "frozen": 3, "archive": 0, "base": 304, "pct": 0.99}, "Mad": {"count": 7, "frozen": 7, "archive": 0, "base": 362, "pct": 1.93}, "Dil": {"count": 5, "frozen": 5, "archive": 0, "base": 323, "pct": 1.55}, "Jas": {"count": 4, "frozen": 3, "archive": 1, "base": 361, "pct": 1.11}, "Nai": {"count": 0, "frozen": 0, "archive": 0, "base": 0, "pct": 0}, "Shx": {"count": 0, "frozen": 0, "archive": 0, "base": 153, "pct": 0.0}, "Mar": {"count": 3, "frozen": 3, "archive": 0, "base": 331, "pct": 0.91}, "Xal": {"count": 5, "frozen": 0, "archive": 5, "base": 273, "pct": 1.83}, "Azi": {"count": 0, "frozen": 0, "archive": 0, "base": 0, "pct": 0}, "Sab": {"count": 0, "frozen": 0, "archive": 0, "base": 0, "pct": 0}, "Mun": {"count": 0, "frozen": 0, "archive": 0, "base": 10, "pct": 0.0}}, "teams": {"A": {"count": 19, "frozen": 18, "archive": 1, "base": 1503, "pct": 1.26}, "B": {"count": 8, "frozen": 3, "archive": 5, "base": 614, "pct": 1.3}}, "all": {"count": 27, "frozen": 21, "archive": 6, "other": 0, "base": 2117, "pct": 1.28}}, "H": {"curators": {"Fot": {"W1": {"frozen": 4, "archive": 0, "count": 4}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Mad": {"W1": {"frozen": 7, "archive": 1, "count": 8}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Dil": {"W1": {"frozen": 5, "archive": 0, "count": 5}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Jas": {"W1": {"frozen": 3, "archive": 0, "count": 3}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Nai": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Shx": {"W1": {"frozen": 7, "archive": 0, "count": 7}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Mar": {"W1": {"frozen": 4, "archive": 0, "count": 4}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Xal": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Azi": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Sab": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}, "Mun": {"W1": {"frozen": 0, "archive": 0, "count": 0}, "W2": {"frozen": 0, "archive": 0, "count": 0}, "W3": {"frozen": 0, "archive": 0, "count": 0}, "W4": {"frozen": 0, "archive": 0, "count": 0}}}, "teams": {"A": {"W1": {"count": 27, "frozen": 26, "archive": 1}, "W2": {"count": 0, "frozen": 0, "archive": 0}, "W3": {"count": 0, "frozen": 0, "archive": 0}, "W4": {"count": 0, "frozen": 0, "archive": 0}}, "B": {"W1": {"count": 4, "frozen": 4, "archive": 0}, "W2": {"count": 0, "frozen": 0, "archive": 0}, "W3": {"count": 0, "frozen": 0, "archive": 0}, "W4": {"count": 0, "frozen": 0, "archive": 0}}}, "all": {"W1": {"count": 31, "frozen": 30, "archive": 1}, "W2": {"count": 0, "frozen": 0, "archive": 0}, "W3": {"count": 0, "frozen": 0, "archive": 0}, "W4": {"count": 0, "frozen": 0, "archive": 0}}}, "G": {"groups": [{"id": 469, "name": "Backend group A", "family": "Backend", "students": 25, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 7, "days": {"1": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}}, "totals": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}, "k": "Fot"}, {"id": 376, "name": "Junior 11", "family": "Junior", "students": 41, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 4, "passive": 0, "noactive": 2, "new": 0, "total": 6, "pct": 66.7}}, "totals": {"active": 4, "passive": 0, "noactive": 2, "new": 0, "total": 6, "pct": 66.7}, "k": "Fot"}, {"id": 467, "name": "Kids 7", "family": "Kids", "students": 47, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 5, "passive": 0, "noactive": 3, "new": 0, "total": 8, "pct": 62.5}}, "totals": {"active": 5, "passive": 0, "noactive": 3, "new": 0, "total": 8, "pct": 62.5}, "k": "Fot"}, {"id": 494, "name": "Senior 10", "family": "Senior", "students": 46, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 5, "days": {"1": {"active": 2, "passive": 1, "noactive": 6, "new": 0, "total": 9, "pct": 22.2}}, "totals": {"active": 2, "passive": 1, "noactive": 6, "new": 0, "total": 9, "pct": 22.2}, "k": "Fot"}, {"id": 504, "name": "Senior 11", "family": "Senior", "students": 56, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 11, "passive": 0, "noactive": 3, "new": 0, "total": 14, "pct": 78.6}}, "totals": {"active": 11, "passive": 0, "noactive": 3, "new": 0, "total": 14, "pct": 78.6}, "k": "Fot"}, {"id": 511, "name": "Senior 12", "family": "Senior", "students": 57, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 6, "passive": 2, "noactive": 7, "new": 0, "total": 15, "pct": 40.0}}, "totals": {"active": 6, "passive": 2, "noactive": 7, "new": 0, "total": 15, "pct": 40.0}, "k": "Fot"}, {"id": 461, "name": "Senior 6", "family": "Senior", "students": 31, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}}, "totals": {"active": 2, "passive": 0, "noactive": 0, "new": 0, "total": 2, "pct": 100.0}, "k": "Fot"}, {"id": 507, "name": "Junior 31 RU", "family": "Junior", "students": 113, "tracks": ["Веб программирование"], "stage": 3, "days": {"1": {"active": 12, "passive": 2, "noactive": 2, "new": 0, "total": 16, "pct": 75.0}}, "totals": {"active": 12, "passive": 2, "noactive": 2, "new": 0, "total": 16, "pct": 75.0}, "k": "Dil"}, {"id": 442, "name": "Junior 32 RU", "family": "Junior", "students": 57, "tracks": ["Веб программирование"], "stage": 11, "days": {"1": {"active": 3, "passive": 0, "noactive": 2, "new": 0, "total": 5, "pct": 60.0}}, "totals": {"active": 3, "passive": 0, "noactive": 2, "new": 0, "total": 5, "pct": 60.0}, "k": "Dil"}, {"id": 480, "name": "Junior 34  International", "family": "Junior", "students": 25, "tracks": ["Веб программирование"], "stage": 6, "days": {}, "totals": {"active": 0, "passive": 0, "noactive": 0, "new": 0, "total": 0, "pct": 0}, "k": "Dil"}, {"id": 495, "name": "Junior 35 RU", "family": "Junior", "students": 77, "tracks": ["Веб программирование"], "stage": 5, "days": {"1": {"active": 4, "passive": 1, "noactive": 4, "new": 0, "total": 9, "pct": 44.4}}, "totals": {"active": 4, "passive": 1, "noactive": 4, "new": 0, "total": 9, "pct": 44.4}, "k": "Dil"}, {"id": 466, "name": "Senior 7", "family": "Senior", "students": 51, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}}, "totals": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}, "k": "Dil"}, {"id": 404, "name": "American Group", "family": "American", "students": 40, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 18, "days": {"1": {"active": 3, "passive": 0, "noactive": 4, "new": 0, "total": 7, "pct": 42.9}}, "totals": {"active": 3, "passive": 0, "noactive": 4, "new": 0, "total": 7, "pct": 42.9}, "k": "Mar"}, {"id": 408, "name": "Junior 61", "family": "Junior", "students": 60, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 15, "days": {"1": {"active": 1, "passive": 0, "noactive": 4, "new": 0, "total": 5, "pct": 20.0}}, "totals": {"active": 1, "passive": 0, "noactive": 4, "new": 0, "total": 5, "pct": 20.0}, "k": "Mar"}, {"id": 468, "name": "Junior 62", "family": "Junior", "students": 51, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 7, "days": {"1": {"active": 0, "passive": 0, "noactive": 6, "new": 0, "total": 6, "pct": 0.0}}, "totals": {"active": 0, "passive": 0, "noactive": 6, "new": 0, "total": 6, "pct": 0.0}, "k": "Mar"}, {"id": 483, "name": "Junior 64", "family": "Junior", "students": 20, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 6, "days": {"1": {"active": 1, "passive": 1, "noactive": 2, "new": 0, "total": 4, "pct": 25.0}}, "totals": {"active": 1, "passive": 1, "noactive": 2, "new": 0, "total": 4, "pct": 25.0}, "k": "Mar"}, {"id": 508, "name": "Junior 65", "family": "Junior", "students": 44, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 6, "passive": 0, "noactive": 0, "new": 0, "total": 6, "pct": 100.0}}, "totals": {"active": 6, "passive": 0, "noactive": 0, "new": 0, "total": 6, "pct": 100.0}, "k": "Mar"}, {"id": 509, "name": "Kids 13", "family": "Kids", "students": 60, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 10, "passive": 0, "noactive": 2, "new": 0, "total": 12, "pct": 83.3}}, "totals": {"active": 10, "passive": 0, "noactive": 2, "new": 0, "total": 12, "pct": 83.3}, "k": "Mar"}, {"id": 452, "name": "Kids 6", "family": "Kids", "students": 58, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 10, "days": {"1": {"active": 4, "passive": 0, "noactive": 3, "new": 0, "total": 7, "pct": 57.1}}, "totals": {"active": 4, "passive": 0, "noactive": 3, "new": 0, "total": 7, "pct": 57.1}, "k": "Mar"}, {"id": 462, "name": "Junior 84", "family": "Junior", "students": 75, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 1, "passive": 0, "noactive": 6, "new": 0, "total": 7, "pct": 14.3}}, "totals": {"active": 1, "passive": 0, "noactive": 6, "new": 0, "total": 7, "pct": 14.3}, "k": "Jas"}, {"id": 433, "name": "Junior 91", "family": "Junior", "students": 45, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 12, "days": {"1": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}}, "totals": {"active": 5, "passive": 0, "noactive": 1, "new": 0, "total": 6, "pct": 83.3}, "k": "Jas"}, {"id": 465, "name": "Junior 92", "family": "Junior", "students": 55, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 8, "days": {"1": {"active": 1, "passive": 0, "noactive": 5, "new": 0, "total": 6, "pct": 16.7}}, "totals": {"active": 1, "passive": 0, "noactive": 5, "new": 0, "total": 6, "pct": 16.7}, "k": "Jas"}, {"id": 486, "name": "Junior 94", "family": "Junior", "students": 36, "tracks": ["Web dasturlash", "Grafik dizayn"], "stage": 6, "days": {"1": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}}, "totals": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}, "k": "Jas"}, {"id": 506, "name": "Junior 95", "family": "Junior", "students": 60, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 8, "passive": 0, "noactive": 3, "new": 0, "total": 11, "pct": 72.7}}, "totals": {"active": 8, "passive": 0, "noactive": 3, "new": 0, "total": 11, "pct": 72.7}, "k": "Jas"}, {"id": 489, "name": "Kids 4", "family": "Kids", "students": 56, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 5, "days": {"1": {"active": 6, "passive": 1, "noactive": 4, "new": 0, "total": 11, "pct": 54.5}}, "totals": {"active": 6, "passive": 1, "noactive": 4, "new": 0, "total": 11, "pct": 54.5}, "k": "Jas"}, {"id": 487, "name": "Senior 9", "family": "Senior", "students": 35, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 6, "days": {"1": {"active": 0, "passive": 1, "noactive": 1, "new": 0, "total": 2, "pct": 0.0}}, "totals": {"active": 0, "passive": 1, "noactive": 1, "new": 0, "total": 2, "pct": 0.0}, "k": "Jas"}, {"id": 457, "name": "Junior 23", "family": "Junior", "students": 72, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 11, "days": {"1": {"active": 6, "passive": 1, "noactive": 2, "new": 0, "total": 9, "pct": 66.7}}, "totals": {"active": 6, "passive": 1, "noactive": 2, "new": 0, "total": 9, "pct": 66.7}, "k": "Mad"}, {"id": 473, "name": "Junior 24", "family": "Junior", "students": 96, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 7, "days": {"1": {"active": 17, "passive": 0, "noactive": 6, "new": 1, "total": 24, "pct": 70.8}}, "totals": {"active": 17, "passive": 0, "noactive": 6, "new": 1, "total": 24, "pct": 70.8}, "k": "Mad"}, {"id": 510, "name": "Junior 25", "family": "Junior", "students": 121, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 7, "passive": 2, "noactive": 6, "new": 1, "total": 16, "pct": 43.8}}, "totals": {"active": 7, "passive": 2, "noactive": 6, "new": 1, "total": 16, "pct": 43.8}, "k": "Mad"}, {"id": 443, "name": "Junior 26", "family": "Junior", "students": 73, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 11, "days": {"1": {"active": 1, "passive": 1, "noactive": 6, "new": 0, "total": 8, "pct": 12.5}}, "totals": {"active": 1, "passive": 1, "noactive": 6, "new": 0, "total": 8, "pct": 12.5}, "k": "Mad"}, {"id": 427, "name": "Backend group", "family": "Backend", "students": 12, "tracks": ["Web dasturlash", "Веб программирование", "Grafik dizayn"], "stage": 13, "days": {"1": {"active": 1, "passive": 0, "noactive": 0, "new": 0, "total": 1, "pct": 100.0}}, "totals": {"active": 1, "passive": 0, "noactive": 0, "new": 0, "total": 1, "pct": 100.0}, "k": "Xal"}, {"id": 516, "name": "Dizayn 1", "family": "Dizayn", "students": 13, "tracks": ["Grafik dizayn"], "stage": 2, "days": {"1": {"active": 3, "passive": 2, "noactive": 0, "new": 0, "total": 5, "pct": 60.0}}, "totals": {"active": 3, "passive": 2, "noactive": 0, "new": 0, "total": 5, "pct": 60.0}, "k": "Xal"}, {"id": 481, "name": "Dizayn 5", "family": "Dizayn", "students": 72, "tracks": ["Grafik dizayn"], "stage": 6, "days": {"1": {"active": 5, "passive": 0, "noactive": 2, "new": 0, "total": 7, "pct": 71.4}}, "totals": {"active": 5, "passive": 0, "noactive": 2, "new": 0, "total": 7, "pct": 71.4}, "k": "Xal"}, {"id": 496, "name": "Dizayn 6", "family": "Dizayn", "students": 31, "tracks": ["Grafik dizayn"], "stage": 4, "days": {"1": {"active": 3, "passive": 1, "noactive": 1, "new": 0, "total": 5, "pct": 60.0}}, "totals": {"active": 3, "passive": 1, "noactive": 1, "new": 0, "total": 5, "pct": 60.0}, "k": "Xal"}, {"id": 502, "name": "Junior 40", "family": "Junior", "students": 63, "tracks": ["Dasturlash kursi"], "stage": 4, "days": {"1": {"active": 9, "passive": 0, "noactive": 8, "new": 0, "total": 17, "pct": 52.9}}, "totals": {"active": 9, "passive": 0, "noactive": 8, "new": 0, "total": 17, "pct": 52.9}, "k": "Xal"}, {"id": 515, "name": "Kids 1", "family": "Kids", "students": 38, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}}, "totals": {"active": 2, "passive": 0, "noactive": 1, "new": 0, "total": 3, "pct": 66.7}, "k": "Xal"}, {"id": 512, "name": "Kids 9", "family": "Kids", "students": 44, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 3, "days": {"1": {"active": 4, "passive": 0, "noactive": 1, "new": 0, "total": 5, "pct": 80.0}}, "totals": {"active": 4, "passive": 0, "noactive": 1, "new": 0, "total": 5, "pct": 80.0}, "k": "Xal"}, {"id": 415, "name": "test", "family": "Test", "students": 7, "tracks": ["Junior Kurs", "New Year Event", "2 Test Course for Mustahkamlash"], "stage": 15, "days": {}, "totals": {"active": 0, "passive": 0, "noactive": 0, "new": 0, "total": 0, "pct": 0}, "k": "Mun"}, {"id": 517, "name": "Junior 28", "family": "Junior", "students": 62, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 8, "passive": 2, "noactive": 9, "new": 1, "total": 20, "pct": 40.0}}, "totals": {"active": 8, "passive": 2, "noactive": 9, "new": 1, "total": 20, "pct": 40.0}, "k": "Shx"}, {"id": 518, "name": "Junior 29", "family": "Junior", "students": 38, "tracks": ["Grafik dizayn", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 7, "passive": 1, "noactive": 3, "new": 1, "total": 12, "pct": 58.3}}, "totals": {"active": 7, "passive": 1, "noactive": 3, "new": 1, "total": 12, "pct": 58.3}, "k": "Shx"}, {"id": 520, "name": "Junior RU  40", "family": "Junior", "students": 21, "tracks": ["Веб программирование"], "stage": 2, "days": {"1": {"active": 2, "passive": 1, "noactive": 1, "new": 1, "total": 5, "pct": 40.0}}, "totals": {"active": 2, "passive": 1, "noactive": 1, "new": 1, "total": 5, "pct": 40.0}, "k": "Shx"}, {"id": 521, "name": "Kids  1 RU", "family": "Kids", "students": 1, "tracks": ["Веб программирование"], "stage": 2, "days": {}, "totals": {"active": 0, "passive": 0, "noactive": 0, "new": 0, "total": 0, "pct": 0}, "k": "Shx"}, {"id": 519, "name": "Kids 11", "family": "Kids", "students": 31, "tracks": ["Grafik dizayn", "Junior Kurs", "Dasturlash kursi"], "stage": 2, "days": {"1": {"active": 10, "passive": 1, "noactive": 4, "new": 0, "total": 15, "pct": 66.7}}, "totals": {"active": 10, "passive": 1, "noactive": 4, "new": 0, "total": 15, "pct": 66.7}, "k": "Shx"}]}, "snapshots": {"2026-07-29": {"total": 2127, "curators": {"Fot": 207, "Mad": 228, "Dil": 279, "Jas": 202, "Nai": 197, "Shx": 74, "Mar": 179, "Xal": 195, "Azi": 192, "Sab": 179, "Mun": 195}}, "2026-07-01": {"total": 2127, "curators": {"Fot": 171, "Dil": 280, "Mad": 212, "Jas": 250, "Nai": 187, "Mun": 171, "Mar": 238, "Xal": 246, "Azi": 175, "Sab": 197}, "manual": true, "note": "Foydalanuvchi bergan 01.07.2026 ro‘yxati; eski Munisa → Naima, Maryam → Munisa. New kurator olib tashlangan."}, "2026-07-30": {"total": 2104, "curators": {"Fot": 205, "Mad": 227, "Dil": 275, "Jas": 201, "Nai": 197, "Shx": 76, "Mar": 172, "Xal": 192, "Azi": 188, "Sab": 178, "Mun": 193}, "module_progress": {"coverage": {"Fot": {"linked": 65, "base": 201}, "Mad": {"linked": 22, "base": 226}, "Dil": {"linked": 26, "base": 275}, "Jas": {"linked": 11, "base": 199}, "Nai": {"linked": 1, "base": 197}, "Shx": {"linked": 0, "base": 76}, "Mar": {"linked": 41, "base": 170}, "Xal": {"linked": 30, "base": 192}, "Azi": {"linked": 10, "base": 187}, "Sab": {"linked": 39, "base": 178}, "Mun": {"linked": 18, "base": 192}}, "courses": {"51": {"name": "Dasturlash kursi", "modules": {"5": {"name": "HTML", "students": 90}, "10": {"name": "CSS", "students": 42}, "15": {"name": "Bootstrap", "students": 6}, "20": {"name": "Tilda", "students": 4}, "25": {"name": "Git", "students": 1}, "30": {"name": "Javascript", "students": 6}, "40": {"name": "Python", "students": 1}}}, "36": {"name": "English", "modules": {"1": {"name": "Beginner", "students": 31}, "2": {"name": "Elementary", "students": 8}, "3": {"name": "Pre-Intermediate", "students": 5}, "4": {"name": "Intermediate", "students": 6}}}, "47": {"name": "Grafik dizayn", "modules": {"1": {"name": "Canva", "students": 9}, "2": {"name": "Figma", "students": 3}, "7": {"name": "Blender", "students": 3}}}, "48": {"name": "Junior Kurs", "modules": {"1": {"name": "Kompyuter savodxonligi", "students": 20}, "2": {"name": "Scratch", "students": 14}, "5": {"name": "Blockly dasturlash", "students": 5}, "10": {"name": "HTML", "students": 26}}}, "82": {"name": "Kids English", "modules": {"0": {"name": "Kids English lessons", "students": 2}}}, "43": {"name": "Kompyuter Savodxonligi", "modules": {"1": {"name": "Kompyuter savodxonligi", "students": 14}}}, "55": {"name": "Startup maktabi", "modules": {"1": {"name": "Startup", "students": 3}}}, "42": {"name": "Suniy Intellekt", "modules": {"1": {"name": "AI", "students": 20}}}, "41": {"name": "Telegram Bot", "modules": {"1": {"name": "Telegram Bot", "students": 3}}}, "40": {"name": "Web dasturlash ", "modules": {"1": {"name": "HTML", "students": 8}, "7": {"name": "React", "students": 1}}}, "46": {"name": "Веб программирование", "modules": {"1": {"name": "HTML", "students": 18}, "2": {"name": "CSS", "students": 14}, "4": {"name": "Bootstrap", "students": 1}, "8": {"name": "React", "students": 2}}}, "80": {"name": "Умный компьютер", "modules": {"5": {"name": "Kopyuter", "students": 3}}}}}}, "2026-07-31": {"total": 2131, "curators": {"Fot": 213, "Mad": 229, "Dil": 273, "Jas": 199, "Nai": 196, "Shx": 82, "Mar": 176, "Xal": 195, "Azi": 191, "Sab": 179, "Mun": 198}, "group_attendance": {"groups": {"469": {"pct": 42.5, "stage": 6}, "376": {"pct": 50.0, "stage": 7}, "494": {"pct": 45.3, "stage": 4}, "511": {"pct": 63.7, "stage": 2}, "461": {"pct": 50.0, "stage": 7}, "507": {"pct": 53.5, "stage": 2}, "442": {"pct": 49.1, "stage": 10}, "472": {"pct": 46.2, "stage": 6}, "480": {"pct": 47.9, "stage": 5}, "495": {"pct": 50.4, "stage": 4}, "514": {"pct": 63.8, "stage": 1}, "408": {"pct": 51.3, "stage": 14}, "468": {"pct": 41.0, "stage": 6}, "483": {"pct": 53.6, "stage": 5}, "508": {"pct": 62.8, "stage": 2}, "454": {"pct": 52.5, "stage": 8}, "433": {"pct": 51.7, "stage": 11}, "465": {"pct": 46.6, "stage": 7}, "486": {"pct": 47.5, "stage": 5}, "506": {"pct": 56.2, "stage": 2}, "457": {"pct": 52.3, "stage": 10}, "473": {"pct": 53.1, "stage": 6}, "490": {"pct": 45.0, "stage": 4}, "510": {"pct": 52.9, "stage": 2}, "449": {"pct": 46.7, "stage": 9}, "427": {"pct": 41.6, "stage": 12}, "516": {"pct": 44.2, "stage": 1}, "441": {"pct": 38.5, "stage": 10}, "481": {"pct": 40.6, "stage": 5}, "496": {"pct": 54.9, "stage": 3}, "502": {"pct": 57.7, "stage": 3}, "513": {"pct": 55.7, "stage": 2}, "504": {"pct": 58.0, "stage": 2}, "466": {"pct": 50.4, "stage": 7}, "487": {"pct": 44.0, "stage": 5}, "404": {"pct": 35.4, "stage": 17}, "452": {"pct": 71.2, "stage": 9}, "467": {"pct": 61.8, "stage": 7}, "505": {"pct": 75.6, "stage": 2}, "512": {"pct": 84.8, "stage": 2}, "443": {"pct": 54.4, "stage": 10}, "450": {"pct": 53.6, "stage": 9}, "491": {"pct": 55.8, "stage": 4}, "462": {"pct": 51.2, "stage": 7}, "460": {"pct": 51.8, "stage": 7}, "518": {"pct": 55.7, "stage": 1}, "515": {"pct": 78.1, "stage": 1}, "519": {"pct": 89.4, "stage": 1}, "509": {"pct": 77.5, "stage": 2}, "413": {"pct": 58.0, "stage": 14}, "489": {"pct": 63.6, "stage": 4}, "503": {"pct": 64.5, "stage": 3}, "415": {"pct": 34.6, "stage": 14}, "517": {"pct": 64.8, "stage": 1}, "520": {"pct": 79.2, "stage": 1}, "521": {"pct": 100.0, "stage": 1}}}}, "2026-08-01": {"total": 2128, "curators": {"Fot": 308, "Mad": 363, "Dil": 323, "Jas": 363, "Nai": 0, "Shx": 153, "Mar": 334, "Xal": 273, "Azi": 0, "Sab": 0, "Mun": 11}, "group_attendance": {"groups": {"469": {"pct": 100.0, "stage": 7}, "376": {"pct": 66.7, "stage": 8}, "467": {"pct": 62.5, "stage": 8}, "494": {"pct": 22.2, "stage": 5}, "504": {"pct": 78.6, "stage": 3}, "511": {"pct": 40.0, "stage": 3}, "461": {"pct": 100.0, "stage": 8}, "507": {"pct": 75.0, "stage": 3}, "442": {"pct": 60.0, "stage": 11}, "480": {"pct": 0, "stage": 6}, "495": {"pct": 44.4, "stage": 5}, "466": {"pct": 83.3, "stage": 8}, "404": {"pct": 42.9, "stage": 18}, "408": {"pct": 20.0, "stage": 15}, "468": {"pct": 0.0, "stage": 7}, "483": {"pct": 25.0, "stage": 6}, "508": {"pct": 100.0, "stage": 3}, "509": {"pct": 83.3, "stage": 3}, "452": {"pct": 57.1, "stage": 10}, "462": {"pct": 14.3, "stage": 8}, "433": {"pct": 83.3, "stage": 12}, "465": {"pct": 16.7, "stage": 8}, "486": {"pct": 66.7, "stage": 6}, "506": {"pct": 72.7, "stage": 3}, "489": {"pct": 54.5, "stage": 5}, "487": {"pct": 0.0, "stage": 6}, "457": {"pct": 66.7, "stage": 11}, "473": {"pct": 70.8, "stage": 7}, "510": {"pct": 43.8, "stage": 3}, "443": {"pct": 12.5, "stage": 11}, "427": {"pct": 100.0, "stage": 13}, "516": {"pct": 60.0, "stage": 2}, "481": {"pct": 71.4, "stage": 6}, "496": {"pct": 60.0, "stage": 4}, "502": {"pct": 52.9, "stage": 4}, "515": {"pct": 66.7, "stage": 2}, "512": {"pct": 80.0, "stage": 3}, "415": {"pct": 0, "stage": 15}, "517": {"pct": 40.0, "stage": 2}, "518": {"pct": 58.3, "stage": 2}, "520": {"pct": 40.0, "stage": 2}, "521": {"pct": 0, "stage": 2}, "519": {"pct": 66.7, "stage": 2}}}}}, "weeks": [{"key": "W1", "start": "2026-08-01", "end_exclusive": "2026-08-08", "from_day": 1, "to_day": 7}, {"key": "W2", "start": "2026-08-08", "end_exclusive": "2026-08-15", "from_day": 8, "to_day": 14}, {"key": "W3", "start": "2026-08-15", "end_exclusive": "2026-08-22", "from_day": 15, "to_day": 21}, {"key": "W4", "start": "2026-08-22", "end_exclusive": "2026-09-01", "from_day": 22, "to_day": 31}], "all": {"a": [1397, 66.0], "p": [239, 11.3], "x": [464, 21.9], "y": [17, 0.8], "chu": [2111, 1.28, 27], "churn_frozen": 21, "churn_archive": 6, "fao": [null, 39.37, 469], "b": 2117, "kassa": 53500000, "yangi": 0, "qayta": 0, "ota": [1566, 74.0], "froz": 76, "qarz": 223, "cj": 19.42}, "TA": {"a": [1042, 69.3], "p": [173, 11.5], "x": [283, 18.8], "y": [5, 0.4], "chu": [1182, 2.45, 29], "churn_frozen": 18, "churn_archive": 1, "fao": [null, 66.89, 192], "b": 1503, "kassa": 40700000, "yangi": 0, "qayta": 0, "ota": [1121, 75.0], "froz": 71, "qarz": 158}, "TB": {"a": [355, 57.8], "p": [66, 10.7], "x": [181, 29.5], "y": [12, 2.0], "chu": [746, 1.34, 10], "churn_frozen": 3, "churn_archive": 5, "fao": [null, 96.87, 62], "b": 614, "kassa": 12800000, "yangi": 0, "qayta": 0, "ota": [445, 72.0], "froz": 5, "qarz": 65}, "snap": "01.08.2026", "month": "2026-08-01"};
+const {M,W,N,E,C,H,G={groups:[]},weeks:WM,all:ALL,TA,TB}=__DATA__; let PERIOD='ALL',TEAM='ALL',SORT='score',COURSE='ALL';
+const keys=Object.keys(M), fmt=n=>Number(n||0).toLocaleString('ru-RU'), pct=n=>Number(n||0).toFixed(1)+'%';
+const monthDate=new Date(__DATA__.month+'T00:00:00'), monthNames=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'],monthName=monthNames[monthDate.getMonth()]+' '+monthDate.getFullYear();
+function selected(){return keys.filter(k=>TEAM==='ALL'||M[k].team===TEAM)}
+function pKpi(k){const e=E[k]||{};return PERIOD==='ALL'?(e.month||{}):((e.weeks||{})[PERIOD]||{})}
+function noact(k){return M[k].x?M[k].x[0]:0}
+function directBase(k){return Number(M[k].db_students??M[k].b??0)}
+function churn(k){const base=directBase(k);if(PERIOD==='ALL'){const c=(C.curators||{})[k]||{count:0,frozen:0,archive:0};return{...c,pct:base?c.count/base*100:0}}const h=H.curators?.[k]?.[PERIOD]||{count:0,frozen:0,archive:0};return {...h,pct:base?h.count/base*100:0}}
+function metric(k){const r=M[k],base=directBase(k)||1,a=r.a?.[0]||0,x=noact(k),c=churn(k),active=a/base*100,np=x/base*100,botCount=r.ota?.[0]||0,bot=botCount/base*100,maxBase=Math.max(...keys.map(directBase),1),size=base/maxBase*100;const score=Math.max(0,Math.min(100,active*.3+Math.max(0,100-c.pct*3)*.25+Math.max(0,100-np*2)*.15+bot*.1+size*.2));return{k,name:r.name,team:r.team,base,active,c,noactive:x,noactivePct:np,debt:r.qarz||0,new:pKpi(k).yangi||0,fao:pKpi(k).fao||0,bot,score}}
+function aggregate(list){const rs=list.map(k=>M[k]),base=list.reduce((s,k)=>s+directBase(k),0),a=rs.reduce((s,r)=>s+(r.a?.[0]||0),0),p=rs.reduce((s,r)=>s+(r.p?.[0]||0),0),x=rs.reduce((s,r)=>s+(r.x?.[0]||0),0),y=rs.reduce((s,r)=>s+(r.y?.[0]||0),0),debt=rs.reduce((s,r)=>s+(r.qarz||0),0),newStudents=list.reduce((s,k)=>s+(pKpi(k).yangi||0),0),botCount=rs.reduce((s,r)=>s+(r.ota?.[0]||0),0),cc=list.reduce((s,k)=>s+churn(k).count,0);return{base,a,p,x,y,debt,newStudents,botCount,botPct:base?botCount/base*100:0,cc,active:base?a/base*100:0,churn:base?cc/base*100:0}}
+function scoreTeam(team){const ms=keys.filter(k=>M[k].team===team).map(metric);return ms.length?ms.reduce((s,m)=>s+m.score,0)/ms.length:0}
+function pill(v,reverse=false){const good=reverse?v<=14:v>=65,warn=reverse?v<=20:v>=50;return good?'good':warn?'warn':'bad'}
+function renderProgress(){
+ const list=selected(),allowed=new Set(list),groups=G.groups.filter(g=>allowed.has(g.k)&&(COURSE==='ALL'||g.family===COURSE));
+ const wr=PERIOD==='ALL'?{from_day:1,to_day:new Date(monthDate.getFullYear(),monthDate.getMonth()+1,0).getDate()}:WM.find(w=>w.key===PERIOD);
+ const days=Array.from({length:wr.to_day-wr.from_day+1},(_,i)=>wr.from_day+i);
+ const ag=g=>{let a=0,t=0;days.forEach(d=>{const x=g.days[String(d)];if(x){a+=x.active;t+=x.total}});return{active:a,total:t,pct:t?a*100/t:0}};
+ const total=groups.reduce((o,g)=>{const x=ag(g);o.active+=x.active;o.total+=x.total;o.students+=g.students;return o},{active:0,total:0,students:0});
+ const attPct=total.total?total.active*100/total.total:0,red=groups.filter(g=>ag(g).total&&ag(g).pct<50).length;
+ coverage.innerHTML=`<div class="cov"><small>Asosiy kurs guruhlari</small><b>${groups.length}</b></div><div class="cov"><small>O‘quvchilar</small><b>${fmt(total.students)}</b></div><div class="cov"><small>Davomat / aktivlik</small><b class="${attPct>=70?'green':attPct>=50?'orange':'red'}">${pct(attPct)}</b></div><div class="cov"><small>Qizil zonadagi guruhlar</small><b class="red">${red}</b></div>`;
+ moduleBars.innerHTML=groups.length?`<table class="att-table"><thead><tr><th>Guruh</th><th>Etap</th>${days.map(d=>`<th>${String(d).padStart(2,'0')}</th>`).join('')}<th>%</th></tr></thead><tbody>${groups.map(g=>{const all=ag(g);return`<tr><td><b>${g.name}</b><span class="group-meta">${g.students} o‘quvchi · ${g.tracks.join(' + ')||g.family}</span></td><td>${g.stage}-oy</td>${days.map(d=>{const x=g.days[String(d)],v=x?x.pct:null,z=v==null?'empty':v>=70?'good':v>=50?'warn':'bad';return`<td><span class="daydot ${z}" title="${d}.${String(monthDate.getMonth()+1).padStart(2,'0')} · ${v==null?'ma’lumot yo‘q':pct(v)}">${v==null?'':Math.round(v)}</span></td>`}).join('')}<td><b class="${all.pct>=70?'green':all.pct>=50?'orange':'red'}">${pct(all.pct)}</b></td></tr>`}).join('')}</tbody></table>`:`<div class="note">Tanlangan kesimda guruh davomati topilmadi.</div>`;
+ const cr={};groups.forEach(g=>{const x=ag(g),o=cr[g.k]??={groups:0,students:0,active:0,total:0};o.groups++;o.students+=g.students;o.active+=x.active;o.total+=x.total;cr[g.k]=o});
+ curProgress.innerHTML=list.map(k=>{const x=cr[k]||{groups:0,students:0,active:0,total:0},v=x.total?x.active*100/x.total:0;return`<div class="cp"><span>${M[k].name}<span class="group-meta">${x.groups} guruh · ${x.students} o‘quvchi</span></span><b class="${v>=70?'green':v>=50?'orange':'red'}">${pct(v)}</b><em>${x.groups?'davomat':'—'}</em></div>`}).join('');
 }
-function pzone(pct,plan){
-  if(pct==null)return 'na';
-  return pct<=plan*0.72?'good':pct<=plan?'warn':'bad';
+function render(){
+ const list=selected(),g=aggregate(list);document.querySelectorAll('.team-filter button').forEach(b=>b.classList.toggle('on',b.dataset.team===TEAM));document.querySelectorAll('.sorts button').forEach(b=>b.classList.toggle('on',b.dataset.sort===SORT));
+ kBase.textContent=fmt(g.base);kBaseN.textContent=list.length+' kurator · '+monthName;kActive.textContent=pct(g.active);kActiveN.textContent=fmt(g.a)+' active';kChurn.textContent=pct(g.churn);kChurnN.textContent=fmt(g.cc)+' ta · muzlatildi + ketdi/arxiv';kNoactive.textContent=fmt(g.x);kNoactiveN.textContent=pct(g.base?g.x/g.base*100:0)+' baza';kDebt.textContent=fmt(g.debt);kDebtN.textContent='o‘quvchi';kNew.textContent=fmt(g.newStudents);kNewN.textContent=PERIOD==='ALL'?monthName:'tanlangan hafta';kBot.textContent=pct(g.botPct);kBotN.textContent=fmt(g.botCount)+' / '+fmt(g.base)+' ota-ona';
+ statusline.innerHTML=`<i style="width:${g.active}%;background:#18a66a"></i><i style="width:${g.base?g.p/g.base*100:0}%;background:#e0a11c"></i><i style="width:${g.base?g.x/g.base*100:0}%;background:#e04b3d"></i><i style="width:${g.base?g.y/g.base*100:0}%;background:#7557d9"></i>`;legend.innerHTML=`<span>Aktiv <b>${fmt(g.a)}</b></span><span>Passiv <b>${fmt(g.p)}</b></span><span>Noaktiv <b>${fmt(g.x)}</b></span><span>Yangi <b>${fmt(g.y)}</b></span>`;
+ const sa=scoreTeam('A'),sb=scoreTeam('B');taScore.textContent=Math.round(sa);tbScore.textContent=Math.round(sb);taSub.textContent=`${keys.filter(k=>M[k].team==='A').length} kurator · umumiy ball`;tbSub.textContent=`${keys.filter(k=>M[k].team==='B').length} kurator · umumiy ball`;
+ let arr=list.map(metric);arr.sort((a,b)=>SORT==='students'?b.base-a.base:SORT==='churn'?a.c.pct-b.c.pct:SORT==='active'?b.active-a.active:SORT==='noactive'?a.noactivePct-b.noactivePct:b.score-a.score);
+ rows.innerHTML=arr.map((m,i)=>`<tr onclick="openDetail('${m.k}')"><td class="pos"><b>${i+1}</b></td><td class="who">${m.name}<span class="tag ${m.team}">${m.team}</span></td><td class="score">${Math.round(m.score)}</td><td>${fmt(m.base)}</td><td><span class="meter"><i style="width:${Math.min(100,m.active)}%;background:#18a66a"></i></span><span class="pill ${pill(m.active)}">${pct(m.active)}</span></td><td><span class="pill ${pill(m.c.pct,true)}">${pct(m.c.pct)} · ${m.c.count}</span></td><td>${pct(m.noactivePct)} · ${m.noactive}</td><td>${m.debt}</td><td>${m.new}</td><td>${m.fao}</td><td>${pct(m.bot)}</td></tr>`).join('');
+ total.innerHTML=`<tr><td></td><td style="text-align:left">JAMI</td><td>${Math.round(arr.reduce((s,m)=>s+m.score,0)/(arr.length||1))}</td><td>${fmt(g.base)}</td><td>${pct(g.active)}</td><td>${pct(g.churn)} · ${g.cc}</td><td>${pct(g.base?g.x/g.base*100:0)} · ${g.x}</td><td>${g.debt}</td><td>${arr.reduce((s,m)=>s+m.new,0)}</td><td>${arr.reduce((s,m)=>s+m.fao,0)}</td><td>—</td></tr>`;
+ const best=arr[0],lowChurn=[...arr].sort((a,b)=>a.c.pct-b.c.pct)[0];ticker.innerHTML=`<b>🏆 Reyting yetakchisi: ${best?.name||'—'} — ${Math.round(best?.score||0)} ball</b><em>//</em>👥 Baza: ${fmt(g.base)}<em>//</em>✅ Aktivlik: ${pct(g.active)}<em>//</em>📉 Eng past churn: ${lowChurn?.name||'—'} — ${pct(lowChurn?.c.pct||0)}<em>//</em>⚠️ Noaktiv: ${fmt(g.x)}`;
 }
-function orgChurn(){
-  if(WEEK==='ALL')return {pct:C.all?C.all.pct:(DALL.chu?DALL.chu[1]:0),cnt:C.all?C.all.count:(DALL.chu?DALL.chu[2]:0),frozen:C.all?C.all.frozen:0,archive:C.all?C.all.archive:0,other:C.all?C.all.other:0,plan:PLAN.churnM,prev:(DALL.cj!=null)?{pct:DALL.cj,lbl:'iyun'}:null};
-  const hd=H.all&&H.all[WEEK],cnt=hd?hd.count:0,pct=cnt/TOTAL*100;
-  const prevKey={W1:null,W2:'W1',W3:'W2',W4:'W3'}[WEEK];
-  const prevData=prevKey&&H.all[prevKey];
-  const prev=prevData?{pct:prevData.count/TOTAL*100,cnt:prevData.count,lbl:WSHORT[prevKey]}:null;
-  return {pct,cnt,frozen:hd?hd.frozen:0,archive:hd?hd.archive:0,plan:PLAN.churnW,prev};
-}
-
-// ---------- HERO ----------
-function hero(){
-  const o=orgChurn();
-  document.getElementById('hChuL').textContent='Churn — '+WSHORT[WEEK][0].toUpperCase()+WSHORT[WEEK].slice(1);
-  document.getElementById('hChuV').textContent=o.pct.toFixed(1)+'%';
-  const other=o.other?` + boshqa ${o.other}`:'';
-  document.getElementById('hChuN').textContent=`${o.cnt} ta · muzlatilgan ${o.frozen||0} + ketdi/arxiv ${o.archive||0}${other} · plan ≤${o.plan}%`;
-  const tl=document.getElementById('hTrL'),tv=document.getElementById('hTrV'),tn=document.getElementById('hTrN');
-  const nw=WEEK==='ALL'?'W4':WEEK, nd=noaktivPoint('all',nw), before=nd.count-nd.delta;
-  tl.textContent=`Noaktiv · ${WSHORT[nw]} o‘zgarishi`;
-  tv.textContent=(nd.delta>0?'▲ +':nd.delta<0?'▼ ':'')+Math.abs(nd.delta)+' ta';
-  tv.className='v '+(nd.delta>0?'red':nd.delta<0?'green':'');
-  tn.textContent=`${fmt(before)} → ${fmt(nd.count)} noaktiv`;
-}
-
-// ---------- UMUMIY AKTIVNOST ----------
-function activity(){
-  const sets=[
-    ['Umumiy',DALL,'all'],
-    ['TEAM A',typeof DTA!=='undefined'?DTA:null,'A'],
-    ['TEAM B',typeof DTB!=='undefined'?DTB:null,'B']
-  ].filter(x=>x[1]&&x[1].a);
-  document.getElementById('activityGrid').innerHTML=sets.map(([name,d,team])=>{
-    const a=d.a||[0,0],p=d.p||[0,0],x=d.x||[0,0],y=d.y||[0,0];
-    const sum=Math.max(1,a[0]+p[0]+x[0]+y[0]);
-    let churnPct=0,churnCount=0;
-    if(WEEK==='ALL'){
-      const direct=team==='all'?C.all:(C.teams&&C.teams[team]);
-      churnPct=direct?direct.pct:(d.chu&&d.chu[1]!=null?d.chu[1]:0);
-      churnCount=direct?direct.count:(d.chu&&d.chu[2]!=null?d.chu[2]:0);
-    }else{
-      const keys=team==='all'?Object.keys(M):Object.keys(M).filter(k=>M[k].team===team);
-      const base=keys.reduce((s,k)=>s+studentDelta(k).now,0);
-      const hd=team==='all'?(H.all&&H.all[WEEK]):(H.teams&&H.teams[team]&&H.teams[team][WEEK]);
-      churnCount=hd?hd.count:0;
-      churnPct=base?churnCount/base*100:0;
-    }
-    return `<div class="activity-card">
-      <div class="at"><div><div class="an">${name}</div><div class="as">${fmt(team==='all'?TOTAL:Object.keys(M).filter(k=>M[k].team===team).reduce((s,k)=>s+studentDelta(k).now,0))} o‘quvchi</div></div><div class="av">${a[1].toFixed(1)}%</div></div>
-      <div class="mini-status"><i style="width:${a[0]/sum*100}%;background:var(--good)"></i><i style="width:${p[0]/sum*100}%;background:var(--warn)"></i><i style="width:${x[0]/sum*100}%;background:var(--bad)"></i><i style="width:${y[0]/sum*100}%;background:#6c5ce7"></i></div>
-      <div class="aleg"><span>Aktiv ${a[0]}</span><span>Passiv ${p[0]}</span><span>Noaktiv ${x[0]}</span>${y[0]?`<span>Yangi ${y[0]}</span>`:''}</div>
-      <div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase">Churn · ${WSHORT[WEEK]}</span>
-        <span class="chbadge z-${pzone(churnPct,WEEK==='ALL'?PLAN.churnM:PLAN.churnW)}">${churnPct.toFixed(1)}% · ${churnCount} ta</span>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function noaktivPoint(k,wk){
-  const d=(N[k]||{})[wk];
-  return d||{count:0,delta:0};
-}
-function periodKpi(k){
-  const e=E[k]||{month:{yangi:0,fao:0,qarz_plan:0},weeks:{}};
-  const d=WEEK==='ALL'?e.month:(e.weeks[WEEK]||{yangi:0,fao:0});
-  return {yangi:d.yangi||0,fao:d.fao||0,qarz_plan:(e.month&&e.month.qarz_plan)||0};
-}
-function studentDelta(k){
-  const now=(TODAY_SNAP&&TODAY_SNAP.curators&&TODAY_SNAP.curators[k]!=null)?TODAY_SNAP.curators[k]:(M[k].db_students||0);
-  const start=START_SNAP&&START_SNAP.curators?START_SNAP.curators[k]:null;
-  return {now,start,delta:start==null?null:now-start};
-}
-
-// ---------- NOAKTIV QOLDIQ CHART ----------
-function drawChart(){
-  const svg=document.getElementById('chart');
-  const pts=WM.map((w,i)=>{const d=noaktivPoint('all',w.key);return{x:`${i+1}-hafta\n${String(w.from_day).padStart(2,'0')}–${String(w.to_day).padStart(2,'0')}`,v:d.count/TOTAL*100,n:d.count,delta:d.delta,key:w.key}});
-  const L=70,R=40,T=30,B=44,Wd=900-L-R,H=230-T-B;
-  const vals=pts.map(p=>p.v), minV=Math.max(0,Math.floor(Math.min(...vals)-3)),maxV=Math.max(minV+5,Math.ceil(Math.max(...vals)+3));
-  const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-((v-minV)/(maxV-minV))*H;
-  let s='';
-  [minV,(minV+maxV)/2,maxV].forEach(g=>{s+=`<line x1="${L}" y1="${Y(g)}" x2="${900-R}" y2="${Y(g)}" stroke="#eef0f5"/><text x="${L-10}" y="${Y(g)+4}" font-size="11" fill="#a7aec0" text-anchor="end">${g.toFixed(0)}%</text>`});
-  const path=pts.map((p,i)=>`${i?'L':'M'}${X(i)},${Y(p.v)}`).join(' ');
-  const area=`M${X(0)},${Y(pts[0].v)} `+pts.map((p,i)=>`L${X(i)},${Y(p.v)}`).join(' ')+` L${X(pts.length-1)},${T+H} L${X(0)},${T+H} Z`;
-  s+=`<path d="${area}" fill="rgba(53,100,196,.09)"/>`;
-  s+=`<path d="${path}" fill="none" stroke="#3564c4" stroke-width="2.6" stroke-linecap="round"/>`;
-  const selIdx=WEEK==='ALL'?-1:WM.findIndex(w=>w.key===WEEK);
-  pts.forEach((p,i)=>{
-    const hl=i===selIdx;
-    s+=`<circle cx="${X(i)}" cy="${Y(p.v)}" r="${hl?8:5.5}" fill="#fff" stroke="#3564c4" stroke-width="${hl?3.4:2.4}"/>`;
-    s+=`<text x="${X(i)}" y="${Y(p.v)-14}" font-size="13" font-weight="800" fill="#141a26" text-anchor="middle">${p.v.toFixed(1)}%</text>`;
-    const dc=p.delta>0?'+'+p.delta:String(p.delta), color=p.delta>0?'#d24a35':p.delta<0?'#2e9e64':'#7d8698';
-    s+=`<text x="${X(i)}" y="${Y(p.v)+24}" font-size="10.5" fill="${color}" text-anchor="middle">${p.n} ta · ${dc}</text>`;
-    const [l1,l2]=p.x.split('\n');
-    s+=`<text x="${X(i)}" y="${230-22}" font-size="11.5" fill="#7d8698" text-anchor="middle" font-weight="600">${l1}</text>`;
-    s+=`<text x="${X(i)}" y="${230-8}" font-size="10" fill="#a7aec0" text-anchor="middle">${l2}</text>`;
-  });
-  svg.innerHTML=s;
-}
-
-// ---------- RATING ----------
-function rating(){
-  const keys=Object.keys(M);
-  const sorted=keys.slice().sort((a,b)=>{
-    const A=pchurn(a),B2=pchurn(b);
-    if(A.pct==null&&B2.pct==null)return (B2.cnt||0)-(A.cnt||0);
-    if(A.pct==null)return 1; if(B2.pct==null)return -1; return B2.pct-A.pct;
-  });
-  document.getElementById('thChurn').textContent='Churn · '+WSHORT[WEEK];
-  document.getElementById('thTrend').textContent='Noaktiv Δ';
-  document.getElementById('rtTitle').textContent=`Kurator reytingi — churn bo'yicha (${WSHORT[WEEK]})`;
-  const barScale=WEEK==='ALL'?4.5:18;
-  const rt=document.getElementById('rt'); rt.innerHTML='';
-  sorted.forEach((k,i)=>{
-    const r=M[k], c=pchurn(k), z=pzone(c.pct,c.plan);
-    const sd=studentDelta(k);
-    const nw=WEEK==='ALL'?'W4':WEEK, nd=noaktivPoint(k,nw).delta;
-    const trend=nd>0?`<span class="up">▲ +${nd} ta</span>`:nd<0?`<span class="down">▼ ${Math.abs(nd)} ta</span>`:`<span class="dim">0 ta</span>`;
-    const pctTxt=c.has?(c.pct==null?'—':c.pct.toFixed(1)+'%'):'log yo\'q';
-    rt.insertAdjacentHTML('beforeend',`<tr data-k="${k}" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">
-      <td><span class="rk">${i+1}</span></td>
-      <td><span class="nm">${r.name}</span><span class="tm ${r.team}">${r.team}</span></td>
-      <td class="num">${sd.now}</td>
-      <td class="num"><span class="chbadge z-${z}">${pctTxt}</span><span class="cbar" style="margin-left:auto"><i style="width:${Math.min((c.pct||0)*barScale,100)}%"></i></span></td>
-      <td class="num strong">${c.cnt==null?'—':c.cnt}</td>
-      <td class="num">${trend}</td>
-      <td class="num hide-sm">${r.x[1].toFixed(1)}%</td>
-      <td class="num">${r.qarz}</td>
-      <td class="num hide-sm">${r.froz}</td>
-    </tr>`);
-  });
-  const o=orgChurn();
-  const onw=WEEK==='ALL'?'W4':WEEK, ond=noaktivPoint('all',onw).delta;
-  const oTrend=ond>0?`<span class="up">▲ +${ond} ta</span>`:ond<0?`<span class="down">▼ ${Math.abs(ond)} ta</span>`:`<span class="dim">0 ta</span>`;
-  const jBase=TOTAL;
-  const jNoa=(typeof DALL!=='undefined'&&DALL.x)?DALL.x[1].toFixed(1)+'%':'—';
-  const jQarz=(typeof DALL!=='undefined'&&DALL.qarz!=null)?DALL.qarz:'—';
-  const jFroz=(typeof DALL!=='undefined'&&DALL.froz!=null)?DALL.froz:'—';
-  rt.insertAdjacentHTML('beforeend',`<tr class="jami">
-    <td></td><td>JAMI</td><td class="num">${fmt(jBase)}</td>
-    <td class="num"><span class="chbadge z-${pzone(o.pct,o.plan)}">${o.pct.toFixed(1)}%</span></td>
-    <td class="num">${o.cnt}</td><td class="num">${oTrend}</td>
-    <td class="num hide-sm">${jNoa}</td><td class="num">${jQarz}</td><td class="num hide-sm">${jFroz}</td></tr>`);
-}
-
-// ---------- CARDS ----------
-function donut(pct,plan){
-  const r=34,c=2*Math.PI*r,cap=plan*3,val=pct==null?0:Math.min(pct,cap)/cap;
-  return `<div class="donut"><svg width="86" height="86">
-    <circle cx="43" cy="43" r="${r}" fill="none" stroke="#f0f2f7" stroke-width="9"/>
-    <circle cx="43" cy="43" r="${r}" fill="none" stroke="#d24a35" stroke-width="9" stroke-linecap="round" stroke-dasharray="${c*val} ${c}"/>
-  </svg><div class="dl"><b>${pct==null?'—':pct.toFixed(1)+'%'}</b><small>plan ≤${plan}%</small></div></div>`;
-}
-function tavsiyalar(r,k){
-  const t=[],c=pchurn(k),w=W[k];
-  if(c.has&&c.pct!=null){
-    if(c.pct>c.plan) t.push(`⚠️ <b>Churn ${c.pct.toFixed(1)}%</b> (${WSHORT[WEEK]}) — plandan ${(c.pct-c.plan).toFixed(1)}p yuqori. Ketishni kamaytirish ustuvor.`);
-    else t.push(`✅ <b>Churn ${c.pct.toFixed(1)}%</b> (${WSHORT[WEEK]}) — plan ichida (≤${c.plan}%).`);
-    if(c.prev){const d=c.pct-c.prev.pct;
-      t.push(d>0?`📈 ${c.prev.lbl}ga nisbatan <b>oshgan</b> (${c.prev.pct.toFixed(1)}% → ${c.pct.toFixed(1)}%). Yangi ketganlar bilan bugun bog'laning.`
-               :`📉 ${c.prev.lbl}ga nisbatan <b>yaxshilanish</b> (${c.prev.pct.toFixed(1)}% → ${c.pct.toFixed(1)}%).`)}
-  } else if(!c.has) t.push(`ℹ️ Haftalik log hali yig'ilmagan (yangi baza) — oylik ketganlar: <b>${r.chu[2]} ta</b>.`);
-  else t.push(`ℹ️ Churn bazasi CRMda kiritilmagan — ketganlar soni: <b>${r.chu[2]} ta</b>.`);
-  if(r.x[1]>25) t.push(`🔴 Noaktiv ulush yuqori — <b>${r.x[0]} ta (${r.x[1]}%)</b>. Qo'ng'iroq qilib darsga qaytarish rejasini tuzing.`);
-  t.push(`💳 <b>${r.qarz} qarzdor</b> (${(r.qarz/r.b*100).toFixed(1)}% baza) — to'lov eslatmasi talab qiladi.`);
-  if(r.ota[1]<PLAN.ota) t.push(`🤖 Ota-ona bot <b>${r.ota[1]}%</b> — plan ${PLAN.ota}%. Ulanmagan ota-onalar bilan ishlash kerak.`);
-  return t;
-}
-function cards(){
-  const keys=Object.keys(M);
-  const sorted=keys.slice().sort((a,b)=>{
-    const A=pchurn(a),B2=pchurn(b);
-    if(A.pct==null&&B2.pct==null)return (B2.cnt||0)-(A.cnt||0);
-    if(A.pct==null)return 1; if(B2.pct==null)return -1; return B2.pct-A.pct;
-  });
-  const el=document.getElementById('cards'); el.innerHTML='';
-  sorted.forEach(k=>{
-    const r=M[k], w=W[k], c=pchurn(k);
-    const pk=periodKpi(k);
-    const sd=studentDelta(k), sdText=sd.start==null?'1-iyul baseline yo‘q':`1-iyul ${sd.start} → hozir ${sd.now} (${sd.delta>0?'+':''}${sd.delta})`;
-    const nvals=['W1','W2','W3','W4'].map(wk=>noaktivPoint(k,wk));
-    const ntext=d=>`${d.count} (${d.delta>0?'+':''}${d.delta})`;
-    const wkm=M[k].chu[1]==null?'—':M[k].chu[1].toFixed(1)+'%';
-    const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
-    const segsum=segs.reduce((s,x)=>s+x[1],0);
-    const ketgan=c.cnt!=null?c.cnt:(c.has?0:r.chu[2]);
-    el.insertAdjacentHTML('beforeend',`
-    <div class="kk">
-      <div class="top">
-        <div class="who"><div class="n1" onclick="showDetail('${k}')" title="Bosing — kurator sahifasi">${r.name} <span class="tm ${r.team}">TEAM ${r.team}</span></div><div class="n2">Kurator · ${r.grp} guruh · ${sdText}</div></div>
-        <div class="cnt"><b>${sd.now}</b><span>o'quvchi · bazadan</span></div>
-      </div>
-      <div class="churnrow">
-        ${donut(c.pct,c.plan)}
-        <div class="churninfo">
-          <div class="t">Churn — ${WLBL[WEEK]}${c.has?'':' · log yo\'q (oylik son)'}</div>
-          <div class="big"><b>${ketgan}</b> churn · muzlatilgan ${c.frozen||0} + ketdi/arxiv ${c.archive||0}</div>
-          <div class="wboxes">
-            ${nvals.map((d,i)=>`<div class="wb ${WEEK===`W${i+1}`||(WEEK==='ALL'&&i===3)?'hl':''}"><div class="l">Noaktiv · ${i+1}-hafta</div><div class="v">${ntext(d)}</div></div>`).join('')}
-          </div>
-        </div>
-      </div>
-      <div class="stt">Status taqsimoti</div>
-      <div class="stack">${segs.map(s=>`<i style="background:${s[2]};width:${s[1]/segsum*100}%">${s[1]/segsum>0.09?s[1]:''}</i>`).join('')}</div>
-      <div class="stlegend">${segs.map(s=>`<span><i class="d" style="background:${s[2]}"></i>${s[0]} ${s[1]}</span>`).join('')}</div>
-      <div class="boxes3">
-        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v or">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · batafsil →</div></div>
-        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('froz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('froz','${k}')"><div class="l">Muzlatilgan</div><div class="v or">${r.froz}</div><div class="n">${(r.froz/r.b*100).toFixed(1)}% baza · batafsil →</div></div>
-        <div class="b3 metric-click" role="button" tabindex="0" onclick="openMetric('noaktiv','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('noaktiv','${k}')"><div class="l">Noaktiv</div><div class="v rd">${r.x[0]}</div><div class="n">${r.x[1]}% baza · batafsil →</div></div>
-      </div>
-      <div class="extras">
-        <div class="extra-kpi"><div class="el">📋 Qarzdorlik rejasi</div><div class="ev">${pk.qarz_plan}</div><div class="en">${MONTH_NAME} oyida qarzdor bo‘lgan</div></div>
-        <div class="extra-kpi"><div class="el">🆕 Yangi</div><div class="ev">${pk.yangi}</div><div class="en">${WLBL[WEEK]} · o‘quvchi</div></div>
-        <div class="extra-kpi"><div class="el">♻️ Faollashtirilgan</div><div class="ev">${pk.fao}</div><div class="en">${WLBL[WEEK]} · active’ga qaytgan</div></div>
-        <div class="extra-kpi"><div class="el">🤖 Ota-ona bot</div><div class="ev">${r.ota[1]}%</div><div class="en">${r.ota[0]} ta ulangan</div></div>
-      </div>
-      <div class="tavs"><div class="th">💡 Tavsiyalar — churnni kamaytirish</div><ul>${tavsiyalar(r,k).map(t=>`<li>• ${t}</li>`).join('')}</ul></div>
-    </div>`);
-  });
-}
-
-// ---------- KURATOR DETAIL ----------
-function miniChart(k){
-  const r=M[k], w=W[k];
-  const pts=WM.map((wm,i)=>{const d=noaktivPoint(k,wm.key);return{x:`${i+1}-hafta`,x2:`${String(wm.from_day).padStart(2,'0')}–${String(wm.to_day).padStart(2,'0')}`,v:d.count/r.b*100,n:d.count,delta:d.delta}});
-  const Wd0=440,H0=190,L=44,R=26,T=22,B=40,Wd=Wd0-L-R,H=H0-T-B;
-  const maxV=Math.max(5,...pts.map(p=>p.v))*1.25;
-  const X=i=>L+Wd*(i/(pts.length-1)), Y=v=>T+H-(Math.min(v,maxV)/maxV)*H;
-  let s='';
-  const path=pts.map((p,i)=>`${i?'L':'M'}${X(i)},${Y(p.v)}`).join(' ');
-  s+=`<path d="${path}" fill="none" stroke="#3564c4" stroke-width="2.4" stroke-linecap="round"/>`;
-  pts.forEach((p,i)=>{
-    s+=`<circle cx="${X(i)}" cy="${Y(p.v)}" r="5" fill="#fff" stroke="#3564c4" stroke-width="2.2"/>`;
-    s+=`<text x="${X(i)}" y="${Y(p.v)-11}" font-size="12" font-weight="800" fill="#141a26" text-anchor="middle">${p.v.toFixed(1)}%</text>`;
-    s+=`<text x="${X(i)}" y="${H0-24}" font-size="11" fill="#7d8698" text-anchor="middle" font-weight="600">${p.x}</text>`;
-    s+=`<text x="${X(i)}" y="${H0-11}" font-size="9.5" fill="${p.delta>0?'#d24a35':p.delta<0?'#2e9e64':'#a7aec0'}" text-anchor="middle">${p.x2} · ${p.n} (${p.delta>0?'+':''}${p.delta})</text>`;
-  });
-  return `<svg width="100%" viewBox="0 0 ${Wd0} ${H0}">${s}</svg>`;
-}
-function showDetail(k){
-  const r=M[k], w=W[k];
-  const pk=periodKpi(k);
-  const sd=studentDelta(k), sdText=sd.start==null?'1-iyul baseline yo‘q':`1-iyul ${sd.start} → hozir ${sd.now} (${sd.delta>0?'+':''}${sd.delta})`;
-  const segs=[['Aktiv',r.a[0],'#2e9e64'],['Passiv',r.p[0],'#e0a13d'],['Noaktiv',r.x[0],'#d24a35'],['Yangi',r.y[0],'#6c5ce7']].filter(s=>s[1]>0);
-  const segsum=segs.reduce((s,x)=>s+x[1],0);
-  const dc=C.curators&&C.curators[k], detailChurnPct=dc?dc.pct:r.chu[1], detailChurnCount=dc?dc.count:r.chu[2];
-  const chuTxt=detailChurnPct==null?'—':detailChurnPct.toFixed(1)+'%';
-  const prevMonthName=MONTH_NAMES[(+MY[1]+10)%12].toLowerCase();
-  const trend=(r.cj!=null&&r.chu[1]!=null)
-    ? (r.chu[1]<=r.cj?`<span style="color:#43d17c">▼ ${(r.cj-r.chu[1]).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`:`<span style="color:#ff8a75">▲ ${(r.chu[1]-r.cj).toFixed(1)}p ${prevMonthName}ga nisbatan</span>`)
-    : `<span style="opacity:.6">${prevMonthName} bazasi yo'q</span>`;
-  let wrows='';
-  if(H.curators&&H.curators[k]){
-    WM.forEach((wm,i)=>{
-      const lbl=`${i+1}-hafta (${String(wm.from_day).padStart(2,'0')}–${String(wm.to_day).padStart(2,'0')}.${MM})`,wk=wm.key;
-      const d=H.curators[k][wk];
-      wrows+=`<tr class="${WEEK===wk?'cur':''}"><td>${lbl}</td><td class="num" style="color:var(--warn)">${d.frozen}</td><td class="num" style="color:var(--bad)">${d.archive}</td><td class="num" style="font-weight:700">${d.count}</td><td class="num">${(d.count/studentDelta(k).now*100).toFixed(1)}%</td></tr>`;
-    });
-    const t=C.curators[k];
-    wrows+=`<tr class="cur"><td>Oy boshidan</td><td class="num" style="color:var(--warn)">${t.frozen}</td><td class="num" style="color:var(--bad)">${t.archive}</td><td class="num" style="font-weight:700">${t.count}</td><td class="num">${t.pct.toFixed(1)}%</td></tr>`;
-  } else wrows=`<tr><td colspan="5" style="color:var(--muted)">Haftalik log hali yig'ilmagan</td></tr>`;
-  document.getElementById('dcontent').innerHTML=`
-    <button class="backbtn" onclick="hideDetail()">← Orqaga · umumiy dashboard</button>
-    <div class="dhero">
-      <div class="row">
-        <div><h1>${r.name} <span class="tm ${r.team}" style="font-size:11px;vertical-align:4px">TEAM ${r.team}</span></h1>
-        <div class="meta">Kurator · ${r.grp} guruh · ${sdText} · yangilangan ${__DATA__.snap||'—'}</div></div>
-        <div class="bigb"><b>${sd.now}</b><span>o'quvchi · bazadan</span></div>
-      </div>
-      <div class="dcards">
-        <div class="hc"><div class="l">Churn — ${MONTH_NAME}</div><div class="v red">${chuTxt}</div><div class="n">${detailChurnCount} ta · muzlatilgan ${dc?dc.frozen:0} + ketdi/arxiv ${dc?dc.archive:0}</div></div>
-        <div class="hc"><div class="l">Faollashtirilgan</div><div class="v orange">${pk.fao}</div><div class="n">${WLBL[WEEK]} · active’ga qaytgan</div></div>
-        <div class="hc metric-click" role="button" tabindex="0" onclick="openMetric('qarz','${k}')" onkeydown="if(event.key==='Enter'||event.key===' ')openMetric('qarz','${k}')"><div class="l">Qarzdorlar</div><div class="v orange">${r.qarz}</div><div class="n">${(r.qarz/r.b*100).toFixed(1)}% baza · muzlatilgan: ${r.froz} · batafsil →</div></div>
-        <div class="hc"><div class="l">Qarzdorlik rejasi — ${MONTH_NAME}</div><div class="v">${pk.qarz_plan}</div><div class="n">yangi: ${pk.yangi} · ota-ona bot: ${r.ota[1]}%</div></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Status taqsimoti</h2>
-      <div class="stack" style="margin-top:12px">${segs.map(s=>`<i style="background:${s[2]};width:${s[1]/segsum*100}%">${s[1]/segsum>0.07?s[1]:''}</i>`).join('')}</div>
-      <div class="stlegend">${segs.map(s=>`<span><i class="d" style="background:${s[2]}"></i>${s[0]} ${s[1]} (${(s[1]/segsum*100).toFixed(1)}%)</span>`).join('')}</div>
-    </div>
-    <div class="dgrid2">
-      <div class="panel"><h2>Haftalik Noaktiv dinamikasi</h2><div class="sub">Hafta oxiridagi Noaktiv qoldig‘i; qavsda oldingi haftaga nisbatan ± o‘zgarish.</div>${miniChart(k)}</div>
-      <div class="panel"><h2>Haftalik churn</h2><div class="sub">Muzlatilgan + arxiv statuslari</div>
-        <table class="wtable"><thead><tr><th>Davr</th><th class="num">Muzlatilgan</th><th class="num">Arxiv</th><th class="num">Jami churn</th><th class="num">%</th></tr></thead><tbody>${wrows}</tbody></table>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>💡 Tavsiyalar — churnni kamaytirish</h2>
-      <ul style="list-style:none;margin-top:10px">${tavsiyalar(r,k).map(t=>`<li style="font-size:13px;padding:4px 0">• ${t}</li>`).join('')}</ul>
-    </div>`;
-  document.getElementById('detail').classList.add('open');
-  document.body.style.overflow='hidden';
-  document.getElementById('detail').scrollTop=0;
-}
-function hideDetail(){
-  document.getElementById('detail').classList.remove('open');
-  document.body.style.overflow='';
-}
-
-// ---------- CLICKABLE METRICS ----------
-const METRICS={
-  qarz:{title:'Qarzdorlar',color:'#d78a1e',value:r=>r.qarz,pct:r=>r.b?r.qarz/r.b*100:0},
-  froz:{title:'Muzlatilganlar',color:'#d78a1e',value:r=>r.froz,pct:r=>r.b?r.froz/r.b*100:0},
-  noaktiv:{title:'Noaktiv o‘quvchilar',color:'#d24a35',value:r=>r.x[0],pct:r=>r.x[1]}
-};
-let METRIC_KEY='qarz', METRIC_FOCUS=null;
-function openMetric(metric='qarz',focus=null){
-  METRIC_KEY=metric; METRIC_FOCUS=focus;
-  renderMetric();
-  document.getElementById('metricModal').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-function closeMetric(){
-  document.getElementById('metricModal').classList.remove('open');
-  document.body.style.overflow=document.getElementById('detail').classList.contains('open')?'hidden':'';
-}
-function switchMetric(metric){
-  METRIC_KEY=metric;
-  renderMetric();
-}
-function renderMetric(){
-  const cfg=METRICS[METRIC_KEY];
-  const rows=Object.entries(M).map(([k,r])=>({k,r,v:cfg.value(r),pct:cfg.pct(r)}))
-    .sort((a,b)=>b.v-a.v);
-  const total=rows.reduce((s,x)=>s+x.v,0);
-  const focusName=METRIC_FOCUS&&M[METRIC_FOCUS]?M[METRIC_FOCUS].name:null;
-  document.getElementById('metricTitle').textContent=cfg.title;
-  document.getElementById('metricSub').textContent=
-    `${Object.keys(M).length} amaldagi kurator · jami ${fmt(total)} ta`+
-    (focusName?` · ${focusName} ajratildi`:'');
-  document.getElementById('metricTabs').innerHTML=Object.entries(METRICS).map(([k,m])=>
-    `<button class="metric-tab ${k===METRIC_KEY?'on':''}" onclick="switchMetric('${k}')">${m.title}</button>`
-  ).join('');
-  document.getElementById('metricBody').innerHTML=`<table class="metric-table">
-    <thead><tr><th>#</th><th>Kurator</th><th>Team</th><th class="num">Baza</th><th class="num">${cfg.title}</th><th class="num">Ulush</th></tr></thead>
-    <tbody>${rows.map((x,i)=>`<tr class="${x.k===METRIC_FOCUS?'focus':''}">
-      <td><span class="metric-rank">${i+1}</span></td><td>${x.r.name}</td><td>TEAM ${x.r.team}</td>
-      <td class="num">${fmt(x.r.b)}</td><td class="num"><span class="metric-val" style="color:${cfg.color}">${fmt(x.v)}</span></td>
-      <td class="num">${x.pct.toFixed(1)}%</td></tr>`).join('')}
-    </tbody></table>`;
-}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMetric()});
-
-// ---------- PERIOD SWITCH ----------
-
-function applyLive(){
-  var grp=Object.values(M).reduce(function(s,r){return s+(r.grp||0)},0);
-  var ncur=Object.keys(M).length;
-  var set=function(id,v){var e=document.getElementById(id); if(e)e.textContent=v;};
-  const startTotal=START_SNAP?START_SNAP.total:null, totalDelta=startTotal==null?null:TOTAL-startTotal;
-  set('hBaseV', fmt(TOTAL));
-  set('hBaseN',startTotal==null
-    ? `${ncur} kurator · ${grp} guruh · bazadan`
-    : `1-iyul ${fmt(startTotal)} → hozir ${fmt(TOTAL)} (${totalDelta>0?'+':''}${fmt(totalDelta)})`);
-  const ek=Object.keys(M).reduce((s,k)=>s+periodKpi(k).fao,0);
-  set('hFaoV',fmt(ek)); set('hFaoN',WLBL[WEEK]+" · active’ga qaytgan");
-  if(DALL.qarz!=null) set('hQarzV', DALL.qarz);
-  if(DALL.froz!=null) set('hQarzN', "muzlatilganlar: "+DALL.froz+" ta · batafsil →");
-  if(__DATA__.snap) set('snapdate', __DATA__.snap);
-  set('srcMonth',`${MONTH_NAME} ${MONTH_YEAR}, oy boshidan`);
-  const select=document.getElementById('periodSelect'), selected=select.value||'ALL';
-  select.innerHTML=`<option value="ALL">${MONTH_NAME} ${MONTH_YEAR} · oy boshidan · yangilangan ${__DATA__.snap||'—'}</option>`+
-    WM.map((w,i)=>`<option value="${w.key}">${String(w.from_day).padStart(2,'0')}.${MM}–${String(w.to_day).padStart(2,'0')}.${MM} · ${i+1}-hafta</option>`).join('');
-  select.value=selected;
-  document.getElementById('sourceNote').innerHTML=`<b>Ma’lumotlar qayerdan olinadi:</b> Aktiv/Passiv/Noaktiv, baza, joriy qarzdor, muzlatilgan va ota-ona bot — CRM Analitika API’dan. <b>Oylik churn</b> — CRM’dagi “Muzlatildi” + “Ketdi/Arxiv” kartalari; Team A/B shu qismlar bo‘yicha hisoblanadi. <b>Qarzdorlik rejasi</b> — debtors_plan.DATA’даги ${MONTH_NAME} рўйхати; <b>Yangi</b> — LMS MCP student_status_logs’да selected period’да new бўлган уникал ўқувчилар; <b>Faollashtirilgan</b> — passive/not_active’dan active’га қайтган уникал ўқувчилар. Kurator–guruh боғланиши — group_list + subscribe_list.`;
-}
-
-function renderAll(){
-  applyLive();
-  document.getElementById('showing').textContent='Ko\'rsatilmoqda: '+WLBL[WEEK];
-  hero(); activity(); drawChart(); rating(); cards();
-}
-document.getElementById('periodSelect').addEventListener('change',e=>{
-  WEEK=e.target.value;
-  renderAll();
-});
-renderAll();
+function openDetail(k){const m=metric(k);dName.textContent=m.name;dTeam.textContent=`Team ${m.team} · ${monthName}`;detail.innerHTML=`${[['O‘quvchilar',m.base],['Umumiy ball',Math.round(m.score)],['Aktivlik',pct(m.active)],['Churn',pct(m.c.pct)+' · '+m.c.count],['Muzlatildi',m.c.frozen||0],['Ketdi/Arxiv',m.c.archive||0],['Noaktiv',m.noactive],['Qarzdor',m.debt],['Yangi',m.new],['Faollashgan',m.fao],['Ota-ona bot',pct(m.bot)],['Kassa',fmt(M[k].kassa/1e6)+' mln']].map(x=>`<div class="d"><small>${x[0]}</small><b>${x[1]}</b></div>`).join('')}`;modal.classList.add('open')}
+function closeDetail(){modal.classList.remove('open')}
+period.innerHTML=`<option value="ALL">${monthName} · oy boshidan</option>`+WM.map((w,i)=>`<option value="${w.key}">${String(w.from_day).padStart(2,'0')}.${String(monthDate.getMonth()+1).padStart(2,'0')}–${String(w.to_day).padStart(2,'0')}.${String(monthDate.getMonth()+1).padStart(2,'0')} · ${i+1}-hafta</option>`).join('');snap.textContent=__DATA__.snap;cycleTitle.textContent=monthName.toUpperCase()+' // KURATOR KPI';cycleSub.textContent='Plan · Fakt · haftalik dinamika';
+period.onchange=e=>{PERIOD=e.target.value;render()};document.querySelectorAll('.team-filter button').forEach(b=>b.onclick=()=>{TEAM=b.dataset.team;render()});document.querySelectorAll('.sorts button').forEach(b=>b.onclick=()=>{SORT=b.dataset.sort;render()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});render();
 </script>
-</body>
-</html>
+</body></html>
