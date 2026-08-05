@@ -19,6 +19,7 @@ SUMMARY_TAB = "Лист12"
 PREVIEW = ("preview" in sys.argv)   # `python3 live_update.py preview` -> preview.html (jonli index.html tegilmaydi)
 IS_CI = os.environ.get("GITHUB_ACTIONS")=="true"   # GitHub Actions (bulut) rejimi: fayl yoziladi, commitni workflow qiladi
 PERIOD = next((x for x in sys.argv[1:] if re.fullmatch(r"(?:n)?(?:month|w[1-4])", x)), "month")
+DETAIL_DATA = []
 
 # Kassir -> qaysi kuratorlar bilan ishlaydi (Лист12 dan, foydalanuvchi bergan)
 CASHIERS = [
@@ -535,14 +536,14 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     <div class="ph"><span class="ptitle">ЦИКЛ {CYCLE_LABEL} <i class="sl">//</i> сбор долгов</span><span class="pday">день {CYCLE_DAY} / {CYCLE_LEN}</span></div>
     <div class="hp-main">
       <span class="hp-pct" data-cnt="{PCT}" data-suf="%">0%</span>
-      <span class="hp-nums"><b data-cnt="{TOTAL_PAID}">0</b><i>из {TOTAL_PLAN} должников оплатили</i></span>
+      <span class="hp-nums"><button class="numlink hero-num" data-list="paid" data-cnt="{TOTAL_PAID}">0</button><i>из <button class="numlink inline-num" data-list="plan">{TOTAL_PLAN}</button> должников оплатили</i></span>
     </div>
     <div class="gauge"><span class="gfill" style="--w:{PCT}%"></span><span class="gseg"></span><span class="gfin"></span></div>
     <div class="hp-stats">
       <div class="stat"><span class="st-l">Нужно собрать</span><b>{mln(TOTAL_PLANSUM)} млн</b><span class="st-s">всего за цикл</span></div>
       <div class="stat"><span class="st-l">Собрано</span><b>{mln(TOTAL_SOB)} млн</b><span class="st-s">{PCT_SUM}% · осталось {mln(TOTAL_PLANSUM-TOTAL_SOB)}м</span></div>
-      <div class="stat"><span class="st-l">Оплатили</span><b>{TOTAL_PAID}</b><span class="st-s">чел. из {TOTAL_PLAN}</span></div>
-      <div class="stat"><span class="st-l">Ещё должны</span><b>{TOTAL_DEBT}</b><span class="st-s">{TOTAL_PLAN} − {TOTAL_PAID}</span></div>
+      <div class="stat"><span class="st-l">Оплатили</span><button class="numlink stat-num" data-list="paid">{TOTAL_PAID}</button><span class="st-s">чел. из {TOTAL_PLAN}</span></div>
+      <div class="stat"><span class="st-l">Ещё должны</span><button class="numlink stat-num" data-list="debt">{TOTAL_DEBT}</button><span class="st-s">{TOTAL_PLAN} − {TOTAL_PAID}</span></div>
     </div>
   </div>
   <div class="panel week"><div class="ph"><span class="ptitle">Статусы <i class="sl">//</i> все кураторы</span><span class="wnow">оплатили <b>{TOTAL_PAID}</b> · должны <b>{TOTAL_DEBT}</b></span></div>
@@ -582,7 +583,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     <span class="pos {posc}"><i>{r['pos']}</i></span>
     <span class="lnm">{badge}{esc(r['short'])}</span>
     <span class="track"><span class="fill {fill}" style="--w:{min(100,r['pct'])}%"></span>{marker}<span class="tfin"></span></span>
-    <span class="fact"><b>{r['paid']}</b><i>/{r['plan']} · {mln(r['sob'])}м</i></span>
+    <span class="fact"><button class="numlink row-num" data-list="paid" data-curator="{esc(r['short'])}">{r['paid']}</button><i>/<button class="numlink inline-num" data-list="plan" data-curator="{esc(r['short'])}">{r['plan']}</button> · {mln(r['sob'])}м</i></span>
     <span class="gap {gap}">{r['pct']}%</span><span class="wk">{chip}</span></div>"""
     boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · отрыв = факт − график</span></div>
   <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Отрыв</span></div>
@@ -595,6 +596,9 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
 
     pstate=json.dumps({"v":"sheet1","period":PERIOD,"upd":UPD,"paid":TOTAL_PAID,"debt":TOTAL_DEBT,"sob":TOTAL_SOB,"pct":PCT},ensure_ascii=False)
     JS=open_js(SRV_MS)
+    details_json=json.dumps(DETAIL_DATA,ensure_ascii=False,separators=(",",":")).replace("<","\\u003c")
+    detail_modal=f'''<script id="detail-data" type="application/json">{details_json}</script>
+<div class="dmodal" id="dmodal" hidden><div class="dback" data-close-detail></div><section class="dbox" role="dialog" aria-modal="true" aria-labelledby="dtitle"><div class="dhead"><div><b id="dtitle">O‘quvchilar</b><span id="dsub"></span></div><button class="dclose" data-close-detail aria-label="Yopish">×</button></div><div class="dtools"><input id="dsearch" type="search" placeholder="Ism bo‘yicha qidirish" aria-label="O‘quvchini qidirish"><b id="dcount"></b></div><div class="dlist" id="dlist"></div></section></div>'''
 
     # --- ko'p sahifali: har sahifa o'z nav-tab bilan ---
     suffix="" if PERIOD=="month" else f"-{PERIOD}"
@@ -623,6 +627,8 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
 <style>.tbadge{{display:inline-flex;align-items:center;justify-content:center;width:1.15em;height:1.15em;border-radius:5px;font:800 .62em/1 Barlow,sans-serif;margin-right:.5em;vertical-align:middle;color:#12131a}}.tbadge.tA{{background:#ffd21e}}.tbadge.tB{{background:#b9c2d0}}
 .sbwrap{{padding:14px 26px 22px;display:flex;flex-direction:column;gap:12px}}.sbrow{{display:flex;align-items:center;gap:12px}}.sbl{{width:120px;font:800 .82em/1 Manrope;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}}.sbtrack{{flex:1;height:22px;background:var(--trackbg);border-radius:6px;overflow:hidden;display:block}}.sbfill{{display:block;height:100%;min-width:3px;border-radius:6px}}.sbn{{width:54px;text-align:right;font:800 1.1em/1 'Barlow Condensed';color:var(--txt)}}
 .period-picker{{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);font:700 12px Manrope;color:var(--mut)}}.period-picker select{{max-width:260px;border:0;background:transparent;color:var(--txt);font:700 13px Manrope;outline:none;cursor:pointer}}@media(max-width:900px){{.period-picker{{order:4;width:100%}}.period-picker select{{flex:1;max-width:none}}}}</style>
+<style>.numlink{{border:0;padding:0;background:none;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px}}.numlink:hover{{color:var(--volt)}}.hero-num{{font:inherit;font-weight:800}}.stat-num{{font:800 1.55em/1 'Barlow Condensed';text-align:left}}.inline-num{{display:inline}}.row-num{{font-weight:800}}
+.dmodal{{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:18px}}.dmodal[hidden]{{display:none}}.dback{{position:absolute;inset:0;background:rgba(10,14,22,.62);backdrop-filter:blur(3px)}}.dbox{{position:relative;width:min(760px,100%);max-height:min(82vh,820px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.32);overflow:hidden}}.dhead{{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;border-bottom:1px solid var(--line)}}.dhead b{{font:800 22px 'Barlow Condensed'}}.dhead span{{display:block;color:var(--mut);font-size:12px}}.dclose{{border:0;background:var(--panel2);color:var(--txt);width:36px;height:36px;border-radius:50%;font-size:24px;cursor:pointer}}.dtools{{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel2)}}.dtools input{{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:var(--panel);color:var(--txt);font:600 13px Manrope}}.dtools b{{white-space:nowrap}}.dlist{{overflow:auto;padding:8px 14px 18px}}.drow{{display:grid;grid-template-columns:1fr auto;gap:5px 14px;padding:11px 6px;border-bottom:1px solid var(--line)}}.dnm{{font-weight:800}}.dmeta{{font-size:12px;color:var(--mut)}}.dst{{align-self:center;padding:4px 9px;border-radius:20px;font:800 11px Manrope}}.dst.paid{{background:rgba(61,255,162,.16);color:var(--greentx)}}.dst.debt{{background:rgba(255,79,40,.14);color:var(--redtx)}}.damt{{font:700 12px Manrope;color:var(--mut);text-align:right}}.dempty{{padding:35px;text-align:center;color:var(--mut)}}@media(max-width:600px){{.dmodal{{padding:0;align-items:end}}.dbox{{max-height:90vh;border-radius:18px 18px 0 0}}}}</style>
 </head><body>
 <script>try{{var _t=localStorage.getItem('jTheme')||'light';if(_t!=='dark')document.body.classList.add('light');}}catch(e){{document.body.classList.add('light');}}</script>
 <script id="pstate" type="application/json">{pstate}</script>
@@ -632,6 +638,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
 <button class="tbtn" id="tbtn" title="Тема">☀️</button>
 <span class="clkwrap"><span class="clk" id="clk">--:--</span><span class="cdate" id="cdate"></span></span></header>
 {body}
+{detail_modal}
 {JS}
 </body></html>"""
     FILES={
@@ -695,7 +702,7 @@ def cashier_section(rows):
     <span class="pos {posc}"><i>{d['pos']}</i></span>
     <span class="lnm">{badge}{esc(d['name'])} <i style="color:var(--mut);font-weight:600;font-size:.78em">· {esc(sub)}</i></span>
     <span class="track"><span class="fill {fill}" style="--w:{min(100,d['pct'])}%"></span>{marker}<span class="tfin"></span></span>
-    <span class="fact"><b>{d['paid']}</b><i>/{d['plan']} · {mln(d['sob'])}м</i></span>
+    <span class="fact"><button class="numlink row-num" data-list="paid" data-curators="{'|'.join(d['curs'])}">{d['paid']}</button><i>/<button class="numlink inline-num" data-list="plan" data-curators="{'|'.join(d['curs'])}">{d['plan']}</button> · {mln(d['sob'])}м</i></span>
     <span class="gap {gap}">{d['pct']}%</span><span class="wk">{chip}</span></div>"""
     return f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Кассиры <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · отрыв = факт − график</span></div>
   <div class="lhead"><span>Поз</span><span>Кассир · кураторы</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Отрыв</span></div>
@@ -733,6 +740,13 @@ def open_js(srv_ms):
  var lastOk=Date.now();
  function checkUpdate(){fetch(location.pathname+'?ts='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(html){lastOk=Date.now();var doc=new DOMParser().parseFromString(html,'text/html');var ne=doc.getElementById('pstate');if(!ne)return;var S;try{S=JSON.parse(ne.textContent);}catch(x){return;}var C=stateNow();if(!C)return;if(JSON.stringify(S)!==JSON.stringify(C))location.reload();}).catch(function(x){if(Date.now()-lastOk>3*3600*1000)location.reload();});}
  setInterval(checkUpdate,Math.max(60,+(QS.get('refresh')||240))*1000);
+ var dm=document.getElementById('dmodal'),dl=document.getElementById('dlist'),ds=document.getElementById('dsearch'),dc=document.getElementById('dcount'),dsub=document.getElementById('dsub'),current=[];
+ var raw=document.getElementById('detail-data'),DETAIL=[];try{DETAIL=JSON.parse(raw&&raw.textContent||'[]');}catch(e){}
+ function money(v){return Number(v||0).toLocaleString('ru-RU')+' сум';}
+ function draw(){var term=(ds&&ds.value||'').trim().toLowerCase(),arr=current.filter(function(x){return !term||String(x.name||'').toLowerCase().indexOf(term)>=0;});if(dc)dc.textContent=arr.length+' ta';if(!dl)return;dl.innerHTML=arr.length?arr.map(function(x){var paid=x.status==='To\'lagan';return '<div class="drow"><div><div class="dnm">'+escH(x.name)+'</div><div class="dmeta">'+escH(x.curator||'Biriktirilmagan')+'</div></div><span class="dst '+(paid?'paid':'debt')+'">'+escH(x.status)+'</span><div class="dmeta">'+escH(x.period||'')+'</div><div class="damt">'+money(paid?x.paid:x.debt)+'</div></div>';}).join(''):'<div class="dempty">Ma’lumot topilmadi</div>';}
+ function escH(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
+ function openDetail(btn){var kind=btn.getAttribute('data-list')||'plan',cur=btn.getAttribute('data-curator')||'',curs=(btn.getAttribute('data-curators')||'').split('|').filter(Boolean);current=DETAIL.filter(function(x){return (!cur||x.curator===cur)&&(!curs.length||curs.indexOf(x.curator)>=0)&&(kind==='plan'||(kind==='paid'&&x.status==='To\'lagan')||(kind==='debt'&&x.status!=='To\'lagan'));});if(dsub)dsub.textContent=(cur?cur+' · ':'')+(kind==='paid'?'To‘lagan':kind==='debt'?'Qarzdor':'PLAN tarkibi');if(ds)ds.value='';draw();if(dm){dm.hidden=false;document.body.style.overflow='hidden';if(ds)ds.focus();}}
+ document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-list]');if(b){openDetail(b);return;}if(e.target.closest&&e.target.closest('[data-close-detail]')){dm.hidden=true;document.body.style.overflow='';}});if(ds)ds.addEventListener('input',draw);document.addEventListener('keydown',function(e){if(e.key==='Escape'&&dm&&!dm.hidden){dm.hidden=true;document.body.style.overflow='';}});
 }());
 </script>""".replace("__SRVMS__", str(srv_ms)))
 
