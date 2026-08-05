@@ -6,6 +6,7 @@ import live_update as ui
 
 GATEWAY=os.environ.get("JUNIOR_MCP_GATEWAY","https://myclinic.agc.uz/new_junior_mcp.php")
 ORG=6
+TEST_ADMIN_IDS={21453}  # MK super teacher — test akkaunt
 CYCLE_START=datetime.date(2026,7,26)
 CYCLE_END=datetime.date(2026,8,24)
 PERIOD=next((x for x in sys.argv[1:] if x in ("month","w1","w2","w3","w4")),"month")
@@ -94,9 +95,10 @@ def curator_catalog(target_ids,meta):
     for sid in target_ids:
         m=meta.get(sid) or {}
         aid=int(m.get("aid") or 0)
+        if aid in TEST_ADMIN_IDS: aid=0
         if aid in cat: continue
         if not m or not aid:
-            cat[0]=("B","Biriktirilmagan","Biriktirilmagan")
+            cat[0]=("U","Biriktirilmagan","Biriktirilmagan")
             continue
         name=(str(m.get("admin_name") or "").strip()+" "+str(m.get("admin_surname") or "").strip()).strip()
         short=(str(m.get("admin_name") or "Admin").strip().split() or ["Admin"])[0]
@@ -108,7 +110,8 @@ def cashier_catalog(target_ids,meta,catalog):
     links={}; names={}
     for sid in target_ids:
         m=meta.get(sid) or {}; cid=int(m.get("cid") or 0); aid=int(m.get("aid") or 0)
-        if not cid or aid not in catalog: continue
+        if aid in TEST_ADMIN_IDS: aid=0
+        if not cid or not aid or aid not in catalog: continue
         links.setdefault(cid,set()).add(aid)
         nm=(str(m.get("cashier_name") or "").strip()+" "+str(m.get("cashier_surname") or "").strip()).strip()
         names[cid]=nm or ("Kassir %s"%cid)
@@ -126,6 +129,7 @@ def aggregate(target_ids,meta,pays,p_start,p_end,catalog):
     for sid in target_ids:
         m=meta.get(sid) or {}
         aid=int(m.get("aid") or 0)
+        if aid in TEST_ADMIN_IDS: aid=0
         if aid not in by: aid=0
         if aid not in by: continue
         dd=due_date(m.get("pay_day"))
@@ -146,13 +150,14 @@ def aggregate(target_ids,meta,pays,p_start,p_end,catalog):
         a=by[aid]; plan=a["plan"]; paid=a["paid"]
         rows.append(dict(team=team,short=short,full=full,paid=paid,tol=a["tol"],bit=0,sar=0,
             muz=a["muz"],arx=a["arx"],plan=plan,plansum=a["plansum"],debt=max(0,plan-paid),
-            sob=a["sob"],pct=round(paid/plan*100) if plan else 0,due=a["due"]))
+            sob=a["sob"],pct=round(paid/plan*100) if plan else 0,due=a["due"],hidden=(aid==0)))
     return rows
 
 def detail_data(target_ids,meta,pays,p_start,p_end,catalog):
     out=[]
     for sid in target_ids:
         m=meta.get(sid) or {}; aid=int(m.get("aid") or 0)
+        if aid in TEST_ADMIN_IDS: aid=0
         dd=due_date(m.get("pay_day"))
         if PERIOD!="month" and not (p_start<=dd<=p_end): continue
         curator=catalog.get(aid,catalog.get(0,("B","Biriktirilmagan","")))[1]
