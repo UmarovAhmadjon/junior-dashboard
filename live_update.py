@@ -523,7 +523,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     # Bugungi grafik alohida oq marker va "otryv" ustunida qoladi.
     for x in rows:
         x['pace_pct'] = round(x['paid']/x['due']*100) if x.get('due',0)>0 else (100 if x['paid']>=0 else 0)
-    ALL=sorted(rows,key=lambda x:(-x['pct'],-x['paid']))
+    ALL=sorted([x for x in rows if not x.get('hidden')],key=lambda x:(-x['pct'],-x['paid']))
     for i,x in enumerate(ALL,1): x['pos']=i
     def team_tot(t):
         rr=[x for x in rows if x['team']==t]
