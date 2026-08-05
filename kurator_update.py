@@ -16,10 +16,8 @@ MONTH = os.environ.get('KURATOR_MONTH', TASHKENT_NOW.strftime('%Y-%m-01'))
 CUR = {
  'Fot':('Fotimabonu Abdulkhakova','A','13799',5), 'Mad':('Madina Normatova','A','16005',5),
  'Dil':('Dilafruz Shokirova','A','14241',6), 'Jas':('Jasmina Tolibova','A','14974',4),
- 'Nai':('Naima Ikramova','A','16876',4), 'Shx':('Shaxlo Ziyodova','A','21463',3),
+ 'Shx':('Shaxlo Ziyodova','A','21463',3),
  'Mar':('Marjona Pardayeva','B','14451',5), 'Xal':('Xalima Ismoiljonova','B','16386',6),
- 'Azi':('Aziza Qurvonaliyeva','B','17542',5), 'Sab':('Sabrina Salimova','B','18307',6),
- 'Mun':('Munisa Sobirjonova','B','18784',7),
 }
 JULY_BASELINE = {
     'date':'2026-07-01', 'total':2127,
@@ -29,8 +27,8 @@ JULY_BASELINE = {
     },
     'note':'Foydalanuvchi bergan 01.07.2026 ro‘yxati; eski Munisa → Naima, Maryam → Munisa. New kurator olib tashlangan.'
 }
-TEAM_A_IDS = '13799,14241,14974,16005,16876,21463'
-TEAM_B_IDS = '14451,16386,17542,18307,18784'
+TEAM_A_IDS = '13799,14241,14974,16005,21463'
+TEAM_B_IDS = '14451,16386'
 
 CI = bool(os.environ.get('GITHUB_ACTIONS'))
 BASE = pathlib.Path('.') if CI else HOME  # CIda repo checkout, lokalda ~/junior-dashboard
@@ -108,8 +106,10 @@ def mcp(sql):
             r = json.load(urllib.request.urlopen(req, timeout=90))
             txt = r['result']['content'][0]['text']
             rows = json.loads(txt).get('data',{}).get('data',[])
-            if rows:
+            if isinstance(rows, list) and rows:
                 return rows
+            if rows == 'empty' or rows == []:
+                return []
             raise RuntimeError('MCP bo‘sh javob qaytardi')
         except Exception as e:
             print(f'MCP urinish {attempt+1}/4 xato:', e)
@@ -158,7 +158,7 @@ def weekly_noaktiv_net(admin_ids_list, weeks):
     return out
 
 def period_kpis(admin_ids_list, weeks):
-    """Oy/hafta bo'yicha yangi va qayta faollashtirilgan unik o'quvchilar."""
+    """Oy/hafta bo'yicha to'liq to'lovdan so'ng aktivlashgan yangi va qayta faollashganlar."""
     ids = ','.join(admin_ids_list)
     when = " ".join([f"WHEN l.changed_at<'{w['end_exclusive']}' THEN '{w['key']}'" for w in weeks[:-1]])
     last = weeks[-1]['key']
@@ -170,7 +170,7 @@ def period_kpis(admin_ids_list, weeks):
         f"WHERE l.changed_at>='{weeks[0]['start']}' AND l.changed_at<'{weeks[-1]['end_exclusive']}' "
     )
     counts = (
-        f"COUNT(DISTINCT CASE WHEN l.to_status='new' THEN l.student_id END) yangi, "
+        f"0 yangi, "
         f"COUNT(DISTINCT CASE WHEN l.from_status IN ('passive','not_active') "
         f"AND l.to_status='active' THEN l.student_id END) faollashgan "
     )
@@ -184,6 +184,33 @@ def period_kpis(admin_ids_list, weeks):
             'yangi': int(r['yangi'] or 0),
             'fao': int(r['faollashgan'] or 0),
         }
+
+    # Yangi: o'quvchining birinchi oylik obunasi tanlangan davrda boshlangan,
+    # hozir aktiv guruhga biriktirilgan va new_student to'lovlari tarif narxini
+    # to'liq qoplagan bo'lishi kerak. Sinov/demo obunalari bu hisobga kirmaydi.
+    wk_case = " ".join([f"WHEN f.activated_at<'{w['end_exclusive']}' THEN '{w['key']}'" for w in weeks[:-1]])
+    paid_new_base = (
+        f"FROM (SELECT s.STUDENT_ID,MIN(g.ADMIN_ID) admin FROM subscribe_list s "
+        f"JOIN group_list g ON g.ID=s.GROUP_ID WHERE g.ADMIN_ID IN ({ids}) "
+        f"AND g.STATUS='active' AND LOWER(g.NAME) NOT LIKE '%test%' "
+        f"AND s.ACTIVE=1 AND s.STATUS='active' AND s.TYPE='monthly' GROUP BY s.STUDENT_ID) t "
+        f"JOIN (SELECT STUDENT_ID,MIN(START_DATE) activated_at,"
+        f"MIN(CASE WHEN SPECIAL_PRICE>0 THEN SPECIAL_PRICE END) required_amount "
+        f"FROM subscribe_list WHERE TYPE='monthly' GROUP BY STUDENT_ID) f ON f.STUDENT_ID=t.STUDENT_ID "
+        f"JOIN (SELECT STUDENT_ID,MIN(TRANSACTION_DATE) first_paid_at,SUM(AMOUNT) paid_amount FROM transaction_list "
+        f"WHERE ACTION_TYPE='add' AND STUDENT_TYPE='new_student' GROUP BY STUDENT_ID) p ON p.STUDENT_ID=t.STUDENT_ID "
+        f"WHERE f.activated_at>='{weeks[0]['start']}' AND f.activated_at<'{weeks[-1]['end_exclusive']}' "
+        f"AND p.first_paid_at>='{weeks[0]['start']}' AND p.first_paid_at<'{weeks[-1]['end_exclusive']}' "
+        f"AND p.paid_amount>=COALESCE(f.required_amount,0) "
+    )
+    paid_sql = (
+        f"SELECT t.admin,CASE {wk_case} ELSE '{last}' END wk,COUNT(DISTINCT t.STUDENT_ID) yangi "
+        f"{paid_new_base} GROUP BY t.admin,wk UNION ALL "
+        f"SELECT t.admin,'ALL' wk,COUNT(DISTINCT t.STUDENT_ID) yangi {paid_new_base} GROUP BY t.admin"
+    )
+    for r in mcp(paid_sql):
+        slot = out.setdefault(str(r['admin']), {}).setdefault(r['wk'], {'yangi':0,'fao':0})
+        slot['yangi'] = int(r['yangi'] or 0)
     return out
 
 def monthly_debtor_plan(admin_ids_list, month):
