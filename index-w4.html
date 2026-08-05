@@ -189,92 +189,97 @@ tr.tot td{border-top:2px solid var(--line);color:var(--txt);background:var(--pan
 .period-picker{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);font:700 12px Manrope;color:var(--mut)}.period-picker select{max-width:260px;border:0;background:transparent;color:var(--txt);font:700 13px Manrope;outline:none;cursor:pointer}@media(max-width:900px){.period-picker{order:4;width:100%}.period-picker select{flex:1;max-width:none}}</style>
 </head><body>
 <script>try{var _t=localStorage.getItem('jTheme')||'light';if(_t!=='dark')document.body.classList.add('light');}catch(e){document.body.classList.add('light');}</script>
-<script id="pstate" type="application/json">{"v": "sheet1", "period": "w4", "upd": "05.08 11:37", "paid": 247, "debt": 99, "sob": 83366000, "pct": 71}</script>
-<header><div class="brand"><span class="b-volt">⚡ Долги</span><span class="b-dark">Кураторы</span><span class="upd">обновлено 05.08 11:37 · ⟳ live</span></div>
+<script id="pstate" type="application/json">{"v": "sheet1", "period": "w4", "upd": "05.08 13:53", "paid": 0, "debt": 496, "sob": 0, "pct": 0}</script>
+<header><div class="brand"><span class="b-volt">⚡ Долги</span><span class="b-dark">Кураторы</span><span class="upd">обновлено 05.08 13:53 · ⟳ live</span></div>
 <nav class="rnav"><a href="index-w4.html" class="on">Кураторы</a><a href="weeks-w4.html" class="">Недели</a><a href="cashiers-w4.html" class="">Кассиры</a></nav>
-<label class="period-picker"><span>📅 Период</span><select aria-label="Выберите период" onchange="location.href=this.value"><option value="index.html">26.06–25.07 · весь цикл</option><option value="index-w1.html">26.06–04.07 · неделя 1</option><option value="index-w2.html">05.07–11.07 · неделя 2</option><option value="index-w3.html">12.07–18.07 · неделя 3</option><option value="index-w4.html" selected>19.07–25.07 · неделя 4</option><option value="index-nmonth.html">26.07–25.08 · новый цикл</option><option value="index-nw1.html">26.07–02.08 · неделя 1 нового цикла</option><option value="index-nw2.html">03.08–09.08 · неделя 2 нового цикла</option><option value="index-nw3.html">10.08–16.08 · неделя 3 нового цикла</option><option value="index-nw4.html">17.08–25.08 · неделя 4 нового цикла</option></select></label>
+<label class="period-picker"><span>📅 Период</span><select aria-label="Выберите период" onchange="location.href=this.value"><option value="index.html">26.07–24.08 · весь цикл</option><option value="index-w1.html">26.07–02.08 · неделя 1</option><option value="index-w2.html">03.08–09.08 · неделя 2</option><option value="index-w3.html">10.08–16.08 · неделя 3</option><option value="index-w4.html" selected>17.08–24.08 · неделя 4</option></select></label>
 <button class="tbtn" id="tbtn" title="Тема">☀️</button>
 <span class="clkwrap"><span class="clk" id="clk">--:--</span><span class="cdate" id="cdate"></span></span></header>
 
 <div class="hero"><div class="panel heropanel iscur">
-    <div class="ph"><span class="ptitle">ЦИКЛ 19.07 – 25.07 <i class="sl">//</i> сбор долгов</span><span class="pday">день 7 / 7</span></div>
+    <div class="ph"><span class="ptitle">ЦИКЛ 17.08 – 24.08 <i class="sl">//</i> сбор долгов</span><span class="pday">день 1 / 8</span></div>
     <div class="hp-main">
-      <span class="hp-pct" data-cnt="71" data-suf="%">0%</span>
-      <span class="hp-nums"><b data-cnt="247">0</b><i>из 346 должников оплатили</i></span>
+      <span class="hp-pct" data-cnt="0" data-suf="%">0%</span>
+      <span class="hp-nums"><b data-cnt="0">0</b><i>из 496 должников оплатили</i></span>
     </div>
-    <div class="gauge"><span class="gfill" style="--w:71%"></span><span class="gseg"></span><span class="gfin"></span></div>
+    <div class="gauge"><span class="gfill" style="--w:0%"></span><span class="gseg"></span><span class="gfin"></span></div>
     <div class="hp-stats">
-      <div class="stat"><span class="st-l">Нужно собрать</span><b>134.1 млн</b><span class="st-s">всего за цикл</span></div>
-      <div class="stat"><span class="st-l">Собрано</span><b>83.4 млн</b><span class="st-s">62% · осталось 50.8м</span></div>
-      <div class="stat"><span class="st-l">Оплатили</span><b>247</b><span class="st-s">чел. из 346</span></div>
-      <div class="stat"><span class="st-l">Ещё должны</span><b>99</b><span class="st-s">346 − 247</span></div>
+      <div class="stat"><span class="st-l">Нужно собрать</span><b>19.8 млн</b><span class="st-s">всего за цикл</span></div>
+      <div class="stat"><span class="st-l">Собрано</span><b>0 млн</b><span class="st-s">0% · осталось 19.8м</span></div>
+      <div class="stat"><span class="st-l">Оплатили</span><b>0</b><span class="st-s">чел. из 496</span></div>
+      <div class="stat"><span class="st-l">Ещё должны</span><b>496</b><span class="st-s">496 − 0</span></div>
     </div>
   </div>
-  <div class="panel week"><div class="ph"><span class="ptitle">Статусы <i class="sl">//</i> все кураторы</span><span class="wnow">оплатили <b>247</b> · должны <b>99</b></span></div>
-  <div class="sbwrap"><div class="sbrow"><span class="sbl">To'lagan</span><span class="sbtrack"><span class="sbfill" style="width:62%;background:#3dffa2"></span></span><span class="sbn">215</span></div><div class="sbrow"><span class="sbl">Bitirdi</span><span class="sbtrack"><span class="sbfill" style="width:7%;background:#39b0ff"></span></span><span class="sbn">25</span></div><div class="sbrow"><span class="sbl">Sarafan</span><span class="sbtrack"><span class="sbfill" style="width:2%;background:#b26bff"></span></span><span class="sbn">7</span></div><div class="sbrow"><span class="sbl">Muzlagan</span><span class="sbtrack"><span class="sbfill" style="width:8%;background:#ffb020"></span></span><span class="sbn">26</span></div><div class="sbrow"><span class="sbl">Arxiv</span><span class="sbtrack"><span class="sbfill" style="width:15%;background:#8a94a6"></span></span><span class="sbn">52</span></div><div class="sbrow"><span class="sbl">Ещё должны</span><span class="sbtrack"><span class="sbfill" style="width:29%;background:#ff4f28"></span></span><span class="sbn">99</span></div></div>
+  <div class="panel week"><div class="ph"><span class="ptitle">Статусы <i class="sl">//</i> все кураторы</span><span class="wnow">оплатили <b>0</b> · должны <b>496</b></span></div>
+  <div class="sbwrap"><div class="sbrow"><span class="sbl">To'lagan</span><span class="sbtrack"><span class="sbfill" style="width:0%;background:#3dffa2"></span></span><span class="sbn">0</span></div><div class="sbrow"><span class="sbl">Bitirdi</span><span class="sbtrack"><span class="sbfill" style="width:0%;background:#39b0ff"></span></span><span class="sbn">0</span></div><div class="sbrow"><span class="sbl">Sarafan</span><span class="sbtrack"><span class="sbfill" style="width:0%;background:#b26bff"></span></span><span class="sbn">0</span></div><div class="sbrow"><span class="sbl">Muzlagan</span><span class="sbtrack"><span class="sbfill" style="width:10%;background:#ffb020"></span></span><span class="sbn">52</span></div><div class="sbrow"><span class="sbl">Arxiv</span><span class="sbtrack"><span class="sbfill" style="width:0%;background:#8a94a6"></span></span><span class="sbn">0</span></div><div class="sbrow"><span class="sbl">Ещё должны</span><span class="sbtrack"><span class="sbfill" style="width:100%;background:#ff4f28"></span></span><span class="sbn">496</span></div></div>
   </div></div>
 
 
-<div class="champs" style="grid-template-columns:1fr 1fr"><div class="cplate gold"><div class="cp-l"><div class="cp-lab">🏆 TEAM A</div><div class="cp-nm">129 / 169 оплатили · 42.6 млн</div></div><div class="cp-n"><b>76</b><span>% оплат</span></div></div><div class="cplate silver"><div class="cp-l"><div class="cp-lab">TEAM B</div><div class="cp-nm">118 / 177 оплатили · 40.7 млн</div></div><div class="cp-n"><b>67</b><span>% оплат</span></div></div></div>
-<div class="ticker"><span class="tk-lab">Live //</span><div class="tk-view"><div class="tk-inner"><span class="tk-i">🎯 Оплатили 247 из 346 должников (71%)</span><i class="tk-sep">//</i><span class="tk-i">Har bir to'lov — yopilgan qarz!</span><i class="tk-sep">//</i><span class="tk-i">🔥 Лучший: Jasmina — 18/19 (95%)</span><i class="tk-sep">//</i><span class="tk-i">🏆 Впереди TEAM A</span><i class="tk-sep">//</i><span class="tk-i">👥 Ещё должны: 99</span><i class="tk-sep">//</i><span class="tk-i">📦 Собрано 83.4 млн из 0.13 млрд</span><i class="tk-sep">//</i></div><div class="tk-inner" aria-hidden="true"><span class="tk-i">🎯 Оплатили 247 из 346 должников (71%)</span><i class="tk-sep">//</i><span class="tk-i">Har bir to'lov — yopilgan qarz!</span><i class="tk-sep">//</i><span class="tk-i">🔥 Лучший: Jasmina — 18/19 (95%)</span><i class="tk-sep">//</i><span class="tk-i">🏆 Впереди TEAM A</span><i class="tk-sep">//</i><span class="tk-i">👥 Ещё должны: 99</span><i class="tk-sep">//</i><span class="tk-i">📦 Собрано 83.4 млн из 0.13 млрд</span><i class="tk-sep">//</i></div></div></div>
+<div class="champs" style="grid-template-columns:1fr 1fr"><div class="cplate gold"><div class="cp-l"><div class="cp-lab">🏆 TEAM A</div><div class="cp-nm">0 / 369 оплатили · 0 млн</div></div><div class="cp-n"><b>0</b><span>% оплат</span></div></div><div class="cplate silver"><div class="cp-l"><div class="cp-lab">TEAM B</div><div class="cp-nm">0 / 127 оплатили · 0 млн</div></div><div class="cp-n"><b>0</b><span>% оплат</span></div></div></div>
+<div class="ticker"><span class="tk-lab">Live //</span><div class="tk-view"><div class="tk-inner"><span class="tk-i">🎯 Оплатили 0 из 496 должников (0%)</span><i class="tk-sep">//</i><span class="tk-i">Har bir to'lov — yopilgan qarz!</span><i class="tk-sep">//</i><span class="tk-i">🔥 Лучший: Shaxlo — 0/83 (0%)</span><i class="tk-sep">//</i><span class="tk-i">🏆 Впереди TEAM A</span><i class="tk-sep">//</i><span class="tk-i">👥 Ещё должны: 496</span><i class="tk-sep">//</i><span class="tk-i">📦 Собрано 0 млн из 0.02 млрд</span><i class="tk-sep">//</i></div><div class="tk-inner" aria-hidden="true"><span class="tk-i">🎯 Оплатили 0 из 496 должников (0%)</span><i class="tk-sep">//</i><span class="tk-i">Har bir to'lov — yopilgan qarz!</span><i class="tk-sep">//</i><span class="tk-i">🔥 Лучший: Shaxlo — 0/83 (0%)</span><i class="tk-sep">//</i><span class="tk-i">🏆 Впереди TEAM A</span><i class="tk-sep">//</i><span class="tk-i">👥 Ещё должны: 496</span><i class="tk-sep">//</i><span class="tk-i">📦 Собрано 0 млн из 0.02 млрд</span><i class="tk-sep">//</i></div></div></div>
 <div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · отрыв = факт − график</span></div>
   <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Отрыв</span></div>
   <div class="lrow tp1">
     <span class="pos p1"><i>1</i></span>
-    <span class="lnm"><span class="tbadge tA">A</span>Jasmina</span>
-    <span class="track"><span class="fill okf" style="--w:95%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>18</b><i>/19 · 4м</i></span>
-    <span class="gap okg">95%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−1</span></span></div><div class="lrow tp2">
+    <span class="lnm"><span class="tbadge tA">A</span>Shaxlo</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/83 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow tp2">
     <span class="pos p2"><i>2</i></span>
-    <span class="lnm"><span class="tbadge tB">B</span>Halima</span>
-    <span class="track"><span class="fill okf" style="--w:85%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>40</b><i>/47 · 14.1м</i></span>
-    <span class="gap okg">85%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−7</span></span></div><div class="lrow tp3">
+    <span class="lnm"><span class="tbadge tB">B</span>Xalima</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/57 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow tp3">
     <span class="pos p3"><i>3</i></span>
-    <span class="lnm"><span class="tbadge tA">A</span>Fotima</span>
-    <span class="track"><span class="fill okf" style="--w:83%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>24</b><i>/29 · 7.9м</i></span>
-    <span class="gap okg">83%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−5</span></span></div><div class="lrow ">
+    <span class="lnm"><span class="tbadge tA">A</span>Fotimabonu</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/76 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
     <span class="pos "><i>4</i></span>
-    <span class="lnm"><span class="tbadge tA">A</span>Madina</span>
-    <span class="track"><span class="fill okf" style="--w:81%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>39</b><i>/48 · 13.1м</i></span>
-    <span class="gap okg">81%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−9</span></span></div><div class="lrow ">
-    <span class="pos "><i>5</i></span>
     <span class="lnm"><span class="tbadge tA">A</span>Dilafruz</span>
-    <span class="track"><span class="fill okf" style="--w:73%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>35</b><i>/48 · 13м</i></span>
-    <span class="gap badg">73%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−13</span></span></div><div class="lrow ">
-    <span class="pos "><i>6</i></span>
-    <span class="lnm"><span class="tbadge tB">B</span>Sabrina</span>
-    <span class="track"><span class="fill okf" style="--w:62%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>25</b><i>/40 · 9.3м</i></span>
-    <span class="gap badg">62%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−15</span></span></div><div class="lrow ">
-    <span class="pos "><i>7</i></span>
-    <span class="lnm"><span class="tbadge tB">B</span>Aziza</span>
-    <span class="track"><span class="fill okf" style="--w:62%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>13</b><i>/21 · 4.9м</i></span>
-    <span class="gap badg">62%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−8</span></span></div><div class="lrow ">
-    <span class="pos "><i>8</i></span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/71 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
+    <span class="pos "><i>5</i></span>
     <span class="lnm"><span class="tbadge tB">B</span>Marjona</span>
-    <span class="track"><span class="fill okf" style="--w:61%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>22</b><i>/36 · 6.5м</i></span>
-    <span class="gap badg">61%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−14</span></span></div><div class="lrow ">
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/69 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
+    <span class="pos "><i>6</i></span>
+    <span class="lnm"><span class="tbadge tA">A</span>Madina</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/73 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
+    <span class="pos "><i>7</i></span>
+    <span class="lnm"><span class="tbadge tB">B</span>Biriktirilmagan</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/0 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
+    <span class="pos "><i>8</i></span>
+    <span class="lnm"><span class="tbadge tA">A</span>Jasmina</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/66 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
     <span class="pos "><i>9</i></span>
-    <span class="lnm"><span class="tbadge tB">B</span>Maryam</span>
-    <span class="track"><span class="fill okf" style="--w:55%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>18</b><i>/33 · 5.9м</i></span>
-    <span class="gap badg">55%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−15</span></span></div><div class="lrow ">
+    <span class="lnm"><span class="tbadge tB">B</span>MK</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/1 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
     <span class="pos "><i>10</i></span>
-    <span class="lnm"><span class="tbadge tA">A</span>Munisa</span>
-    <span class="track"><span class="fill okf" style="--w:52%"></span><span style="position:absolute;left:100%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span><span class="tfin"></span></span>
-    <span class="fact"><b>13</b><i>/25 · 4.7м</i></span>
-    <span class="gap badg">52%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';background:rgba(255,79,40,.16);color:var(--redtx);clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)">−12</span></span></div>
-  <div class="ltot">Всего: оплатили <b>247</b> из <b>346</b> · <b>71%</b> · по графику к 05.08 должно быть <b>346</b> · отрыв <b>-99</b> · собрано <b>83.4 млн</b></div></div>
+    <span class="lnm"><span class="tbadge tB">B</span>Munisa</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/0 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div><div class="lrow ">
+    <span class="pos "><i>11</i></span>
+    <span class="lnm"><span class="tbadge tA">A</span>Naima</span>
+    <span class="track"><span class="fill lagf" style="--w:0%"></span><span class="tfin"></span></span>
+    <span class="fact"><b>0</b><i>/0 · 0м</i></span>
+    <span class="gap badg">0%</span><span class="wk"><span style="display:inline-block;padding:4px 10px;font:800 .95em 'Barlow Condensed';color:var(--mut)">0</span></span></div>
+  <div class="ltot">Всего: оплатили <b>0</b> из <b>496</b> · <b>0%</b> · по графику к 05.08 должно быть <b>0</b> · отрыв <b>+0</b> · собрано <b>0 млн</b></div></div>
 
 <script>
 (function(){var QS=new URLSearchParams(location.search);
- var SRV=1785929827000, P0=(window.performance&&performance.now)?performance.now():0;
+ var SRV=1785938011000, P0=(window.performance&&performance.now)?performance.now():0;
  function nowd(){return new Date(SRV+((window.performance&&performance.now)?(performance.now()-P0):0));}
  var WD=['вс','пн','вт','ср','чт','пт','сб'];
  var MO=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
