@@ -59,7 +59,7 @@ def student_meta(ids):
     best={}
     for ch in chunks(ids):
         sql=("SELECT sub.ID sub_id,sub.STUDENT_ID sid,sub.DAY pay_day,sub.STATUS sub_status,"
-             "g.ADMIN_ID aid,g.CASHIER_ID cid,s.CURRENT_BALANCE bal,u.NAME admin_name,u.SURNAME admin_surname,u.TEAM_ID team_id,"
+             "g.ADMIN_ID aid,g.CASHIER_ID cid,s.NAME student_name,s.CURRENT_BALANCE bal,u.NAME admin_name,u.SURNAME admin_surname,u.TEAM_ID team_id,"
              "cu.NAME cashier_name,cu.SURNAME cashier_surname "
              "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
              "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
@@ -149,6 +149,19 @@ def aggregate(target_ids,meta,pays,p_start,p_end,catalog):
             sob=a["sob"],pct=round(paid/plan*100) if plan else 0,due=a["due"]))
     return rows
 
+def detail_data(target_ids,meta,pays,p_start,p_end,catalog):
+    out=[]
+    for sid in target_ids:
+        m=meta.get(sid) or {}; aid=int(m.get("aid") or 0)
+        dd=due_date(m.get("pay_day"))
+        if PERIOD!="month" and not (p_start<=dd<=p_end): continue
+        curator=catalog.get(aid,catalog.get(0,("B","Biriktirilmagan","")))[1]
+        amount=int(pays.get(sid,0)); debt=max(0,-int(m.get("bal") or 0))
+        out.append(dict(id=sid,name=str(m.get("student_name") or ("O‘quvchi %s"%sid)).strip(),
+            curator=curator,status="To'lagan" if amount>0 else "Qarzdor",paid=amount,debt=debt,
+            period=dd.strftime("%d.%m.%Y")))
+    return sorted(out,key=lambda x:(x["status"]!="To'lagan",x["curator"],x["name"]))
+
 def main():
     ui.PERIOD=PERIOD; ui.PREVIEW=("preview" in sys.argv); ui.IS_CI=os.environ.get("GITHUB_ACTIONS")=="true"
     pmap={k:(a,b,l) for k,a,b,l in PERIODS}; p_start,p_end,label=pmap[PERIOD]
@@ -157,6 +170,7 @@ def main():
     ui.CASHIERS=cashier_catalog(ids,meta,catalog)
     pays=payments(ids,p_start,p_end)
     rows=aggregate(ids,meta,pays,p_start,p_end,catalog)
+    ui.DETAIL_DATA=detail_data(ids,meta,pays,p_start,p_end,catalog)
     weeks=[]
     for _k,a,b,_l in PERIODS[1:]:
         wr=aggregate(ids,meta,payments(ids,a,b),a,b,catalog)
