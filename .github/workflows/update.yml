@@ -18,10 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate all dashboard periods from Google Sheets
+      - name: Generate 26.07-24.08 dashboard from Junior MCP QARZDORLAR
         run: |
-          for period in month w1 w2 w3 w4 nmonth nw1 nw2 nw3 nw4; do
-            python3 live_update.py "$period"
+          for period in month w1 w2 w3 w4; do
+            python3 mcp_live_update.py "$period"
           done
 
       - name: Generate cashier tasks dashboard (DB via gateway)
