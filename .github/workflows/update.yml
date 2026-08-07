@@ -24,17 +24,11 @@ jobs:
             python3 mcp_live_update.py "$period"
           done
 
-      - name: Generate cashier tasks dashboard (DB via gateway)
-        continue-on-error: true
-        env:
-          JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
-        run: python3 kassir_refresh.py
-
       - name: Commit & push if changed
         run: |
           git config user.name "dashboard-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add index*.html weeks*.html cashiers*.html kassir-vazifalar.html
+          git add index*.html weeks*.html cashiers*.html
           if git diff --cached --quiet; then
             echo "No changes - skip commit"
           else
