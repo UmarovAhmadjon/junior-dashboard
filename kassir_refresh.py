@@ -283,7 +283,7 @@ font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradien
 .list{padding:4px 0}
 .trow{display:flex;align-items:center;gap:11px;padding:10px 16px;border-top:1px solid var(--line)}
 .list .trow:first-child{border-top:none}
-.trow.done{opacity:.42}
+.trow.done{display:none}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
 .d-t3{background:#eab308}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
 .tmain{flex:1;min-width:0}
@@ -306,7 +306,23 @@ a.grp:hover{border-color:var(--volt);color:var(--txt)}
 .call:hover{border-color:var(--volt);color:var(--volttx)}
 .done{flex:none;width:34px;height:34px;border:1px solid var(--line);background:var(--panel2);color:var(--green);border-radius:9px;cursor:pointer;font-size:15px;font-weight:800}
 .done:hover{border-color:var(--green)}
-.trow.done .done{background:var(--green);color:#fff;border-color:var(--green)}
+.modal{position:fixed;inset:0;background:rgba(10,12,16,.58);display:flex;align-items:center;justify-content:center;padding:18px;z-index:1000}
+.modal[hidden]{display:none}
+.modalbox{width:min(520px,100%);background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--green);border-radius:16px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.28)}
+.modaltitle{font:800 24px/1.1 'Barlow Condensed',Manrope,sans-serif;margin:0 0 7px}
+.modalhint{font-size:12.5px;color:var(--mut);margin-bottom:14px}
+.modalcard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:13px}
+.modalname{font-weight:800}.modaltask{font-size:12px;color:var(--mut);margin-top:2px}
+.notelabel{display:block;font-size:12.5px;font-weight:800;margin-bottom:6px}
+.note{width:100%;min-height:108px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--txt);font:inherit;padding:10px 12px;outline:none}
+.note:focus{border-color:var(--volt);box-shadow:0 0 0 3px rgba(255,79,40,.10)}
+.noteerr{display:none;color:var(--red);font-size:12px;font-weight:700;margin-top:6px}
+.noteerr.show{display:block}
+.modalactions{display:flex;justify-content:flex-end;gap:9px;margin-top:15px}
+.modalcancel,.modalsave{border-radius:9px;padding:8px 14px;font:700 13px Manrope,sans-serif;cursor:pointer}
+.modalcancel{border:1px solid var(--line);background:var(--panel2);color:var(--txt)}
+.modalsave{border:1px solid var(--green);background:var(--green);color:#fff}
+.modalsave:disabled{opacity:.45;cursor:not-allowed}
 .empty{padding:22px 16px;color:var(--mut);font-size:13px}
 .foot{margin-top:22px;color:var(--dim);font-size:11.5px;text-align:center}
 @media(max-width:600px){.tright{max-width:42%}.tnm{font-size:14px}.call{padding:7px 9px}}
@@ -314,10 +330,21 @@ a.grp:hover{border-color:var(--volt);color:var(--txt)}
 
 JS = """
 (function(){
- var DKEY='kassir_done_'+DATE, PKEY='kassir_pick_'+DATE;
+ var DKEY='kassir_done_v2_'+DATE, PKEY='kassir_pick_'+DATE;
  var done={};try{done=JSON.parse(localStorage.getItem(DKEY)||'{}')}catch(e){}
  function save(){try{localStorage.setItem(DKEY,JSON.stringify(done))}catch(e){}}
  var pick=document.getElementById('pick');
+ var modal=document.getElementById('closeModal'),note=document.getElementById('closeNote');
+ var noteErr=document.getElementById('noteErr'),saveBtn=document.getElementById('modalSave');
+ var pendingKey=null;
+ function closeModal(){modal.hidden=true;pendingKey=null;note.value='';noteErr.classList.remove('show');}
+ function openModal(row){
+  pendingKey=row.dataset.k;
+  document.getElementById('modalStudent').textContent=row.querySelector('.tnm').textContent;
+  var sec=row.closest('.sec');
+  document.getElementById('modalTask').textContent=sec.querySelector('.bt').textContent;
+  note.value='';noteErr.classList.remove('show');saveBtn.disabled=true;modal.hidden=false;note.focus();
+ }
  function show(cash){
   pick.style.display='none';
   document.querySelectorAll('.board').forEach(function(b){b.hidden=(b.dataset.cash!==cash)});
@@ -330,9 +357,19 @@ JS = """
  document.querySelectorAll('.back').forEach(function(b){b.onclick=back});
  document.addEventListener('click',function(e){
   var d=e.target.closest('.done');if(!d)return;
-  var row=d.closest('.trow'),k=row.dataset.k;
-  if(done[k])delete done[k];else done[k]=1;save();upd();
+  openModal(d.closest('.trow'));
  });
+ note.addEventListener('input',function(){
+  var ok=note.value.trim().length>0;saveBtn.disabled=!ok;if(ok)noteErr.classList.remove('show');
+ });
+ saveBtn.onclick=function(){
+  var txt=note.value.trim();
+  if(!txt){noteErr.classList.add('show');saveBtn.disabled=true;note.focus();return;}
+  done[pendingKey]={note:txt,closed_at:new Date().toISOString()};save();closeModal();upd();
+ };
+ document.getElementById('modalCancel').onclick=closeModal;
+ modal.addEventListener('click',function(e){if(e.target===modal)closeModal()});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!modal.hidden)closeModal()});
  document.querySelectorAll('.chip').forEach(function(ch){ch.onclick=function(){
   ch.classList.toggle('off');
   var b=ch.closest('.board');var sec=b.querySelector('.sec[data-sec="'+ch.dataset.sec+'"]');
@@ -342,12 +379,12 @@ JS = """
   document.querySelectorAll('.board').forEach(function(b){
    if(b.hidden)return;
    var rows=b.querySelectorAll('.trow'),tot=rows.length,cl=0;
-   rows.forEach(function(r){if(done[r.dataset.k]){r.classList.add('done');cl++}else r.classList.remove('done')});
+   rows.forEach(function(r){if(done[r.dataset.k]&&done[r.dataset.k].note){r.classList.add('done');cl++}else r.classList.remove('done')});
    var pct=tot?Math.round(cl/tot*100):0;
    b.querySelector('.pfill').style.width=pct+'%';
    b.querySelector('.pnum').textContent=cl+' / '+tot+' · '+pct+'%';
    b.querySelectorAll('.sec').forEach(function(s){
-    var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!done[r.dataset.k])open++});
+    var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!(done[r.dataset.k]&&done[r.dataset.k].note))open++});
     var c=s.querySelector('.bc');if(c)c.textContent=open;
    });
   });
@@ -371,7 +408,18 @@ HTML = u"""<!doctype html><html lang="ru"><head>
  <div class="pgrid">%s</div></div>
 %s
 <div class="foot">Источник: junior базаси (ORG 6) · закрепление кассира по группе (CASHIER_ID) · MCP gateway.<br>
-Закрытые задачи хранятся в этом браузере до конца дня.</div>
+Закрытые задачи и заметки хранятся в этом браузере до конца дня.</div>
+</div>
+<div class="modal" id="closeModal" hidden>
+ <div class="modalbox" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <h2 class="modaltitle" id="modalTitle">Vazifani yopish</h2>
+  <div class="modalhint">Vazifa faqat eslatma yozilgandan keyin yopiladi.</div>
+  <div class="modalcard"><div class="modalname" id="modalStudent"></div><div class="modaltask" id="modalTask"></div></div>
+  <label class="notelabel" for="closeNote">Eslatma <span style="color:var(--red)">*</span></label>
+  <textarea class="note" id="closeNote" placeholder="Qo‘ng‘iroq natijasi yoki kelishuvni yozing…" required></textarea>
+  <div class="noteerr" id="noteErr">Vazifani yopish uchun eslatma yozish majburiy.</div>
+  <div class="modalactions"><button class="modalcancel" id="modalCancel">Bekor qilish</button><button class="modalsave" id="modalSave" disabled>Vazifani yopish</button></div>
+ </div>
 </div>
 <script>var DATE="%s";%s</script>
 </body></html>""" % (STYLE, esc(NOW_TS), "".join(picks), "".join(boards), TODAY.isoformat(), JS)
