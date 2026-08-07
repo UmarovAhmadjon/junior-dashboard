@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate 26.07-24.08 dashboard from Junior MCP QARZDORLAR
+      - name: Generate 25.07-24.08 dashboard from Junior MCP QARZDORLAR
         run: python3 mcp_live_update.py all
 
       - name: Generate cashier tasks dashboard (DB via gateway)
