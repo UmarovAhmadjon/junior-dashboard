@@ -176,14 +176,14 @@ def task_row(r, kind):
         metric = ('<span class="m m-froz">%s</span>'
                   '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
         key = "frozen_%s" % sid
-    return ('<div class="trow" data-k="%s" data-note-ok="%s" data-note-author="%s" '
+    return ('<div class="trow" data-k="%s" data-sid="%s" data-cid="%s" data-note-ok="%s" data-note-author="%s" '
             'data-note-time="%s" data-cashier="%s"><span class="dot d-%s"></span>'
             '<div class="tmain">%s'
             '<div class="tmeta">%s %s</div></div>'
             '<div class="tright">%s</div>'
             '<a class="call" href="tel:%s">Позвонить</a>'
             '<button class="done" title="Готово">✓</button></div>'
-            % (key, "1" if note_ok else "0", esc(note_author), esc(r.get("note_time") or ""),
+            % (key, sid, cid_of(r), "1" if note_ok else "0", esc(note_author), esc(r.get("note_time") or ""),
                esc(cashier_name), kind, name_html, grp_html, detail, metric, phd))
 
 SECDEF = [
@@ -356,20 +356,45 @@ JS = """
  var modal=document.getElementById('closeModal'),saveBtn=document.getElementById('modalSave');
  var pendingKey=null,pendingAuthor='',pendingTime='';
  function closeModal(){modal.hidden=true;pendingKey=null;pendingAuthor='';pendingTime='';}
- function openModal(row){
+ async function liveNote(row){
+  var sid=Number(row.dataset.sid),cid=Number(row.dataset.cid);
+  if(!Number.isInteger(sid)||sid<1||!Number.isInteger(cid)||cid<1)throw new Error('invalid ids');
+  var sql="SELECT nl.ID, DATE_FORMAT(nl.CREATED_DATE,'%H:%i') note_time, u.NAME, u.SURNAME "+
+   "FROM note_list nl JOIN gl_sys_users u ON u.ID=nl.CREATED_BY "+
+   "WHERE nl.STUDENT_ID="+sid+" AND nl.ACTIVE=1 AND nl.CREATED_BY="+cid+
+   " AND nl.CREATED_DATE>=CURDATE() AND nl.CREATED_DATE<CURDATE()+INTERVAL 1 DAY ORDER BY nl.ID DESC LIMIT 1";
+  var res=await fetch('https://myclinic.agc.uz/new_junior_mcp.php',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'query_db',arguments:{sql:sql}}})});
+  if(!res.ok)throw new Error('CRM '+res.status);
+  var outer=await res.json(),txt=outer.result.content[0].text,inner=JSON.parse(txt);
+  var rows=inner.data&&inner.data.data||[];return Array.isArray(rows)&&rows.length?rows[0]:null;
+ }
+ async function openModal(row){
   pendingKey=row.dataset.k;
   document.getElementById('modalStudent').textContent=row.querySelector('.tnm').textContent;
   var sec=row.closest('.sec');
   document.getElementById('modalTask').textContent=sec.querySelector('.bt').textContent;
-  var ok=row.dataset.noteOk==='1',box=document.getElementById('verifyBox');
-  pendingAuthor=row.dataset.noteAuthor||'';pendingTime=row.dataset.noteTime||'';
+  var box=document.getElementById('verifyBox');
+  box.className='verifybox';
+  document.getElementById('verifyTitle').textContent='CRM eslatmasi tekshirilmoqda…';
+  document.getElementById('verifyText').textContent='Iltimos, bir necha soniya kuting.';
+  document.getElementById('crmOpen').href=row.querySelector('.tnm').href;
+  saveBtn.disabled=true;modal.hidden=false;
+  var note=null,failed=false;
+  try{note=await liveNote(row)}catch(e){failed=true}
+  if(pendingKey!==row.dataset.k)return;
+  var ok=!!note;
+  if(ok){
+   pendingAuthor=((note.NAME||'')+' '+(note.SURNAME||'')).trim();pendingTime=note.note_time||'';
+   row.dataset.noteOk='1';row.dataset.noteAuthor=pendingAuthor;row.dataset.noteTime=pendingTime;
+  }else{pendingAuthor='';pendingTime='';}
   box.className='verifybox '+(ok?'ok':'bad');
-  document.getElementById('verifyTitle').textContent=ok?'✓ CRM eslatmasi topildi':'CRM eslatmasi topilmadi';
+  document.getElementById('verifyTitle').textContent=ok?'✓ CRM eslatmasi topildi':(failed?'CRM bilan aloqa bo‘lmadi':'CRM eslatmasi topilmadi');
   document.getElementById('verifyText').textContent=ok
    ?('Muallif: '+pendingAuthor+' · Bugun '+pendingTime)
-   :('Bugun mas’ul kassir '+row.dataset.cashier+' tomonidan yozilgan eslatma kerak. CRM kartochkasiga eslatma yozing va saytni yangilang.');
-  document.getElementById('crmOpen').href=row.querySelector('.tnm').href;
-  saveBtn.disabled=!ok;modal.hidden=false;
+   :(failed?'Tekshiruvni qayta boshlash uchun oynani yoping va galochkani yana bosing.':
+    ('Bugun mas’ul kassir '+row.dataset.cashier+' tomonidan yozilgan eslatma kerak. CRM kartochkasiga eslatma yozing, so‘ng galochkani yana bosing.'));
+  saveBtn.disabled=!ok;
  }
  function show(cash){
   pick.style.display='none';
