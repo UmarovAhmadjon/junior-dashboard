@@ -5,9 +5,10 @@ Kassirlar · kunlik avto-vazifalar dashboard generatori.
 Ma'lumot: junior bazasi (ORG 6), MCP HTTP gateway orqali.
 Har bir guruhda mas'ul kassir = group_list.CASHIER_ID. Har bir kassir o'zini
 tanlaydi va faqat o'z guruhlaridagi vazifalarni ko'radi (kuratorlar paneli kabi).
-5 trigger:
-  1) 3 kun oldin to'lov  2) 1 kun oldin to'lov  3) Bugun to'lov kuni
-  4) Debitor bo'ldi      5) Muzlatilgan -> Arxivgacha
+3 trigger:
+  1) To'lov sanasidan 3 kun oldin
+  2) Debitor bo'lgan kundan muzlatilguncha har kuni
+  3) Muzlatilgandan arxivga o'tguncha har kuni
 Ishga tushirish: python3 refresh.py  ->  index.html hosil bo'ladi.
 """
 import json, urllib.request, datetime, html, os
@@ -33,7 +34,7 @@ row = q("SELECT CURDATE() d, DAY(CURDATE()) dom, NOW() n")[0]
 TODAY = datetime.date.fromisoformat(row["d"])
 DOM = int(row["dom"]); NOW_TS = row["n"]
 def day_of(off): return (TODAY + datetime.timedelta(days=off)).day
-D_T3, D_T1, D_T0 = day_of(3), day_of(1), DOM
+D_T3 = day_of(3)
 
 # ---- kassirlar ----
 cash_rows = q("SELECT ID, NAME, SURNAME FROM gl_sys_users WHERE ROLE_ID=20 AND STATUS=1")
@@ -65,7 +66,7 @@ def pay_list(day, days_left):
         ") ORDER BY COALESCE(tf.tariff_months,0) DESC, s.CURRENT_BALANCE ASC"
         % (PAY_SEL, PAY_FROM, day, days_left))
 
-t3 = pay_list(D_T3, 3); t1 = pay_list(D_T1, 1); t0 = pay_list(D_T0, 0)
+t3 = pay_list(D_T3, 3)
 debtors = q("SELECT %s %s AND COALESCE(tf.tariff_months,0)<=1 "
             "AND s.CURRENT_BALANCE < 0 ORDER BY sub.DAY DESC, s.CURRENT_BALANCE ASC"
             % (PAY_SEL, PAY_FROM))
@@ -124,8 +125,8 @@ def task_row(r, kind):
     package_months = int(r.get("tariff_months") or 0)
     is_package = package_months > 1
     pay_kind = ("%d oylik paket" % package_months) if is_package else "Oylik to‘lov"
-    if kind in ("t3","t1","t0"):
-        off = 0 if kind=="t0" else (1 if kind=="t1" else 3)
+    if kind == "t3":
+        off = 3
         if is_package:
             chdate = dm(r.get("expiry"))
             state = "bugun tugaydi" if off == 0 else "%d kun qoldi" % off
@@ -169,11 +170,9 @@ def task_row(r, kind):
             % (key, kind, name_html, grp_html, detail, metric, phd))
 
 SECDEF = [
-    ("t3","💳","3 дня до оплаты","oylik to‘lov yoki paket tugashiga 3 kun","b-t3", t3),
-    ("t1","💳","1 день до оплаты","oylik to‘lov yoki paket tugashiga 1 kun","b-t1", t1),
-    ("t0","⏰","Сегодня день оплаты","oylik to‘lov yoki paket bugun tugaydi","b-t0", t0),
-    ("debtor","📋","Стал дебитором","списание прошло, оплаты нет · свежие первыми","b-debtor", debtors),
-    ("frozen","🧊","Заморожен → Архив","заморожен за просрочку · каждый день до архива","b-frozen", frozen),
+    ("t3","💳","To‘lovga 3 kun qoldi","to‘lov sanasidan aynan 3 kun oldin","b-t3", t3),
+    ("debtor","📋","Qarzdor","qarzga kirgan kundan muzlatilguncha har kuni","b-debtor", debtors),
+    ("frozen","🧊","Muzlatilgan → Arxiv","muzlatilgandan arxiv statusiga o‘tguncha har kuni","b-frozen", frozen),
 ]
 
 def render_board(cash_id):
@@ -279,8 +278,6 @@ font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradien
 .banner .bc{font:800 16px 'Barlow Condensed',sans-serif;background:rgba(0,0,0,.08);border-radius:20px;padding:1px 11px;min-width:34px;text-align:center}
 .banner small{font-weight:500;opacity:.8;flex-basis:100%;font-size:12px}
 .b-t3{background:rgba(234,179,8,.16);color:var(--yellow)}
-.b-t1{background:rgba(249,115,22,.15);color:var(--orange)}
-.b-t0{background:rgba(255,79,40,.14);color:var(--volttx)}
 .b-debtor{background:rgba(190,18,60,.12);color:var(--red)}
 .b-frozen{background:rgba(8,145,178,.14);color:var(--cyan)}
 .list{padding:4px 0}
@@ -288,7 +285,7 @@ font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradien
 .list .trow:first-child{border-top:none}
 .trow.done{opacity:.42}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
-.d-t3{background:#eab308}.d-t1{background:#f97316}.d-t0{background:#ff4f28}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
+.d-t3{background:#eab308}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
 .tmain{flex:1;min-width:0}
 .tnm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 a.tnm{color:var(--txt);text-decoration:none}
@@ -389,8 +386,8 @@ with open(OUT, "w", encoding="utf-8") as f:
     f.write(HTML)
 
 print("OK ->", OUT)
-print("today=%s dom=%d  t3=%d t1=%d t0=%d debtors=%d frozen=%d  TOTAL=%d"
-      % (TODAY, DOM, len(t3), len(t1), len(t0), len(debtors), len(frozen), alltot))
+print("today=%s dom=%d  t3=%d debtors=%d frozen=%d  TOTAL=%d"
+      % (TODAY, DOM, len(t3), len(debtors), len(frozen), alltot))
 for cid in order:
     tot = sum(len([r for r in s[5] if cid_of(r)==cid]) for s in SECDEF)
     if tot: print("  %-22s %d" % (CASH[cid], tot))
