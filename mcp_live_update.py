@@ -9,7 +9,7 @@ ORG=6
 TEST_ADMIN_IDS={21453}  # MK super teacher — test akkaunt
 CYCLE_START=datetime.date(2026,7,26)
 CYCLE_END=datetime.date(2026,8,24)
-PERIOD=next((x for x in sys.argv[1:] if x in ("month","w1","w2","w3","w4")),"month")
+PERIOD=next((x for x in sys.argv[1:] if x in ("month","w1","w2","w3","w4","all")),"month")
 PERIODS=[
  ("month",CYCLE_START,CYCLE_END,"26.07–24.08 · весь цикл"),
  ("w1",datetime.date(2026,7,26),datetime.date(2026,8,2),"26.07–02.08 · неделя 1"),
@@ -80,7 +80,9 @@ def payments(ids,start,end):
         sql=("SELECT STUDENT_ID sid,SUM(AMOUNT) amount FROM transaction_list "
              "WHERE ACTION_TYPE='add' AND TRANSACTION_DATE>='%s' AND TRANSACTION_DATE<'%s' "
              "AND STUDENT_ID IN (%s) GROUP BY STUDENT_ID"%(start,endx,in_sql(ch)))
-        for r in q(sql): out[int(r["sid"])]=int(r.get("amount") or 0)
+        for r in q(sql):
+            amount=int(r.get("amount") or 0)
+            if amount>0: out[int(r["sid"])]=amount
     return out
 
 def due_date(day):
@@ -165,31 +167,38 @@ def detail_data(target_ids,meta,pays,p_start,p_end,catalog):
     return sorted(out,key=lambda x:(x["status"]!="To'lagan",x["curator"],x["name"]))
 
 def main():
-    ui.PERIOD=PERIOD; ui.PREVIEW=("preview" in sys.argv); ui.IS_CI=os.environ.get("GITHUB_ACTIONS")=="true"
-    pmap={k:(a,b,l) for k,a,b,l in PERIODS}; p_start,p_end,label=pmap[PERIOD]
+    ui.PREVIEW=("preview" in sys.argv); ui.IS_CI=os.environ.get("GITHUB_ACTIONS")=="true"
     ids=plan_ids(); meta=student_meta(ids); catalog=curator_catalog(ids,meta)
     ui.CUR=list(catalog.values())
     ui.CASHIERS=cashier_catalog(ids,meta,catalog)
     # QARZDOR soni sana bilan kesilmaydi: u moduldagi joriy Qarzdor filtridan.
     # Sana faqat FAKT (tanlangan davrda To'lagan) uchun ishlaydi.
-    cycle_pays=payments(ids,CYCLE_START,CYCLE_END)
+    paymaps={k:payments(ids,a,b) for k,a,b,_l in PERIODS}
+    # Bitta snapshot: qarzdorlar soni barcha haftalarda aynan bir xil bazadan chiqadi.
+    # Month uchun qayta so'rov yuborilmaydi — yangilanish o'rtasida 1-2 ta farq paydo bo'lmaydi.
+    cycle_pays=paymaps["month"]
+    for key in ("w1","w2","w3","w4"):
+        paymaps[key]={sid:amount for sid,amount in paymaps[key].items() if sid in cycle_pays}
     debt_ids=set(ids)-set(cycle_pays)
-    pays=payments(ids,p_start,p_end)
-    period_ids=debt_ids | set(pays)
-    rows=aggregate(period_ids,meta,pays,p_start,p_end,catalog)
-    ui.DETAIL_DATA=detail_data(period_ids,meta,pays,p_start,p_end,catalog)
     weeks=[]
     for _k,a,b,_l in PERIODS[1:]:
-        wp=payments(ids,a,b); wids=debt_ids | set(wp)
+        wp=paymaps[_k]; wids=debt_ids | set(wp)
         wr=aggregate(wids,meta,wp,a,b,catalog)
         weeks.append(dict(ws=a,we=b,total=sum(x["plan"] for x in wr),paid=sum(x["paid"] for x in wr),
             qarz=sum(x["debt"] for x in wr),muz=sum(x["muz"] for x in wr),arx=sum(x["arx"] for x in wr),sob=sum(x["sob"] for x in wr),
             A_total=sum(x["plan"] for x in wr if x["team"]=="A"),A_paid=sum(x["paid"] for x in wr if x["team"]=="A"),A_sob=sum(x["sob"] for x in wr if x["team"]=="A"),
             B_total=sum(x["plan"] for x in wr if x["team"]=="B"),B_paid=sum(x["paid"] for x in wr if x["team"]=="B"),B_sob=sum(x["sob"] for x in wr if x["team"]=="B")))
-    due_total=sum(x["due"] for x in rows); due_paid=sum(min(x["paid"],x["due"]) for x in rows)
     nowrow=q("SELECT NOW() n")[0]["n"]
     tnow=datetime.datetime.fromisoformat(str(nowrow))
-    ui.render(tnow,p_start,p_end,rows,sum(x["plan"] for x in rows),sum(x["plansum"] for x in rows),
-              weeks,due_total,due_paid,PERIODS,label)
+    selected=PERIODS if PERIOD=="all" else [x for x in PERIODS if x[0]==PERIOD]
+    for key,p_start,p_end,label in selected:
+        ui.PERIOD=key
+        pays=paymaps[key]
+        period_ids=debt_ids | set(pays)
+        rows=aggregate(period_ids,meta,pays,p_start,p_end,catalog)
+        ui.DETAIL_DATA=detail_data(period_ids,meta,pays,p_start,p_end,catalog)
+        due_total=sum(x["due"] for x in rows); due_paid=sum(min(x["paid"],x["due"]) for x in rows)
+        ui.render(tnow,p_start,p_end,rows,sum(x["plan"] for x in rows),sum(x["plansum"] for x in rows),
+                  weeks,due_total,due_paid,PERIODS,label)
 
 if __name__=="__main__": main()
