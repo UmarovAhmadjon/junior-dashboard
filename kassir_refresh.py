@@ -45,13 +45,18 @@ CASH = {str(c["ID"]): (html.unescape(c["NAME"]).strip() + " " +
 PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, "
            "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price, "
            "DATE(sub.END_OF_SUBSCRIPTION) expiry, COALESCE(tf.tariff_months,0) tariff_months, "
-           "tf.tariff_name")
+           "tf.tariff_name, nl.ID note_id, DATE_FORMAT(nl.CREATED_DATE,'%H:%i') note_time, "
+           "nu.NAME note_author_name, nu.SURNAME note_author_surname")
 PAY_FROM = ("FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
             "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
             "LEFT JOIN (SELECT NAME_VALUE, AMOUNT, MAX(MONTH_AMOUNT) tariff_months, "
             "MAX(NAME) tariff_name FROM tariffs_list WHERE TYPE='tariff' "
             "GROUP BY NAME_VALUE, AMOUNT) tf "
             "ON tf.NAME_VALUE=sub.PRICE_TYPE AND tf.AMOUNT=sub.SPECIAL_PRICE "
+            "LEFT JOIN note_list nl ON nl.ID=(SELECT MAX(n2.ID) FROM note_list n2 "
+            " WHERE n2.STUDENT_ID=s.ID AND n2.ACTIVE=1 AND n2.CREATED_BY=g.CASHIER_ID "
+            " AND n2.CREATED_DATE>=CURDATE() AND n2.CREATED_DATE<CURDATE()+INTERVAL 1 DAY) "
+            "LEFT JOIN gl_sys_users nu ON nu.ID=nl.CREATED_BY "
             "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' "
             "AND sub.STATUS='active'" % ORG)
 
@@ -73,13 +78,19 @@ debtors = q("SELECT %s %s AND COALESCE(tf.tariff_months,0)<=1 "
 frozen = q(
     "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
     "DATE(fs.START_DATE) fdate, fr.REASON reason, DATE(sub.END_OF_SUBSCRIPTION) expiry, "
-    "COALESCE(tf.tariff_months,0) tariff_months, tf.tariff_name "
+    "COALESCE(tf.tariff_months,0) tariff_months, tf.tariff_name, nl.ID note_id, "
+    "DATE_FORMAT(nl.CREATED_DATE,'%%H:%%i') note_time, nu.NAME note_author_name, "
+    "nu.SURNAME note_author_surname "
     "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
     "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
     "LEFT JOIN (SELECT NAME_VALUE, AMOUNT, MAX(MONTH_AMOUNT) tariff_months, "
     "MAX(NAME) tariff_name FROM tariffs_list WHERE TYPE='tariff' "
     "GROUP BY NAME_VALUE, AMOUNT) tf "
     "ON tf.NAME_VALUE=sub.PRICE_TYPE AND tf.AMOUNT=sub.SPECIAL_PRICE "
+    "LEFT JOIN note_list nl ON nl.ID=(SELECT MAX(n2.ID) FROM note_list n2 "
+    " WHERE n2.STUDENT_ID=s.ID AND n2.ACTIVE=1 AND n2.CREATED_BY=g.CASHIER_ID "
+    " AND n2.CREATED_DATE>=CURDATE() AND n2.CREATED_DATE<CURDATE()+INTERVAL 1 DAY) "
+    "LEFT JOIN gl_sys_users nu ON nu.ID=nl.CREATED_BY "
     "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
     "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
     "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
@@ -125,6 +136,10 @@ def task_row(r, kind):
     package_months = int(r.get("tariff_months") or 0)
     is_package = package_months > 1
     pay_kind = ("%d oylik paket" % package_months) if is_package else "Oylik to‘lov"
+    note_ok = bool(r.get("note_id"))
+    note_author = (html.unescape(r.get("note_author_name") or "").strip() + " " +
+                   html.unescape(r.get("note_author_surname") or "").strip()).strip()
+    cashier_name = CASH.get(cid_of(r), "—")
     if kind == "t3":
         off = 3
         if is_package:
@@ -161,13 +176,15 @@ def task_row(r, kind):
         metric = ('<span class="m m-froz">%s</span>'
                   '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
         key = "frozen_%s" % sid
-    return ('<div class="trow" data-k="%s"><span class="dot d-%s"></span>'
+    return ('<div class="trow" data-k="%s" data-note-ok="%s" data-note-author="%s" '
+            'data-note-time="%s" data-cashier="%s"><span class="dot d-%s"></span>'
             '<div class="tmain">%s'
             '<div class="tmeta">%s %s</div></div>'
             '<div class="tright">%s</div>'
             '<a class="call" href="tel:%s">Позвонить</a>'
             '<button class="done" title="Готово">✓</button></div>'
-            % (key, kind, name_html, grp_html, detail, metric, phd))
+            % (key, "1" if note_ok else "0", esc(note_author), esc(r.get("note_time") or ""),
+               esc(cashier_name), kind, name_html, grp_html, detail, metric, phd))
 
 SECDEF = [
     ("t3","💳","To‘lovga 3 kun qoldi","to‘lov sanasidan aynan 3 kun oldin","b-t3", t3),
@@ -313,11 +330,13 @@ a.grp:hover{border-color:var(--volt);color:var(--txt)}
 .modalhint{font-size:12.5px;color:var(--mut);margin-bottom:14px}
 .modalcard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:13px}
 .modalname{font-weight:800}.modaltask{font-size:12px;color:var(--mut);margin-top:2px}
-.notelabel{display:block;font-size:12.5px;font-weight:800;margin-bottom:6px}
-.note{width:100%;min-height:108px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--txt);font:inherit;padding:10px 12px;outline:none}
-.note:focus{border-color:var(--volt);box-shadow:0 0 0 3px rgba(255,79,40,.10)}
-.noteerr{display:none;color:var(--red);font-size:12px;font-weight:700;margin-top:6px}
-.noteerr.show{display:block}
+.verifybox{border:1px solid var(--line);border-radius:11px;padding:12px 13px;margin-top:4px}
+.verifybox.ok{background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.28)}
+.verifybox.bad{background:rgba(190,18,60,.07);border-color:rgba(190,18,60,.24)}
+.verifytitle{font-size:13px;font-weight:800}.verifybox.ok .verifytitle{color:var(--green)}.verifybox.bad .verifytitle{color:var(--red)}
+.verifytext{font-size:12px;color:var(--mut);margin-top:4px;line-height:1.55}
+.crmopen{display:inline-block;margin-top:9px;color:var(--volttx);font-size:12px;font-weight:800;text-decoration:none}
+.crmopen:hover{text-decoration:underline}
 .modalactions{display:flex;justify-content:flex-end;gap:9px;margin-top:15px}
 .modalcancel,.modalsave{border-radius:9px;padding:8px 14px;font:700 13px Manrope,sans-serif;cursor:pointer}
 .modalcancel{border:1px solid var(--line);background:var(--panel2);color:var(--txt)}
@@ -330,20 +349,27 @@ a.grp:hover{border-color:var(--volt);color:var(--txt)}
 
 JS = """
 (function(){
- var DKEY='kassir_done_v2_'+DATE, PKEY='kassir_pick_'+DATE;
+ var DKEY='kassir_done_v3_'+DATE, PKEY='kassir_pick_'+DATE;
  var done={};try{done=JSON.parse(localStorage.getItem(DKEY)||'{}')}catch(e){}
  function save(){try{localStorage.setItem(DKEY,JSON.stringify(done))}catch(e){}}
  var pick=document.getElementById('pick');
- var modal=document.getElementById('closeModal'),note=document.getElementById('closeNote');
- var noteErr=document.getElementById('noteErr'),saveBtn=document.getElementById('modalSave');
- var pendingKey=null;
- function closeModal(){modal.hidden=true;pendingKey=null;note.value='';noteErr.classList.remove('show');}
+ var modal=document.getElementById('closeModal'),saveBtn=document.getElementById('modalSave');
+ var pendingKey=null,pendingAuthor='',pendingTime='';
+ function closeModal(){modal.hidden=true;pendingKey=null;pendingAuthor='';pendingTime='';}
  function openModal(row){
   pendingKey=row.dataset.k;
   document.getElementById('modalStudent').textContent=row.querySelector('.tnm').textContent;
   var sec=row.closest('.sec');
   document.getElementById('modalTask').textContent=sec.querySelector('.bt').textContent;
-  note.value='';noteErr.classList.remove('show');saveBtn.disabled=true;modal.hidden=false;note.focus();
+  var ok=row.dataset.noteOk==='1',box=document.getElementById('verifyBox');
+  pendingAuthor=row.dataset.noteAuthor||'';pendingTime=row.dataset.noteTime||'';
+  box.className='verifybox '+(ok?'ok':'bad');
+  document.getElementById('verifyTitle').textContent=ok?'✓ CRM eslatmasi topildi':'CRM eslatmasi topilmadi';
+  document.getElementById('verifyText').textContent=ok
+   ?('Muallif: '+pendingAuthor+' · Bugun '+pendingTime)
+   :('Bugun mas’ul kassir '+row.dataset.cashier+' tomonidan yozilgan eslatma kerak. CRM kartochkasiga eslatma yozing va saytni yangilang.');
+  document.getElementById('crmOpen').href=row.querySelector('.tnm').href;
+  saveBtn.disabled=!ok;modal.hidden=false;
  }
  function show(cash){
   pick.style.display='none';
@@ -359,13 +385,10 @@ JS = """
   var d=e.target.closest('.done');if(!d)return;
   openModal(d.closest('.trow'));
  });
- note.addEventListener('input',function(){
-  var ok=note.value.trim().length>0;saveBtn.disabled=!ok;if(ok)noteErr.classList.remove('show');
- });
  saveBtn.onclick=function(){
-  var txt=note.value.trim();
-  if(!txt){noteErr.classList.add('show');saveBtn.disabled=true;note.focus();return;}
-  done[pendingKey]={note:txt,closed_at:new Date().toISOString()};save();closeModal();upd();
+  if(saveBtn.disabled||!pendingAuthor||!pendingTime)return;
+  done[pendingKey]={verified_note:true,note_author:pendingAuthor,note_time:pendingTime,closed_at:new Date().toISOString()};
+  save();closeModal();upd();
  };
  document.getElementById('modalCancel').onclick=closeModal;
  modal.addEventListener('click',function(e){if(e.target===modal)closeModal()});
@@ -379,12 +402,12 @@ JS = """
   document.querySelectorAll('.board').forEach(function(b){
    if(b.hidden)return;
    var rows=b.querySelectorAll('.trow'),tot=rows.length,cl=0;
-   rows.forEach(function(r){if(done[r.dataset.k]&&done[r.dataset.k].note){r.classList.add('done');cl++}else r.classList.remove('done')});
+   rows.forEach(function(r){if(done[r.dataset.k]&&done[r.dataset.k].verified_note){r.classList.add('done');cl++}else r.classList.remove('done')});
    var pct=tot?Math.round(cl/tot*100):0;
    b.querySelector('.pfill').style.width=pct+'%';
    b.querySelector('.pnum').textContent=cl+' / '+tot+' · '+pct+'%';
    b.querySelectorAll('.sec').forEach(function(s){
-    var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!(done[r.dataset.k]&&done[r.dataset.k].note))open++});
+    var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!(done[r.dataset.k]&&done[r.dataset.k].verified_note))open++});
     var c=s.querySelector('.bc');if(c)c.textContent=open;
    });
   });
@@ -395,7 +418,7 @@ JS = """
 """
 
 HTML = u"""<!doctype html><html lang="ru"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="300">
 <title>Кассиры · задачи на сегодня</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,700;0,800;1,800&family=Barlow+Condensed:ital,wght@0,700;0,800;1,800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
@@ -412,12 +435,11 @@ HTML = u"""<!doctype html><html lang="ru"><head>
 </div>
 <div class="modal" id="closeModal" hidden>
  <div class="modalbox" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-  <h2 class="modaltitle" id="modalTitle">Vazifani yopish</h2>
-  <div class="modalhint">Vazifa faqat eslatma yozilgandan keyin yopiladi.</div>
+ <h2 class="modaltitle" id="modalTitle">Vazifani yopish</h2>
+  <div class="modalhint">Vazifa faqat CRM kartochkasidagi bugungi eslatma tekshirilgandan keyin yopiladi.</div>
   <div class="modalcard"><div class="modalname" id="modalStudent"></div><div class="modaltask" id="modalTask"></div></div>
-  <label class="notelabel" for="closeNote">Eslatma <span style="color:var(--red)">*</span></label>
-  <textarea class="note" id="closeNote" placeholder="Qo‘ng‘iroq natijasi yoki kelishuvni yozing…" required></textarea>
-  <div class="noteerr" id="noteErr">Vazifani yopish uchun eslatma yozish majburiy.</div>
+  <div class="verifybox bad" id="verifyBox"><div class="verifytitle" id="verifyTitle"></div><div class="verifytext" id="verifyText"></div>
+   <a class="crmopen" id="crmOpen" href="#" target="_blank" rel="noopener">CRM kartochkasini ochish ↗</a></div>
   <div class="modalactions"><button class="modalcancel" id="modalCancel">Bekor qilish</button><button class="modalsave" id="modalSave" disabled>Vazifani yopish</button></div>
  </div>
 </div>
