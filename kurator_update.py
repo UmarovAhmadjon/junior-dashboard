@@ -14,8 +14,8 @@ MONTH = os.environ.get('KURATOR_MONTH', TASHKENT_NOW.strftime('%Y-%m-01'))
 
 # admin_id lar (CRM admin-select)
 CUR = {
- 'Fot':('Fotimabonu Abdulkhakova','A','13799',5), 'Mad':('Madina Normatova','A','16005',5),
- 'Dil':('Dilafruz Shokirova','A','14241',6), 'Jas':('Jasmina Tolibova','A','14974',4),
+ 'Fot':('Fotimabonu Abdulkhakova','A','13799',5), 'Mad':('Madina Normatova','B','16005',5),
+ 'Dil':('Dilafruz Shokirova','A','14241',6), 'Jas':('Jasmina Tolibova','B','14974',4),
  'Shx':('Shaxlo Ziyodova','A','21463',3),
  'Mar':('Marjona Pardayeva','B','14451',5), 'Xal':('Xalima Ismoiljonova','B','16386',6),
 }
@@ -27,8 +27,8 @@ JULY_BASELINE = {
     },
     'note':'Foydalanuvchi bergan 01.07.2026 ro‘yxati; eski Munisa → Naima, Maryam → Munisa. New kurator olib tashlangan.'
 }
-TEAM_A_IDS = '13799,14241,14974,16005,21463'
-TEAM_B_IDS = '14451,16386'
+TEAM_A_IDS = '13799,14241,21463'
+TEAM_B_IDS = '14451,16386,14974,16005'
 
 CI = bool(os.environ.get('GITHUB_ACTIONS'))
 BASE = pathlib.Path('.') if CI else HOME  # CIda repo checkout, lokalda ~/junior-dashboard
