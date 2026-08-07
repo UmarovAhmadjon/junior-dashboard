@@ -425,7 +425,6 @@ JS = """
  }});
  function upd(){
   document.querySelectorAll('.board').forEach(function(b){
-   if(b.hidden)return;
    var rows=b.querySelectorAll('.trow'),tot=rows.length,cl=0;
    rows.forEach(function(r){if(done[r.dataset.k]&&done[r.dataset.k].verified_note){r.classList.add('done');cl++}else r.classList.remove('done')});
    var pct=tot?Math.round(cl/tot*100):0;
@@ -434,9 +433,12 @@ JS = """
    b.querySelectorAll('.sec').forEach(function(s){
     var open=0;s.querySelectorAll('.trow').forEach(function(r){if(!(done[r.dataset.k]&&done[r.dataset.k].verified_note))open++});
     var c=s.querySelector('.bc');if(c)c.textContent=open;
+    var chip=b.querySelector('.chip[data-sec="'+s.dataset.sec+'"] .cbn');if(chip)chip.textContent=open;
    });
+   var card=document.querySelector('.pcard[data-cash="'+b.dataset.cash+'"] .pcnt');if(card)card.textContent=tot-cl;
   });
  }
+ upd();
  var saved=null;try{saved=localStorage.getItem(PKEY)}catch(e){}
  if(saved&&document.querySelector('.board[data-cash="'+saved+'"]'))show(saved);
 })();
