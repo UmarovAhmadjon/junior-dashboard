@@ -133,8 +133,6 @@ def aggregate(target_ids,meta,pays,p_start,p_end,catalog):
         if aid not in by: aid=0
         if aid not in by: continue
         dd=due_date(m.get("pay_day"))
-        # Haftalik reja: to'lov kuni shu haftaga tushganlar. Eski o'tgan qarzlar 1-haftaga.
-        if PERIOD!="month" and not (p_start<=dd<=p_end): continue
         a=by[aid]; a["plan"]+=1
         paid_amt=pays.get(sid,0)
         remaining=max(0,-int(m.get("bal") or 0))
@@ -159,7 +157,6 @@ def detail_data(target_ids,meta,pays,p_start,p_end,catalog):
         m=meta.get(sid) or {}; aid=int(m.get("aid") or 0)
         if aid in TEST_ADMIN_IDS: aid=0
         dd=due_date(m.get("pay_day"))
-        if PERIOD!="month" and not (p_start<=dd<=p_end): continue
         curator=catalog.get(aid,catalog.get(0,("B","Biriktirilmagan","")))[1]
         amount=int(pays.get(sid,0)); debt=max(0,-int(m.get("bal") or 0))
         out.append(dict(id=sid,name=str(m.get("student_name") or ("O‘quvchi %s"%sid)).strip(),
@@ -173,12 +170,18 @@ def main():
     ids=plan_ids(); meta=student_meta(ids); catalog=curator_catalog(ids,meta)
     ui.CUR=list(catalog.values())
     ui.CASHIERS=cashier_catalog(ids,meta,catalog)
+    # QARZDOR soni sana bilan kesilmaydi: u moduldagi joriy Qarzdor filtridan.
+    # Sana faqat FAKT (tanlangan davrda To'lagan) uchun ishlaydi.
+    cycle_pays=payments(ids,CYCLE_START,CYCLE_END)
+    debt_ids=set(ids)-set(cycle_pays)
     pays=payments(ids,p_start,p_end)
-    rows=aggregate(ids,meta,pays,p_start,p_end,catalog)
-    ui.DETAIL_DATA=detail_data(ids,meta,pays,p_start,p_end,catalog)
+    period_ids=debt_ids | set(pays)
+    rows=aggregate(period_ids,meta,pays,p_start,p_end,catalog)
+    ui.DETAIL_DATA=detail_data(period_ids,meta,pays,p_start,p_end,catalog)
     weeks=[]
     for _k,a,b,_l in PERIODS[1:]:
-        wr=aggregate(ids,meta,payments(ids,a,b),a,b,catalog)
+        wp=payments(ids,a,b); wids=debt_ids | set(wp)
+        wr=aggregate(wids,meta,wp,a,b,catalog)
         weeks.append(dict(ws=a,we=b,total=sum(x["plan"] for x in wr),paid=sum(x["paid"] for x in wr),
             qarz=sum(x["debt"] for x in wr),muz=sum(x["muz"] for x in wr),arx=sum(x["arx"] for x in wr),sob=sum(x["sob"] for x in wr),
             A_total=sum(x["plan"] for x in wr if x["team"]=="A"),A_paid=sum(x["paid"] for x in wr if x["team"]=="A"),A_sob=sum(x["sob"] for x in wr if x["team"]=="A"),
