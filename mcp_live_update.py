@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""26.07–24.08 qarzdorlar dashboardi. Manba: Junior MCP / QARZDORLAR."""
+"""25.07–24.08 qarzdorlar dashboardi. Manba: Junior MCP / QARZDORLAR."""
 import os, sys, json, datetime, urllib.request, time
 import live_update as ui
 
 GATEWAY=os.environ.get("JUNIOR_MCP_GATEWAY","https://myclinic.agc.uz/new_junior_mcp.php")
 ORG=6
 TEST_ADMIN_IDS={21453}  # MK super teacher — test akkaunt
-CYCLE_START=datetime.date(2026,7,26)
+CYCLE_START=datetime.date(2026,7,25)
 CYCLE_END=datetime.date(2026,8,24)
 PERIOD=next((x for x in sys.argv[1:] if x in ("month","w1","w2","w3","w4","all")),"month")
 PERIODS=[
- ("month",CYCLE_START,CYCLE_END,"26.07–24.08 · весь цикл"),
- ("w1",datetime.date(2026,7,26),datetime.date(2026,8,2),"26.07–02.08 · неделя 1"),
- ("w2",datetime.date(2026,8,3),datetime.date(2026,8,9),"03.08–09.08 · неделя 2"),
- ("w3",datetime.date(2026,8,10),datetime.date(2026,8,16),"10.08–16.08 · неделя 3"),
- ("w4",datetime.date(2026,8,17),datetime.date(2026,8,24),"17.08–24.08 · неделя 4"),
+ ("month",CYCLE_START,CYCLE_END,"25.07–24.08 · весь цикл"),
+ ("w1",datetime.date(2026,7,25),datetime.date(2026,7,31),"25.07–31.07 · неделя 1"),
+ ("w2",datetime.date(2026,8,1),datetime.date(2026,8,7),"01.08–07.08 · неделя 2"),
+ ("w3",datetime.date(2026,8,8),datetime.date(2026,8,14),"08.08–14.08 · неделя 3"),
+ ("w4",datetime.date(2026,8,15),datetime.date(2026,8,24),"15.08–24.08 · неделя 4"),
 ]
 
 def q(sql):
@@ -50,7 +50,7 @@ def plan_ids():
     paid_early=set()
     for ch in chunks(july):
         for r in q("SELECT DISTINCT STUDENT_ID sid FROM transaction_list WHERE ACTION_TYPE='add' "
-                   "AND TRANSACTION_DATE>='2026-07-26' AND TRANSACTION_DATE<'2026-08-01' "
+                   "AND TRANSACTION_DATE>='2026-07-25' AND TRANSACTION_DATE<'2026-08-01' "
                    "AND STUDENT_ID IN (%s)"%in_sql(ch)):
             paid_early.add(int(r["sid"]))
     return aug | paid_early
@@ -88,7 +88,7 @@ def payments(ids,start,end):
 def due_date(day):
     try: d=int(float(day or 0))
     except Exception: return CYCLE_START
-    if d>=26:
+    if d>=25:
         d=min(d,31); return datetime.date(2026,7,d)
     d=max(1,min(d,24)); return datetime.date(2026,8,d)
 
