@@ -1,8 +1,8 @@
 name: update-dashboard
 
 on:
-  schedule:
-    - cron: "7 * * * *"
+  # The old MCP-only calculation did not match the CRM Qarzdorlar module.
+  # Keep manual runs only until the CRM-filtered updater is automated.
   workflow_dispatch: {}
 
 permissions:
