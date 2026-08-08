@@ -1,9 +1,7 @@
 name: update-dashboard
 
 on:
-  # GitHub cron uses UTC. Minute 7 remains minute 7 in Tashkent (UTC+5).
-  schedule:
-    - cron: "7 * * * *"
+  # Hourly refresh is paused until its CRM calculations are verified.
   workflow_dispatch: {}
 
 permissions:
