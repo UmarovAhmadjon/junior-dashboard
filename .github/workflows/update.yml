@@ -1,8 +1,9 @@
 name: update-dashboard
 
 on:
-  # The old MCP-only calculation did not match the CRM Qarzdorlar module.
-  # Keep manual runs only until the CRM-filtered updater is automated.
+  # GitHub cron uses UTC. Minute 7 remains minute 7 in Tashkent (UTC+5).
+  schedule:
+    - cron: "7 * * * *"
   workflow_dispatch: {}
 
 permissions:
