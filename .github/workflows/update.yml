@@ -1,7 +1,8 @@
 name: update-dashboard
 
 on:
-  # Hourly refresh is paused until its CRM calculations are verified.
+  schedule:
+    - cron: "7 * * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -17,8 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate 25.07-24.08 dashboard from Junior MCP QARZDORLAR
-        run: python3 mcp_live_update.py all
+      - name: Generate 25.07-24.08 dashboard from CRM Qarzdorlar module
+        env:
+          CRM_PHONE: ${{ secrets.CRM_PHONE }}
+          CRM_PASS: ${{ secrets.CRM_PASS }}
+        run: python3 crm_debtors_update.py
 
       - name: Generate cashier tasks dashboard (DB via gateway)
         continue-on-error: true
