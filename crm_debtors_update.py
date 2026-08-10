@@ -154,29 +154,41 @@ def main():
             raise RuntimeError("CRM table row count does not match cards")
         return
 
-    # First fetch and validate every period. No HTML is written before all CRM checks pass.
-    datasets=[]
-    for key,a,b,label in PERIODS:
-        all_raw=fetch(op,a,b); all_card=card(all_raw); all_rows=table_rows(all_raw)
-        validate(key,all_card,all_rows)
-        rows=[]; known_total=known_plan=known_fact=0; known_counts={k:0 for k in ("paid","debt","frozen","deleted")}
-        for full,(team,short,cid) in CURATORS.items():
-            cr=fetch(op,a,b,curator=cid); cc=card(cr); tr=table_rows(cr)
-            row=dashboard_row(team,short,full,cc,tr)
-            rows.append(row); known_total+=cc["total"]; known_plan+=cc["plan"]; known_fact+=cc["fact"]
-            for x in tr: known_counts[status_key(x["status"])]+=1
-        # Other admins remain in totals/details but do not enter the curator ranking.
-        all_counts=validate(key,all_card,all_rows)
-        other_total=all_card["total"]-known_total
-        if other_total:
-            other=dict(team="U",short="Biriktirilmagan",full="Boshqa adminlar",paid=all_counts["paid"]-known_counts["paid"],
-                tol=all_counts["paid"]-known_counts["paid"],bit=0,sar=0,
-                muz=all_counts["frozen"]-known_counts["frozen"],arx=all_counts["deleted"]-known_counts["deleted"],
-                plan=other_total,plansum=all_card["plan"]-known_plan,
-                debt=other_total-(all_counts["paid"]-known_counts["paid"]),sob=all_card["fact"]-known_fact,
-                pct=round((all_counts["paid"]-known_counts["paid"])/other_total*100) if other_total else 0,due=0,hidden=True)
-            rows.append(other)
-        datasets.append((key,a,b,label,all_card,all_rows,rows))
+    # Exact month: one full-module request plus one request per ranked curator.
+    # Week pages are slices of this same validated 1331-row CRM response, avoiding 40 slow requests.
+    all_raw=fetch(op,START,END); month_card=card(all_raw); month_source=table_rows(all_raw)
+    validate("month",month_card,month_source)
+    month_rows=[]; known_total=known_plan=known_fact=0; known_counts={k:0 for k in ("paid","debt","frozen","deleted")}
+    for full,(team,short,cid) in CURATORS.items():
+        cr=fetch(op,START,END,curator=cid); cc=card(cr); tr=table_rows(cr)
+        month_rows.append(dashboard_row(team,short,full,cc,tr))
+        known_total+=cc["total"]; known_plan+=cc["plan"]; known_fact+=cc["fact"]
+        for x in tr: known_counts[status_key(x["status"])]+=1
+    all_counts=validate("month",month_card,month_source)
+    other_total=month_card["total"]-known_total
+    if other_total:
+        opaid=all_counts["paid"]-known_counts["paid"]
+        month_rows.append(dict(team="U",short="Biriktirilmagan",full="Boshqa adminlar",paid=opaid,tol=opaid,bit=0,sar=0,
+            muz=all_counts["frozen"]-known_counts["frozen"],arx=all_counts["deleted"]-known_counts["deleted"],
+            plan=other_total,plansum=month_card["plan"]-known_plan,debt=other_total-opaid,
+            sob=month_card["fact"]-known_fact,pct=round(opaid/other_total*100) if other_total else 0,due=0,hidden=True))
+    datasets=[("month",START,END,PERIODS[0][3],month_card,month_source,month_rows)]
+
+    # Weekly count-first views from the exact month list. Amounts come from the same CRM row columns.
+    for key,a,b,label in PERIODS[1:]:
+        source=[x for x in month_source if a<=x["due"]<=b]
+        rows=[]
+        for full,(team,short,_cid) in CURATORS.items():
+            rr=[x for x in source if x["admin"]==full]
+            c=dict(total=len(rr),plan=sum(x["plan"] for x in rr),
+                   fact=sum(x["paid"] for x in rr if status_key(x["status"])=="paid"))
+            rows.append(dashboard_row(team,short,full,c,rr))
+        rr=[x for x in source if x["admin"] not in CURATORS]
+        if rr:
+            c=dict(total=len(rr),plan=sum(x["plan"] for x in rr),fact=sum(x["paid"] for x in rr if status_key(x["status"])=="paid"))
+            rows.append(dashboard_row("U","Biriktirilmagan","Boshqa adminlar",c,rr,True))
+        c=dict(total=len(source),plan=sum(x["plan"] for x in source),fact=sum(x["paid"] for x in source if status_key(x["status"])=="paid"))
+        datasets.append((key,a,b,label,c,source,rows))
 
     month_rows=datasets[0][5]; weeks=week_stats(month_rows)
     now=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).replace(tzinfo=None)
