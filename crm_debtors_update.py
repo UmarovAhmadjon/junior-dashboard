@@ -75,9 +75,9 @@ def table_rows(raw):
     out = []
     for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', m.group(1), re.I|re.S):
         cells = [strip_tags(x) for x in re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', tr, re.I|re.S)]
-        if len(cells) < 12 or not re.match(r"\d{2}\.\d{2}\.\d{4}", cells[2]): continue
+        if len(cells) < 12 or not cells[1].isdigit(): continue
         try: due = datetime.datetime.strptime(cells[2], "%d.%m.%Y").date()
-        except ValueError: continue
+        except ValueError: due = START
         out.append({"due":due,"name":cells[3],"student_status":cells[5],"admin":cells[6],
                     "tariff":cells[7],"plan":number(cells[8]),"status":cells[9],
                     "debt":number(cells[10]),"paid":number(cells[11])})
