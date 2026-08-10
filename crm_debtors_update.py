@@ -113,7 +113,7 @@ def dashboard_row(team, short, full, c, source_rows, hidden=False):
     paid = counts["paid"]
     today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
     return dict(team=team, short=short, full=full, paid=paid, tol=paid, bit=0, sar=0,
-        muz=counts["frozen"], arx=counts["deleted"], plan=c["total"], plansum=c["plan"],
+        muz=c.get("frozen",counts["frozen"]), arx=c.get("deleted",counts["deleted"]), plan=c["total"], plansum=c["plan"],
         debt=max(0,c["total"]-paid), sob=c["fact"],
         pct=round(paid/c["total"]*100) if c["total"] else 0,
         due=sum(1 for x in source_rows if x["due"]<=today), hidden=hidden)
@@ -169,18 +169,19 @@ def main():
     # Week pages are slices of this same validated 1331-row CRM response, avoiding 40 slow requests.
     all_raw=fetch(op,START,END); month_card=card(all_raw); month_source=table_rows(all_raw)
     validate("month",month_card,month_source)
-    month_rows=[]; known_total=known_plan=known_fact=0; known_counts={k:0 for k in ("paid","debt","frozen","deleted")}
+    month_rows=[]; known_total=known_plan=known_fact=known_frozen=known_deleted=0; known_counts={k:0 for k in ("paid","debt","frozen","deleted")}
     for full,(team,short,cid) in CURATORS.items():
         cr=fetch(op,START,END,curator=cid); cc=card(cr); tr=table_rows(cr)
         month_rows.append(dashboard_row(team,short,full,cc,tr))
         known_total+=cc["total"]; known_plan+=cc["plan"]; known_fact+=cc["fact"]
+        known_frozen+=cc["frozen"]; known_deleted+=cc["deleted"]
         for x in tr: known_counts[status_key(x["status"])]+=1
     all_counts=validate("month",month_card,month_source)
     other_total=month_card["total"]-known_total
     if other_total:
         opaid=all_counts["paid"]-known_counts["paid"]
         month_rows.append(dict(team="U",short="Biriktirilmagan",full="Boshqa adminlar",paid=opaid,tol=opaid,bit=0,sar=0,
-            muz=all_counts["frozen"]-known_counts["frozen"],arx=all_counts["deleted"]-known_counts["deleted"],
+            muz=month_card["frozen"]-known_frozen,arx=month_card["deleted"]-known_deleted,
             plan=other_total,plansum=month_card["plan"]-known_plan,debt=other_total-opaid,
             sob=month_card["fact"]-known_fact,pct=round(opaid/other_total*100) if other_total else 0,due=0,hidden=True))
     datasets=[("month",START,END,PERIODS[0][3],month_card,month_source,month_rows)]
