@@ -85,7 +85,7 @@ def table_rows(raw):
 
 def status_key(value):
     s = value.lower().replace("‘", "'").replace("’", "'")
-    if "to'landi" in s or "tolandi" in s: return "paid"
+    if any(x in s for x in ("to'landi","tolandi","to'lagan","tolagan","to'langan","tolangan","paid")): return "paid"
     if "muz" in s: return "frozen"
     if "arxiv" in s or "o'ch" in s: return "deleted"
     return "debt"
