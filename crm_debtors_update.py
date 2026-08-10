@@ -100,7 +100,8 @@ def main():
         "total":all_card["total"], "plan":all_card["plan"], "fact":all_card["fact"],
         "paid":status_cards["paid"]["total"], "debt":status_cards["qarzdor"]["total"],
         "frozen":status_cards["frozen"]["total"], "deleted":status_cards["deleted"]["total"],
-        "parsed_rows":len(rows),
+        "parsed_rows":len(rows), "row_plan":sum(r["plan"] for r in rows),
+        "row_paid":sum(r["paid"] for r in rows),
     }
     if "check" in os.sys.argv:
         print("CRM_CHECK", " ".join(f"{k}={v}" for k,v in summary.items()))
@@ -108,6 +109,8 @@ def main():
             raise RuntimeError("CRM status totals do not match")
         if rows and len(rows) != summary["total"]:
             raise RuntimeError("CRM table row count does not match cards")
+        if summary["row_plan"] != summary["plan"] or summary["row_paid"] != summary["fact"]:
+            raise RuntimeError("CRM table sums do not match cards")
         return
     raise RuntimeError("Publish mode is enabled only after CRM_CHECK validation")
 
