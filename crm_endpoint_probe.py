@@ -13,5 +13,5 @@ op.open(CRM + "/account/", urllib.parse.urlencode({
 html = op.open(CRM + "/account/main_page/list", timeout=40).read().decode(errors="ignore")
 links = sorted(set(re.findall(r'''(?:href|src)=["']([^"']+)["']''', html)))
 for value in links:
-    if re.search(r"qarz|debt|debitor", value, re.I):
+    if value.startswith(("/account/", "account/", CRM + "/account/")):
         print(value)
