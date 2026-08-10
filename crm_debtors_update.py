@@ -72,15 +72,26 @@ def card(raw):
 def table_rows(raw):
     m = re.search(r'<table[^>]*id=["\']customtable["\'][^>]*>(.*?)</table>', raw, re.I|re.S)
     if not m: return []
+    table=m.group(1)
+    head=re.search(r'<thead[^>]*>(.*?)</thead>',table,re.I|re.S)
+    headers=[strip_tags(x).lower() for x in re.findall(r'<th[^>]*>(.*?)</th>',head.group(1),re.I|re.S)] if head else []
+    def col(fragment, occurrence=0):
+        hits=[i for i,x in enumerate(headers) if fragment in x]
+        return hits[occurrence] if len(hits)>occurrence else -1
+    ix_date=col("qorz bo'lish"); ix_name=col("ism"); ix_student_status=col("status",0)
+    ix_admin=col("admin"); ix_tariff=col("tarif",0); ix_plan=col("standart")
+    ix_status=col("status",1); ix_debt=col("qarzdorlik"); ix_paid=col("summasi")
+    required=[ix_date,ix_name,ix_student_status,ix_admin,ix_tariff,ix_plan,ix_status,ix_debt,ix_paid]
+    if min(required)<0: raise RuntimeError("CRM Qarzdorlar columns changed")
     out = []
-    for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', m.group(1), re.I|re.S):
+    for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', table, re.I|re.S):
         cells = [strip_tags(x) for x in re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', tr, re.I|re.S)]
-        if len(cells) < 12 or not cells[1].isdigit(): continue
-        try: due = datetime.datetime.strptime(cells[2], "%d.%m.%Y").date()
+        if len(cells) < len(headers) or not any(x.isdigit() for x in cells[:2]): continue
+        try: due = datetime.datetime.strptime(cells[ix_date], "%d.%m.%Y").date()
         except ValueError: due = START
-        out.append({"due":due,"name":cells[3],"student_status":cells[5],"admin":cells[6],
-                    "tariff":cells[7],"plan":number(cells[8]),"status":cells[9],
-                    "debt":number(cells[10]),"paid":number(cells[11])})
+        out.append({"due":due,"name":cells[ix_name],"student_status":cells[ix_student_status],"admin":cells[ix_admin],
+                    "tariff":cells[ix_tariff],"plan":number(cells[ix_plan]),"status":cells[ix_status],
+                    "debt":number(cells[ix_debt]),"paid":number(cells[ix_paid])})
     return out
 
 def status_key(value):
