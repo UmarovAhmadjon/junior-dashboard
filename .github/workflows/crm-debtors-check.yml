@@ -11,3 +11,10 @@ jobs:
           CRM_PHONE: ${{ secrets.CRM_PHONE }}
           CRM_PASS: ${{ secrets.CRM_PASS }}
         run: python3 crm_debtors_update.py check
+      - name: Render dashboard without publishing
+        env:
+          CRM_PHONE: ${{ secrets.CRM_PHONE }}
+          CRM_PASS: ${{ secrets.CRM_PASS }}
+        run: |
+          python3 crm_debtors_update.py
+          grep -m1 'id="pstate"' index.html

@@ -14,13 +14,13 @@ PERIODS = [
     ("w4", datetime.date(2026,8,15), datetime.date(2026,8,24), "15.08–24.08 · неделя 4"),
 ]
 CURATORS = {
-    "Fotimabonu Abdulkhakova": ("A", "Fotima"),
-    "Dilafruz Shokirova": ("A", "Dilafruz"),
-    "Shaxlo Ziyodova": ("A", "Shaxlo"),
-    "Marjona Pardayeva": ("B", "Marjona"),
-    "Xalima Ismoiljonova": ("B", "Halima"),
-    "Jasmina Tolibova": ("B", "Jasmina"),
-    "Madina Normatova": ("B", "Madina"),
+    "Fotimabonu Abdulkhakova": ("A", "Fotima", "13799"),
+    "Dilafruz Shokirova": ("A", "Dilafruz", "14241"),
+    "Shaxlo Ziyodova": ("A", "Shaxlo", "21463"),
+    "Marjona Pardayeva": ("B", "Marjona", "14451"),
+    "Xalima Ismoiljonova": ("B", "Halima", "16386"),
+    "Jasmina Tolibova": ("B", "Jasmina", "14974"),
+    "Madina Normatova": ("B", "Madina", "16005"),
 }
 
 def strip_tags(value):
@@ -41,10 +41,10 @@ def crm_session():
     op.open(CRM + "/account/", body, timeout=45).read()
     return op
 
-def fetch(op, start=START, end=END, status=""):
+def fetch(op, start=START, end=END, status="", curator=""):
     body = urllib.parse.urlencode({
         "filter_status": status, "filter_tariff": "", "filter_group": "",
-        "filter_team": "", "filter_curator": "",
+        "filter_team": "", "filter_curator": curator,
         "filter_date_start": start.isoformat(), "filter_date_end": end.isoformat(),
         "filterModalSubmit": "1",
     }).encode()
@@ -90,6 +90,49 @@ def status_key(value):
     if "arxiv" in s or "o'ch" in s: return "deleted"
     return "debt"
 
+def validate(label, c, rows):
+    counts = {k:0 for k in ("paid","debt","frozen","deleted")}
+    for row in rows: counts[status_key(row["status"])] += 1
+    if len(rows) != c["total"] or sum(counts.values()) != c["total"]:
+        raise RuntimeError(f"{label}: CRM card/table mismatch")
+    return counts
+
+def dashboard_row(team, short, full, c, source_rows, hidden=False):
+    counts = validate(short, c, source_rows)
+    paid = counts["paid"]
+    today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
+    return dict(team=team, short=short, full=full, paid=paid, tol=paid, bit=0, sar=0,
+        muz=counts["frozen"], arx=counts["deleted"], plan=c["total"], plansum=c["plan"],
+        debt=max(0,c["total"]-paid), sob=c["fact"],
+        pct=round(paid/c["total"]*100) if c["total"] else 0,
+        due=sum(1 for x in source_rows if x["due"]<=today), hidden=hidden)
+
+def detail(source_rows):
+    out=[]
+    for i,x in enumerate(source_rows):
+        team_short=CURATORS.get(x["admin"])
+        curator=team_short[1] if team_short else "Biriktirilmagan"
+        paid=status_key(x["status"])=="paid"
+        out.append(dict(id=i+1,name=x["name"],curator=curator,
+            status="To'lagan" if paid else x["status"],
+            paid=x["paid"] if paid else 0,debt=x["debt"],period=x["due"].strftime("%d.%m.%Y")))
+    return out
+
+def week_stats(month_rows):
+    result=[]
+    for _key,a,b,_label in PERIODS[1:]:
+        rr=[x for x in month_rows if a<=x["due"]<=b]
+        paid=[x for x in rr if status_key(x["status"])=="paid"]
+        def team_of(x): return CURATORS.get(x["admin"],("U",))[0]
+        result.append(dict(ws=a,we=b,total=len(rr),paid=len(paid),
+            qarz=sum(status_key(x["status"])=="debt" for x in rr),
+            muz=sum(status_key(x["status"])=="frozen" for x in rr),
+            arx=sum(status_key(x["status"])=="deleted" for x in rr),
+            sob=sum(x["paid"] for x in paid),
+            A_total=sum(team_of(x)=="A" for x in rr),A_paid=sum(team_of(x)=="A" for x in paid),A_sob=sum(x["paid"] for x in paid if team_of(x)=="A"),
+            B_total=sum(team_of(x)=="B" for x in rr),B_paid=sum(team_of(x)=="B" for x in paid),B_sob=sum(x["paid"] for x in paid if team_of(x)=="B")))
+    return result
+
 def main():
     op = crm_session()
     raw = fetch(op)
@@ -109,10 +152,41 @@ def main():
             raise RuntimeError("CRM status totals do not match")
         if rows and len(rows) != summary["total"]:
             raise RuntimeError("CRM table row count does not match cards")
-        if summary["row_plan"] != summary["plan"] or summary["row_paid"] != summary["fact"]:
-            raise RuntimeError("CRM table sums do not match cards")
         return
-    raise RuntimeError("Publish mode is enabled only after CRM_CHECK validation")
+
+    # First fetch and validate every period. No HTML is written before all CRM checks pass.
+    datasets=[]
+    for key,a,b,label in PERIODS:
+        all_raw=fetch(op,a,b); all_card=card(all_raw); all_rows=table_rows(all_raw)
+        validate(key,all_card,all_rows)
+        rows=[]; known_total=known_plan=known_fact=0; known_counts={k:0 for k in ("paid","debt","frozen","deleted")}
+        for full,(team,short,cid) in CURATORS.items():
+            cr=fetch(op,a,b,curator=cid); cc=card(cr); tr=table_rows(cr)
+            row=dashboard_row(team,short,full,cc,tr)
+            rows.append(row); known_total+=cc["total"]; known_plan+=cc["plan"]; known_fact+=cc["fact"]
+            for x in tr: known_counts[status_key(x["status"])]+=1
+        # Other admins remain in totals/details but do not enter the curator ranking.
+        all_counts=validate(key,all_card,all_rows)
+        other_total=all_card["total"]-known_total
+        if other_total:
+            other=dict(team="U",short="Biriktirilmagan",full="Boshqa adminlar",paid=all_counts["paid"]-known_counts["paid"],
+                tol=all_counts["paid"]-known_counts["paid"],bit=0,sar=0,
+                muz=all_counts["frozen"]-known_counts["frozen"],arx=all_counts["deleted"]-known_counts["deleted"],
+                plan=other_total,plansum=all_card["plan"]-known_plan,
+                debt=other_total-(all_counts["paid"]-known_counts["paid"]),sob=all_card["fact"]-known_fact,
+                pct=round((all_counts["paid"]-known_counts["paid"])/other_total*100) if other_total else 0,due=0,hidden=True)
+            rows.append(other)
+        datasets.append((key,a,b,label,all_card,all_rows,rows))
+
+    month_rows=datasets[0][5]; weeks=week_stats(month_rows)
+    now=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).replace(tzinfo=None)
+    ui.IS_CI=os.environ.get("GITHUB_ACTIONS")=="true"
+    ui.PREVIEW=False
+    ui.CUR=[(team,short,full) for full,(team,short,_cid) in CURATORS.items()]
+    for key,a,b,label,c,source_rows,rows in datasets:
+        ui.PERIOD=key; ui.DETAIL_DATA=detail(source_rows)
+        due_total=sum(r["due"] for r in rows); due_paid=sum(min(r["paid"],r["due"]) for r in rows)
+        ui.render(now,a,b,rows,c["total"],c["plan"],weeks,due_total,due_paid,PERIODS,label)
 
 if __name__ == "__main__":
     main()
