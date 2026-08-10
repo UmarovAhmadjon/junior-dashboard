@@ -23,10 +23,9 @@ DETAIL_DATA = []
 
 # Kassir -> qaysi kuratorlar bilan ishlaydi (Лист12 dan, foydalanuvchi bergan)
 CASHIERS = [
- ("Muxlisa","A",["Dilafruz","Munisa"]),
+ ("Abror","A",["Dilafruz","Shaxlo"]),
  ("Nozima","A",["Madina","Jasmina","Fotima"]),
  ("Islom","B",["Marjona","Halima"]),
- ("Abror","B",["Sabrina","Maryam","Aziza"]),
 ]
 
 # kurator: (team, tab/short nomi, to'liq ism) — tartib = ko'rsatish tartibi
