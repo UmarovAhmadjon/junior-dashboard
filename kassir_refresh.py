@@ -42,11 +42,22 @@ CASH = {str(c["ID"]): (html.unescape(c["NAME"]).strip() + " " +
                        html.unescape(c.get("SURNAME") or "").strip()).strip()
         for c in cash_rows}
 
-PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, "
+MONTH_START = "DATE_FORMAT(CURDATE(),'%Y-%m-01')"
+PREV_MONTH_START = "DATE_FORMAT(CURDATE()-INTERVAL 1 MONTH,'%Y-%m-01')"
+DUE_DATE = ("CASE WHEN sub.DAY<=DAY(CURDATE()) THEN "
+            "DATE_ADD(%s,INTERVAL LEAST(sub.DAY,DAY(LAST_DAY(%s)))-1 DAY) ELSE "
+            "DATE_ADD(%s,INTERVAL LEAST(sub.DAY,DAY(LAST_DAY(%s)))-1 DAY) END"
+            % (MONTH_START, MONTH_START, PREV_MONTH_START, PREV_MONTH_START))
+
+PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.ID subid, sub.GROUP_ID gid, g.NAME grp, "
            "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price, "
            "DATE(sub.END_OF_SUBSCRIPTION) expiry, COALESCE(tf.tariff_months,0) tariff_months, "
-           "tf.tariff_name, nl.ID note_id, DATE_FORMAT(nl.CREATED_DATE,'%H:%i') note_time, "
+           "tf.tariff_name, (%s) due_date, "
+           "COALESCE((SELECT SUM(tx.AMOUNT) FROM transaction_list tx WHERE tx.STUDENT_ID=s.ID "
+           "AND tx.ACTION_TYPE='taken' AND tx.TRANSACTION_DATE>=(%s)),0) charged_sum, "
+           "nl.ID note_id, DATE_FORMAT(nl.CREATED_DATE,'%%H:%%i') note_time, "
            "nu.NAME note_author_name, nu.SURNAME note_author_surname")
+PAY_SEL = PAY_SEL % (DUE_DATE, DUE_DATE)
 PAY_FROM = ("FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
             "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
             "LEFT JOIN (SELECT NAME_VALUE, AMOUNT, MAX(MONTH_AMOUNT) tariff_months, "
@@ -73,8 +84,12 @@ def pay_list(day, days_left):
 
 t3 = pay_list(D_T3, 3)
 debtors = q("SELECT %s %s AND COALESCE(tf.tariff_months,0)<=1 "
-            "AND s.CURRENT_BALANCE < 0 ORDER BY sub.DAY DESC, s.CURRENT_BALANCE ASC"
-            % (PAY_SEL, PAY_FROM))
+            "AND sub.SPECIAL_PRICE>0 AND (%s)<=CURDATE() "
+            "AND COALESCE((SELECT SUM(tx.AMOUNT) FROM transaction_list tx "
+            "WHERE tx.STUDENT_ID=s.ID AND tx.ACTION_TYPE='taken' "
+            "AND tx.TRANSACTION_DATE>=(%s)),0)<sub.SPECIAL_PRICE "
+            "ORDER BY (%s) DESC, s.CURRENT_BALANCE ASC"
+            % (PAY_SEL, PAY_FROM, DUE_DATE, DUE_DATE, DUE_DATE))
 frozen = q(
     "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
     "DATE(fs.START_DATE) fdate, fr.REASON reason, DATE(sub.END_OF_SUBSCRIPTION) expiry, "
@@ -163,9 +178,13 @@ def task_row(r, kind):
     elif kind == "debtor":
         dp = days_past(r["chday"])
         fresh = "сегодня" if dp==0 else ("вчера" if dp==1 else "%d дн. назад" % dp)
-        detail = '<span class="taskbadge overdue">📅 Oylik to‘lov muddati o‘tdi</span>'
-        metric = ('<span class="m m-debt">долг %s сум</span>'
-                  '<span class="m m-dim">списание %s</span>' % (nf(-int(r["bal"])), fresh))
+        debit_bug = int(r.get("bal") or 0) >= int(r.get("price") or 0)
+        detail = ('<span class="taskbadge overdue">⚠️ CRM автосписание amalga oshmadi</span>' if debit_bug else
+                  '<span class="taskbadge overdue">📅 Oylik to‘lov muddati o‘tdi</span>')
+        amount = int(r.get("bal") or 0) if debit_bug else max(0, int(r.get("price") or 0)-int(r.get("bal") or 0))
+        amount_label = "баланс" if debit_bug else "долг"
+        metric = ('<span class="m m-debt">%s %s сум</span>'
+                  '<span class="m m-dim">списание %s</span>' % (amount_label, nf(amount), fresh))
         key = "debtor_%s" % sid
     else:
         reason = REASON_RU.get(r.get("reason"), esc(r.get("reason") or "—"))
