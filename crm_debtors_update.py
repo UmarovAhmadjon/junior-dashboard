@@ -49,8 +49,8 @@ def fetch(op, start=START, end=END, status=""):
         "filterModalSubmit": "1",
     }).encode()
     raw = op.open(CRM + "/account/debtors/list", body, timeout=90).read().decode(errors="ignore")
-    if "account/modules/med/login/login.js" in raw:
-        raise RuntimeError("CRM login failed")
+    if 'id="customtable"' not in raw and "id='customtable'" not in raw:
+        raise RuntimeError("CRM Qarzdorlar table is unavailable")
     return raw
 
 def card(raw):
