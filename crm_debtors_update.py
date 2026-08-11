@@ -24,6 +24,7 @@ CURATORS = {
     "Madina Normatova": ("B", "Madina", "16005"),
 }
 TEST_ADMIN_IDS = {21453}  # MK admin — test account, never show in cashier ranking
+CURRENT_ADMIN_IDS = {int(value[2]) for value in CURATORS.values()}
 
 def strip_tags(value):
     value = re.sub(r"<script.*?</script>|<style.*?</style>", " ", value, flags=re.I|re.S)
@@ -178,8 +179,12 @@ def cashier_dataset(source_rows, group_meta):
     grouped={}
     for row in source_rows:
         meta=group_meta.get(int(row.get("student_id") or 0),{})
-        if int(meta.get("admin_id") or 0) in TEST_ADMIN_IDS:
+        admin_id=int(meta.get("admin_id") or 0)
+        if admin_id in TEST_ADMIN_IDS:
             row["cashier"]="Test akkaunt"
+            continue
+        if admin_id not in CURRENT_ADMIN_IDS:
+            row["cashier"]="Boshqa admin"
             continue
         cid=int(meta.get("cashier_id") or 0)
         if not cid:
