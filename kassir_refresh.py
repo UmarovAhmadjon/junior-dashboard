@@ -48,10 +48,15 @@ DUE_DATE = ("CASE WHEN sub.DAY<=DAY(CURDATE()) THEN "
             "DATE_ADD(%s,INTERVAL LEAST(sub.DAY,DAY(LAST_DAY(%s)))-1 DAY) ELSE "
             "DATE_ADD(%s,INTERVAL LEAST(sub.DAY,DAY(LAST_DAY(%s)))-1 DAY) END"
             % (MONTH_START, MONTH_START, PREV_MONTH_START, PREV_MONTH_START))
+TARIFF_MONTHS = ("COALESCE(tf.tariff_months,CASE "
+                 "WHEN LOWER(COALESCE(sub.PRICE_TYPE,'')) REGEXP 'upsell[[:space:]]*12|12[[:space:]]*oylik' THEN 12 "
+                 "WHEN LOWER(COALESCE(sub.PRICE_TYPE,'')) REGEXP 'upsell[[:space:]]*6|6[[:space:]]*oylik' THEN 6 "
+                 "WHEN LOWER(COALESCE(sub.PRICE_TYPE,'')) REGEXP 'upsell[[:space:]]*3|3[[:space:]]*oylik' THEN 3 "
+                 "ELSE 0 END)")
 
 PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.ID subid, sub.GROUP_ID gid, g.NAME grp, "
            "g.CASHIER_ID cid, sub.DAY chday, s.CURRENT_BALANCE bal, sub.SPECIAL_PRICE price, "
-           "DATE(sub.END_OF_SUBSCRIPTION) expiry, COALESCE(tf.tariff_months,0) tariff_months, "
+           "DATE(sub.END_OF_SUBSCRIPTION) expiry, " + TARIFF_MONTHS + " tariff_months, "
            "tf.tariff_name, (%s) due_date, "
            "COALESCE((SELECT SUM(tx.AMOUNT) FROM transaction_list tx WHERE tx.STUDENT_ID=s.ID "
            "AND tx.ACTION_TYPE='taken' AND tx.TRANSACTION_DATE>=(%s)),0) charged_sum, "
@@ -74,26 +79,26 @@ PAY_FROM = ("FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID 
 def pay_list(day, days_left):
     return q(
         "SELECT %s %s AND ("
-        "(COALESCE(tf.tariff_months,0)<=1 "
+        "((%s)<=1 "
         " AND s.CURRENT_BALANCE>=0 AND s.CURRENT_BALANCE < sub.SPECIAL_PRICE AND sub.DAY=%d)"
         " OR "
-        "(COALESCE(tf.tariff_months,0)>1 "
+        "((%s)>1 "
         " AND DATEDIFF(DATE(sub.END_OF_SUBSCRIPTION),CURDATE())=%d)"
-        ") ORDER BY COALESCE(tf.tariff_months,0) DESC, s.CURRENT_BALANCE ASC"
-        % (PAY_SEL, PAY_FROM, day, days_left))
+        ") ORDER BY (%s) DESC, s.CURRENT_BALANCE ASC"
+        % (PAY_SEL, PAY_FROM, TARIFF_MONTHS, day, TARIFF_MONTHS, days_left, TARIFF_MONTHS))
 
 t3 = pay_list(D_T3, 3)
-debtors = q("SELECT %s %s AND COALESCE(tf.tariff_months,0)<=1 "
+debtors = q("SELECT %s %s AND (%s)<=1 "
             "AND sub.SPECIAL_PRICE>0 AND (%s)<=CURDATE() "
             "AND COALESCE((SELECT SUM(tx.AMOUNT) FROM transaction_list tx "
             "WHERE tx.STUDENT_ID=s.ID AND tx.ACTION_TYPE='taken' "
             "AND tx.TRANSACTION_DATE>=(%s)),0)<sub.SPECIAL_PRICE "
             "ORDER BY (%s) DESC, s.CURRENT_BALANCE ASC"
-            % (PAY_SEL, PAY_FROM, DUE_DATE, DUE_DATE, DUE_DATE))
+            % (PAY_SEL, PAY_FROM, TARIFF_MONTHS, DUE_DATE, DUE_DATE, DUE_DATE))
 frozen = q(
     "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
     "DATE(fs.START_DATE) fdate, fr.REASON reason, DATE(sub.END_OF_SUBSCRIPTION) expiry, "
-    "COALESCE(tf.tariff_months,0) tariff_months, tf.tariff_name, nl.ID note_id, "
+    "%s tariff_months, tf.tariff_name, nl.ID note_id, "
     "DATE_FORMAT(nl.CREATED_DATE,'%%H:%%i') note_time, nu.NAME note_author_name, "
     "nu.SURNAME note_author_surname "
     "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
@@ -109,7 +114,7 @@ frozen = q(
     "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
     "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
     "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
-    "ORDER BY fs.START_DATE DESC" % ORG)
+    "ORDER BY fs.START_DATE DESC" % (TARIFF_MONTHS, ORG))
 
 # ---- yordamchilar ----
 def days_past(chday):
