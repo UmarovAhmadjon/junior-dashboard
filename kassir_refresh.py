@@ -114,6 +114,8 @@ frozen = q(
     "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
     "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
     "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
+    "AND fs.START_DATE IS NOT NULL AND DATE(fs.START_DATE)<=CURDATE() "
+    "AND MOD(DATEDIFF(CURDATE(),DATE(fs.START_DATE)),2)=0 "
     "ORDER BY fs.START_DATE DESC" % (TARIFF_MONTHS, ORG))
 
 # ---- yordamchilar ----
@@ -200,20 +202,20 @@ def task_row(r, kind):
         metric = ('<span class="m m-froz">%s</span>'
                   '<span class="m m-dim">заморозка %s</span>' % (reason, dm(r.get("fdate"))))
         key = "frozen_%s" % sid
-    return ('<div class="trow" data-k="%s" data-sid="%s" data-cid="%s" data-note-ok="%s" data-note-author="%s" '
+    return ('<div class="trow" data-k="%s" data-sid="%s" data-cid="%s" data-group="%s" data-note-ok="%s" data-note-author="%s" '
             'data-note-time="%s" data-cashier="%s"><span class="dot d-%s"></span>'
             '<div class="tmain">%s'
             '<div class="tmeta">%s %s</div></div>'
             '<div class="tright">%s</div>'
             '<a class="call" href="tel:%s">Позвонить</a>'
             '<button class="done" title="Готово">✓</button></div>'
-            % (key, sid, cid_of(r), "1" if note_ok else "0", esc(note_author), esc(r.get("note_time") or ""),
+            % (key, sid, cid_of(r), grp, "1" if note_ok else "0", esc(note_author), esc(r.get("note_time") or ""),
                esc(cashier_name), kind, name_html, grp_html, detail, metric, phd))
 
 SECDEF = [
     ("t3","💳","To‘lovga 3 kun qoldi","to‘lov sanasidan aynan 3 kun oldin","b-t3", t3),
     ("debtor","📋","Qarzdor","qarzga kirgan kundan muzlatilguncha har kuni","b-debtor", debtors),
-    ("frozen","🧊","Muzlatilgan → Arxiv","muzlatilgandan arxiv statusiga o‘tguncha har kuni","b-frozen", frozen),
+    ("frozen","🧊","Muzlatilgan → Arxiv","muzlatilgandan arxiv statusiga o‘tguncha kun ora","b-frozen", frozen),
 ]
 
 def render_board(cash_id):
@@ -228,6 +230,14 @@ def render_board(cash_id):
             '<div class="banner %s"><span class="bi">%s</span><span class="bt">%s</span>'
             '<span class="bc">%d</span><small>%s</small></div>'
             '<div class="list">%s</div></section>' % (key, bcls, ic, title, len(rr), sub, body))
+    board_rows = [r for s in SECDEF for r in s[5] if cash_id=="all" or cid_of(r)==cash_id]
+    group_counts = {}
+    for r in board_rows:
+        gn = html.unescape(r.get("grp") or "—").strip() or "—"
+        group_counts[gn] = group_counts.get(gn, 0) + 1
+    group_buttons = ('<button class="gchip on" data-group="">Все группы <b>%d</b></button>' % total +
+                     "".join('<button class="gchip" data-group="%s">%s <b>%d</b></button>' %
+                             (esc(g), esc(g), n) for g,n in sorted(group_counts.items())))
     who = "Все кассиры" if cash_id=="all" else esc(CASH.get(cash_id, "—"))
     board = (
         '<div class="board" data-cash="%s" hidden>'
@@ -235,11 +245,12 @@ def render_board(cash_id):
         '<div class="who">%s</div>'
         '<div class="pbar"><div class="pfill"></div></div>'
         '<span class="pnum">0 / %d</span></div>'
-        '<div class="chips">%s</div>%s</div>' % (
+        '<div class="chips">%s<button class="group-toggle">Группы ▾</button></div>'
+        '<div class="groupbar" hidden>%s</div>%s</div>' % (
             cash_id, who, total,
             "".join('<span class="chip" data-sec="%s"><i class="ci d-%s"></i>%s <b class="cbn">%d</b></span>'
                     % (s[0], s[0], s[2], len([r for r in s[5] if cash_id=="all" or cid_of(r)==cash_id]))
-                    for s in SECDEF),
+                    for s in SECDEF), group_buttons,
             "".join(sec_html)))
     return board, total
 
@@ -312,6 +323,10 @@ font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradien
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
 .chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12.5px;color:var(--mut);cursor:pointer}
 .chip b{color:var(--txt);font-weight:800}.chip.off{opacity:.4}
+.group-toggle,.gchip{border:1px solid var(--line);background:var(--panel);color:var(--mut);border-radius:20px;padding:5px 12px;font:700 12.5px Manrope,sans-serif;cursor:pointer}
+.group-toggle{color:var(--volttx);border-color:rgba(255,79,40,.35)}
+.groupbar{display:flex;flex-wrap:wrap;gap:7px;margin:-7px 0 16px;padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+.groupbar[hidden]{display:none}.gchip b{color:var(--txt);margin-left:4px}.gchip.on{background:var(--volt);border-color:var(--volt);color:#fff}.gchip.on b{color:#fff}
 .ci{width:9px;height:9px;border-radius:50%}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px;box-shadow:0 6px 22px rgba(16,21,29,.05)}
 .banner{display:flex;align-items:center;gap:10px;padding:12px 16px;font-weight:800;flex-wrap:wrap}
@@ -325,6 +340,7 @@ font:800 15px 'Barlow Condensed',sans-serif;color:#fff;background:linear-gradien
 .trow{display:flex;align-items:center;gap:11px;padding:10px 16px;border-top:1px solid var(--line)}
 .list .trow:first-child{border-top:none}
 .trow.done{display:none}
+.trow.group-hidden{display:none}
 .dot{width:9px;height:9px;border-radius:50%;flex:none}
 .d-t3{background:#eab308}.d-debtor{background:#e11d48}.d-frozen{background:#06b6d4}
 .tmain{flex:1;min-width:0}
@@ -446,6 +462,15 @@ JS = """
   ch.classList.toggle('off');
   var b=ch.closest('.board');var sec=b.querySelector('.sec[data-sec="'+ch.dataset.sec+'"]');
   if(sec)sec.style.display=ch.classList.contains('off')?'none':'';
+ }});
+ document.querySelectorAll('.group-toggle').forEach(function(btn){btn.onclick=function(){
+  var bar=btn.closest('.board').querySelector('.groupbar');bar.hidden=!bar.hidden;
+  btn.textContent=bar.hidden?'Группы ▾':'Группы ▴';
+ }});
+ document.querySelectorAll('.gchip').forEach(function(ch){ch.onclick=function(){
+  var b=ch.closest('.board'),group=ch.dataset.group||'';
+  b.querySelectorAll('.gchip').forEach(function(x){x.classList.toggle('on',x===ch)});
+  b.querySelectorAll('.trow').forEach(function(r){r.classList.toggle('group-hidden',!!group&&r.dataset.group!==group)});
  }});
  function upd(){
   document.querySelectorAll('.board').forEach(function(b){
