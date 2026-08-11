@@ -182,11 +182,15 @@ def cashier_dataset(source_rows, group_meta):
             row["cashier"]="Test akkaunt"
             continue
         cid=int(meta.get("cashier_id") or 0)
+        if not cid:
+            row["cashier"]="Biriktirilmagan"
+            continue
         cname=re.sub(r"\s+"," ",html.unescape(str(meta.get("cashier_name") or "")).strip())
-        key=str(cid) if cid else "0"
-        label=cname or "Biriktirilmagan"
-        d=grouped.setdefault(key,dict(name=label,groups=set(),source=[]))
-        if meta.get("group_name"): d["groups"].add(str(meta["group_name"]).strip())
+        key=str(cid)
+        label=cname or ("Kassir "+key)
+        d=grouped.setdefault(key,dict(name=label,admins=set(),source=[]))
+        admin_name=re.sub(r"\s+"," ",html.unescape(str(meta.get("admin_name") or "")).strip())
+        if admin_name: d["admins"].add(admin_name)
         row["cashier"]=label
         d["source"].append(row)
     synthetic=[]; catalog=[]
@@ -200,7 +204,7 @@ def cashier_dataset(source_rows, group_meta):
             muz=sum(status_key(x["status"])=="frozen" for x in rr),arx=sum(status_key(x["status"])=="deleted" for x in rr),
             plan=len(rr),plansum=sum(x["plan"] for x in rr),debt=len(rr)-len(paid),sob=sum(x["paid"] for x in paid),
             pct=round(len(paid)/len(rr)*100) if rr else 0,due=sum(x["due"]<=today for x in rr)))
-        labels=sorted(d["groups"])
+        labels=sorted(d["admins"])
         catalog.append((d["name"].split()[0] if d["name"]!="Biriktirilmagan" else d["name"],team,[short],labels,d["name"]))
     return synthetic,catalog
 
