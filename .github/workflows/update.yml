@@ -22,6 +22,7 @@ jobs:
         env:
           CRM_PHONE: ${{ secrets.CRM_PHONE }}
           CRM_PASS: ${{ secrets.CRM_PASS }}
+          JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: python3 crm_debtors_update.py
 
       - name: Generate cashier tasks dashboard (DB via gateway)

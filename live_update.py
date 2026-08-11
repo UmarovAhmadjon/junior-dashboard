@@ -20,6 +20,7 @@ PREVIEW = ("preview" in sys.argv)   # `python3 live_update.py preview` -> previe
 IS_CI = os.environ.get("GITHUB_ACTIONS")=="true"   # GitHub Actions (bulut) rejimi: fayl yoziladi, commitni workflow qiladi
 PERIOD = next((x for x in sys.argv[1:] if re.fullmatch(r"(?:n)?(?:month|w[1-4])", x)), "month")
 DETAIL_DATA = []
+CASHIER_ROWS = None
 
 # Kassir -> qaysi kuratorlar bilan ishlaydi (Лист12 dan, foydalanuvchi bergan)
 CASHIERS = [
@@ -671,13 +672,16 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     except Exception as e: print(f"  github: ERROR {e}", file=sys.stderr)
 
 def cashier_section(rows):
-    by={r['short']:r for r in rows}
+    by={r['short']:r for r in (CASHIER_ROWS if CASHIER_ROWS is not None else rows)}
     data=[]
-    for cname,team,curs in CASHIERS:
+    for item in CASHIERS:
+        cname,team,curs=item[:3]
+        labels=item[3] if len(item)>3 else curs
+        fullname=item[4] if len(item)>4 else cname
         cs=[by[c] for c in curs if c in by]
         paid=sum(x['paid'] for x in cs); plan=sum(x['plan'] for x in cs); sob=sum(x['sob'] for x in cs)
         due=sum(x.get('due',0) for x in cs)
-        data.append(dict(name=cname,team=team,curs=curs,paid=paid,plan=plan,sob=sob,due=due,
+        data.append(dict(name=cname,fullname=fullname,team=team,curs=curs,labels=labels,paid=paid,plan=plan,sob=sob,due=due,
                          pct=round(paid/plan*100) if plan else 0,
                          pace=round(paid/due*100) if due else 100))
     # Kassir reytingi ham yagona qoida bo'yicha: FAKT / UMUMIY PLAN.
@@ -690,7 +694,7 @@ def cashier_section(rows):
         fill="goldf" if d['pct']>=100 else ("okf" if d['pct']>=40 else "lagf")
         gap="goldg" if d['pct']>=100 else ("okg" if d['pct']>=80 else "badg")
         badge=f'<span class="tbadge t{d["team"]}">{d["team"]}</span>'
-        sub=", ".join(d['curs'])
+        sub=", ".join(d['labels'])
         plan=max(1,d['plan']); pacepct=min(100, round(d['due']/plan*100))
         marker=f'<span style="position:absolute;left:{pacepct}%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span>' if d['due']>0 else ""
         gapn=d['paid']-d['due']
@@ -701,7 +705,7 @@ def cashier_section(rows):
     <span class="pos {posc}"><i>{d['pos']}</i></span>
     <span class="lnm">{badge}{esc(d['name'])} <i style="color:var(--mut);font-weight:600;font-size:.78em">· {esc(sub)}</i></span>
     <span class="track"><span class="fill {fill}" style="--w:{min(100,d['pct'])}%"></span>{marker}<span class="tfin"></span></span>
-    <span class="fact"><button class="numlink row-num" data-list="paid" data-curators="{'|'.join(d['curs'])}">{d['paid']}</button><i>/<button class="numlink inline-num" data-list="plan" data-curators="{'|'.join(d['curs'])}">{d['plan']}</button> · {mln(d['sob'])}м</i></span>
+    <span class="fact"><button class="numlink row-num" data-list="paid" data-cashier="{esc(d['fullname'])}">{d['paid']}</button><i>/<button class="numlink inline-num" data-list="plan" data-cashier="{esc(d['fullname'])}">{d['plan']}</button> · {mln(d['sob'])}м</i></span>
     <span class="gap {gap}">{d['pct']}%</span><span class="wk">{chip}</span></div>"""
     return f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Кассиры <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · отрыв = факт − график</span></div>
   <div class="lhead"><span>Поз</span><span>Кассир · кураторы</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Отрыв</span></div>
@@ -744,7 +748,7 @@ def open_js(srv_ms):
  function money(v){return Number(v||0).toLocaleString('ru-RU')+' сум';}
  function draw(){var term=(ds&&ds.value||'').trim().toLowerCase(),arr=current.filter(function(x){return !term||String(x.name||'').toLowerCase().indexOf(term)>=0;});if(dc)dc.textContent=arr.length+' ta';if(!dl)return;dl.innerHTML=arr.length?arr.map(function(x){var paid=x.status==="To'lagan";return '<div class="drow"><div><div class="dnm">'+escH(x.name)+'</div><div class="dmeta">'+escH(x.curator||'Biriktirilmagan')+'</div></div><span class="dst '+(paid?'paid':'debt')+'">'+escH(x.status)+'</span><div class="dmeta">'+escH(x.period||'')+'</div><div class="damt">'+money(paid?x.paid:x.debt)+'</div></div>';}).join(''):'<div class="dempty">Ma’lumot topilmadi</div>';}
  function escH(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
- function openDetail(btn){var kind=btn.getAttribute('data-list')||'plan',cur=btn.getAttribute('data-curator')||'',curs=(btn.getAttribute('data-curators')||'').split('|').filter(Boolean);current=DETAIL.filter(function(x){return (!cur||x.curator===cur)&&(!curs.length||curs.indexOf(x.curator)>=0)&&(kind==='plan'||(kind==='paid'&&x.status==="To'lagan")||(kind==='debt'&&x.status!=="To'lagan"));});if(dsub)dsub.textContent=(cur?cur+' · ':'')+(kind==='paid'?'To‘lagan':kind==='debt'?'Qarzdor':'PLAN tarkibi');if(ds)ds.value='';draw();if(dm){dm.hidden=false;document.body.style.overflow='hidden';if(ds)ds.focus();}}
+ function openDetail(btn){var kind=btn.getAttribute('data-list')||'plan',cur=btn.getAttribute('data-curator')||'',cash=btn.getAttribute('data-cashier')||'',curs=(btn.getAttribute('data-curators')||'').split('|').filter(Boolean);current=DETAIL.filter(function(x){return (!cur||x.curator===cur)&&(!cash||x.cashier===cash)&&(!curs.length||curs.indexOf(x.curator)>=0)&&(kind==='plan'||(kind==='paid'&&x.status==="To'lagan")||(kind==='debt'&&x.status!=="To'lagan"));});if(dsub)dsub.textContent=((cur||cash)?(cur||cash)+' · ':'')+(kind==='paid'?'To‘lagan':kind==='debt'?'Qarzdor':'PLAN tarkibi');if(ds)ds.value='';draw();if(dm){dm.hidden=false;document.body.style.overflow='hidden';if(ds)ds.focus();}}
  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-list]');if(b){openDetail(b);return;}if(e.target.closest&&e.target.closest('[data-close-detail]')){dm.hidden=true;document.body.style.overflow='';}});if(ds)ds.addEventListener('input',draw);document.addEventListener('keydown',function(e){if(e.key==='Escape'&&dm&&!dm.hidden){dm.hidden=true;document.body.style.overflow='';}});
 }());
 </script>""".replace("__SRVMS__", str(srv_ms)))
