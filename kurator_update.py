@@ -347,6 +347,11 @@ def status_churn_counts(admin_ids_list, weeks):
         f"AND s.ACTIVE=1 AND s.STATUS='freezed' JOIN group_list g ON g.ID=s.GROUP_ID "
         f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{weeks[0]['start']}' "
         f"AND f.START_DATE<'{weeks[-1]['end_exclusive']}' "
+        f"AND EXISTS (SELECT 1 FROM transaction_list p WHERE p.STUDENT_ID=s.STUDENT_ID "
+        f"AND p.ACTION_TYPE='add' AND p.TRANSACTION_DATE<=f.START_DATE GROUP BY p.STUDENT_ID "
+        f"HAVING SUM(p.AMOUNT)>=COALESCE(NULLIF(s.SPECIAL_PRICE,0),1)) "
+        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list d WHERE d.STUDENT_ID=s.STUDENT_ID "
+        f"AND d.ACTIVE=1 AND d.STATUS='demo') "
         f"UNION ALL "
         f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'archive' kind,s.END_DATE event_date "
         f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
@@ -354,8 +359,13 @@ def status_churn_counts(admin_ids_list, weeks):
         f"WHERE s2.STUDENT_ID=s.STUDENT_ID AND s2.STATUS='archive' AND g2.ADMIN_ID IN ({ids})) "
         f"AND s.STATUS='archive' AND s.END_DATE>='{weeks[0]['start']}' "
         f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
+        f"AND (s.END_OF_SUBSCRIPTION IS NULL OR s.END_OF_SUBSCRIPTION='0000-00-00 00:00:00' "
+        f"OR DATE(s.END_DATE)<DATE(s.END_OF_SUBSCRIPTION)) "
+        f"AND EXISTS (SELECT 1 FROM transaction_list p WHERE p.STUDENT_ID=s.STUDENT_ID "
+        f"AND p.ACTION_TYPE='add' AND p.TRANSACTION_DATE<=s.END_DATE GROUP BY p.STUDENT_ID "
+        f"HAVING SUM(p.AMOUNT)>=COALESCE(NULLIF(s.SPECIAL_PRICE,0),1)) "
         f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a WHERE a.STUDENT_ID=s.STUDENT_ID "
-        f"AND a.ACTIVE=1 AND a.STATUS IN ('active','freezed'))"
+        f"AND a.ACTIVE=1 AND a.STATUS IN ('active','freezed','demo'))"
         f") x GROUP BY x.admin,wk,x.kind"
     )
     out = {}
@@ -364,6 +374,46 @@ def status_churn_counts(admin_ids_list, weeks):
         out.setdefault(aid,{}).setdefault(wk,{'frozen':0,'archive':0})
         out[aid][wk][kind]=int(r['students'])
     return out
+
+def churn_student_rows(admin_ids_list, weeks):
+    """Churn sonini tashkil qilgan o'quvchilar: har o'quvchining eng so'nggi churn hodisasi."""
+    ids = ','.join(admin_ids_list)
+    sql = (
+        "SELECT x.admin,x.student_id,st.NAME name,x.kind,x.event_date FROM ("
+        f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'frozen' kind,f.START_DATE event_date "
+        f"FROM frozen_student_list f JOIN subscribe_list s ON s.STUDENT_ID=f.STUDENT_ID "
+        f"AND s.ACTIVE=1 AND s.STATUS='freezed' JOIN group_list g ON g.ID=s.GROUP_ID "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{weeks[0]['start']}' "
+        f"AND f.START_DATE<'{weeks[-1]['end_exclusive']}' "
+        f"AND EXISTS (SELECT 1 FROM transaction_list p WHERE p.STUDENT_ID=s.STUDENT_ID "
+        f"AND p.ACTION_TYPE='add' AND p.TRANSACTION_DATE<=f.START_DATE GROUP BY p.STUDENT_ID "
+        f"HAVING SUM(p.AMOUNT)>=COALESCE(NULLIF(s.SPECIAL_PRICE,0),1)) "
+        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list d WHERE d.STUDENT_ID=s.STUDENT_ID "
+        f"AND d.ACTIVE=1 AND d.STATUS='demo') UNION ALL "
+        f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'archive' kind,s.END_DATE event_date "
+        f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
+        f"WHERE s.ID=(SELECT MAX(s2.ID) FROM subscribe_list s2 JOIN group_list g2 ON g2.ID=s2.GROUP_ID "
+        f"WHERE s2.STUDENT_ID=s.STUDENT_ID AND s2.STATUS='archive' AND g2.ADMIN_ID IN ({ids})) "
+        f"AND s.STATUS='archive' AND s.END_DATE>='{weeks[0]['start']}' "
+        f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
+        f"AND (s.END_OF_SUBSCRIPTION IS NULL OR s.END_OF_SUBSCRIPTION='0000-00-00 00:00:00' "
+        f"OR DATE(s.END_DATE)<DATE(s.END_OF_SUBSCRIPTION)) "
+        f"AND EXISTS (SELECT 1 FROM transaction_list p WHERE p.STUDENT_ID=s.STUDENT_ID "
+        f"AND p.ACTION_TYPE='add' AND p.TRANSACTION_DATE<=s.END_DATE GROUP BY p.STUDENT_ID "
+        f"HAVING SUM(p.AMOUNT)>=COALESCE(NULLIF(s.SPECIAL_PRICE,0),1)) "
+        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a WHERE a.STUDENT_ID=s.STUDENT_ID "
+        f"AND a.ACTIVE=1 AND a.STATUS IN ('active','freezed','demo'))"
+        ") x JOIN student_list st ON st.ID=x.student_id ORDER BY x.event_date DESC"
+    )
+    latest = {}
+    for r in mcp(sql):
+        key = (str(r['admin']), int(r['student_id']))
+        date = str(r.get('event_date') or '')[:10]
+        if key not in latest or date > latest[key]['date']:
+            week = next((w['key'] for w in weeks if w['start'] <= date < w['end_exclusive']), weeks[-1]['key'])
+            latest[key] = {'id':int(r['student_id']), 'name':r.get('name') or f"O‘quvchi #{r['student_id']}",
+                           'kind':r['kind'], 'date':date, 'wk':week}
+    return latest
 
 def old_snapshots():
     try:
@@ -454,6 +504,7 @@ def main():
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
     db_students = current_student_counts([v[2] for v in CUR.values()])
     churn_status = status_churn_counts([v[2] for v in CUR.values()], weeks_meta)
+    churn_students = churn_student_rows([v[2] for v in CUR.values()], weeks_meta)
     attendance_groups = group_attendance([v[2] for v in CUR.values()], MONTH)
     E = {}
     for key,(_,_,aid,_) in CUR.items():
@@ -508,6 +559,15 @@ def main():
         H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
     admin_to_key = {aid:key for key,(_,_,aid,_) in CUR.items()}
+    CL = {'curators':{key:[] for key in CUR}, 'teams':{'A':[],'B':[]}, 'all':[]}
+    for (aid,_), row in churn_students.items():
+        key = admin_to_key.get(aid)
+        if not key:
+            continue
+        item = dict(row, k=key)
+        CL['curators'][key].append(item)
+        CL['teams'][CUR[key][1]].append(item)
+        CL['all'].append(item)
     G = {'groups':[]}
     for r in attendance_groups:
         key = admin_to_key.get(r.pop('k_admin'))
@@ -530,7 +590,7 @@ def main():
         'manual': True, 'note': JULY_BASELINE['note']
     })
 
-    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'G':G, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'G':G, 'CL':CL, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -553,7 +613,7 @@ def real_date():
 def render_and_deploy(d):
     rating_tpl = (BASE/'kurator_rating_template.html').read_text()
     attendance_tpl = (BASE/'kurator_attendance_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','E','C','H','G','snapshots','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','C','H','G','CL','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
