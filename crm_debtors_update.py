@@ -190,7 +190,7 @@ def cashier_dataset(source_rows, group_meta):
         label=cname or ("Kassir "+key)
         d=grouped.setdefault(key,dict(name=label,admins=set(),source=[]))
         admin_name=re.sub(r"\s+"," ",html.unescape(str(meta.get("admin_name") or "")).strip())
-        if admin_name: d["admins"].add(admin_name)
+        if admin_name: d["admins"].add(admin_name.split()[0])
         row["cashier"]=label
         d["source"].append(row)
     synthetic=[]; catalog=[]
