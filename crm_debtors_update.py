@@ -23,6 +23,7 @@ CURATORS = {
     "Jasmina Tolibova": ("B", "Jasmina", "14974"),
     "Madina Normatova": ("B", "Madina", "16005"),
 }
+TEST_ADMIN_IDS = {21453}  # MK admin — test account, never show in cashier ranking
 
 def strip_tags(value):
     value = re.sub(r"<script.*?</script>|<style.*?</style>", " ", value, flags=re.I|re.S)
@@ -177,6 +178,9 @@ def cashier_dataset(source_rows, group_meta):
     grouped={}
     for row in source_rows:
         meta=group_meta.get(int(row.get("student_id") or 0),{})
+        if int(meta.get("admin_id") or 0) in TEST_ADMIN_IDS:
+            row["cashier"]="Test akkaunt"
+            continue
         cid=int(meta.get("cashier_id") or 0)
         cname=re.sub(r"\s+"," ",html.unescape(str(meta.get("cashier_name") or "")).strip())
         key=str(cid) if cid else "0"
