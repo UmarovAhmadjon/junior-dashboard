@@ -41,6 +41,9 @@ cash_rows = q("SELECT ID, NAME, SURNAME FROM gl_sys_users WHERE ROLE_ID=20 AND S
 CASH = {str(c["ID"]): (html.unescape(c["NAME"]).strip() + " " +
                        html.unescape(c.get("SURNAME") or "").strip()).strip()
         for c in cash_rows}
+# Kassir tanlash ro'yxatida ko'rsatilmaydigan xodimlar. Ularning vazifalari
+# nazorat yo'qolmasligi uchun "Все кассиры" umumiy doskasida qoladi.
+EXCLUDED_CASHIERS = {"15024"}  # Shahzoda Isakulova
 
 MONTH_START = "DATE_FORMAT(CURDATE(),'%Y-%m-01')"
 PREV_MONTH_START = "DATE_FORMAT(CURDATE()-INTERVAL 1 MONTH,'%Y-%m-01')"
@@ -256,7 +259,7 @@ def render_board(cash_id):
 
 # har bir kassir uchun board + jami
 boards = []; picks = []
-order = sorted(CASH.keys(), key=lambda c: -sum(
+order = sorted((c for c in CASH.keys() if c not in EXCLUDED_CASHIERS), key=lambda c: -sum(
     len([r for r in s[5] if cid_of(r)==c]) for s in SECDEF))
 for cid in order:
     b, tot = render_board(cid)
