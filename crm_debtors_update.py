@@ -246,6 +246,12 @@ def main():
         "row_paid":sum(r["paid"] for r in rows),
     }
     if "check" in os.sys.argv:
+        status_select=re.search(r'<select[^>]*(?:name|id)=["\']filter_status["\'][^>]*>(.*?)</select>',raw,re.I|re.S)
+        if status_select:
+            options=[]
+            for value,label in re.findall(r'<option[^>]*value=["\']([^"\']*)["\'][^>]*>(.*?)</option>',status_select.group(1),re.I|re.S):
+                options.append(f"{value}={strip_tags(label)}")
+            print("CRM_STATUS_OPTIONS", " | ".join(options))
         print("CRM_CHECK", " ".join(f"{k}={v}" for k,v in summary.items()))
         if summary["total"] != summary["paid"]+summary["debt"]+summary["frozen"]+summary["deleted"]:
             raise RuntimeError("CRM status totals do not match")
