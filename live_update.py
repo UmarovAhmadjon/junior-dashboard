@@ -501,7 +501,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     today=tnow.date()
     TOTAL_PAID=sum(r['paid'] for r in rows)
     TOTAL_PLAN=GPLAN                                   # JAMI Лист12 dan (1501)
-    TOTAL_DEBT=max(0,GPLAN-TOTAL_PAID)                 # Ещё должны = PLAN - oplatili
+    TOTAL_DEBT=sum(r['debt'] for r in rows)            # CRM Qarzdor statusi; Muzlagan/Arxiv alohida
     TOTAL_TOL=sum(r['tol'] for r in rows)
     TOTAL_BIT=sum(r['bit'] for r in rows)
     TOTAL_SAR=sum(r['sar'] for r in rows)
@@ -543,7 +543,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
       <div class="stat"><span class="st-l">Нужно собрать</span><b>{mln(TOTAL_PLANSUM)} млн</b><span class="st-s">всего за цикл</span></div>
       <div class="stat"><span class="st-l">Собрано</span><b>{mln(TOTAL_SOB)} млн</b><span class="st-s">{PCT_SUM}% · осталось {mln(TOTAL_PLANSUM-TOTAL_SOB)}м</span></div>
       <div class="stat"><span class="st-l">Оплатили</span><button class="numlink stat-num" data-list="paid">{TOTAL_PAID}</button><span class="st-s">чел. из {TOTAL_PLAN}</span></div>
-      <div class="stat"><span class="st-l">Ещё должны</span><button class="numlink stat-num" data-list="debt">{TOTAL_DEBT}</button><span class="st-s">{TOTAL_PLAN} − {TOTAL_PAID}</span></div>
+      <div class="stat"><span class="st-l">Ещё должны</span><button class="numlink stat-num" data-list="debt">{TOTAL_DEBT}</button><span class="st-s">статус Qarzdor</span></div>
     </div>
   </div>
   <div class="panel week"><div class="ph"><span class="ptitle">Статусы <i class="sl">//</i> все кураторы</span><span class="wnow">оплатили <b>{TOTAL_PAID}</b> · должны <b>{TOTAL_DEBT}</b></span></div>
@@ -748,7 +748,7 @@ def open_js(srv_ms):
  function money(v){return Number(v||0).toLocaleString('ru-RU')+' сум';}
  function draw(){var term=(ds&&ds.value||'').trim().toLowerCase(),arr=current.filter(function(x){return !term||String(x.name||'').toLowerCase().indexOf(term)>=0;});if(dc)dc.textContent=arr.length+' ta';if(!dl)return;dl.innerHTML=arr.length?arr.map(function(x){var paid=x.status==="To'lagan";return '<div class="drow"><div><div class="dnm">'+escH(x.name)+'</div><div class="dmeta">'+escH(x.curator||'Biriktirilmagan')+'</div></div><span class="dst '+(paid?'paid':'debt')+'">'+escH(x.status)+'</span><div class="dmeta">'+escH(x.period||'')+'</div><div class="damt">'+money(paid?x.paid:x.debt)+'</div></div>';}).join(''):'<div class="dempty">Ma’lumot topilmadi</div>';}
  function escH(s){return String(s==null?'':s).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
- function openDetail(btn){var kind=btn.getAttribute('data-list')||'plan',cur=btn.getAttribute('data-curator')||'',cash=btn.getAttribute('data-cashier')||'',curs=(btn.getAttribute('data-curators')||'').split('|').filter(Boolean);current=DETAIL.filter(function(x){return (!cur||x.curator===cur)&&(!cash||x.cashier===cash)&&(!curs.length||curs.indexOf(x.curator)>=0)&&(kind==='plan'||(kind==='paid'&&x.status==="To'lagan")||(kind==='debt'&&x.status!=="To'lagan"));});if(dsub)dsub.textContent=((cur||cash)?(cur||cash)+' · ':'')+(kind==='paid'?'To‘lagan':kind==='debt'?'Qarzdor':'PLAN tarkibi');if(ds)ds.value='';draw();if(dm){dm.hidden=false;document.body.style.overflow='hidden';if(ds)ds.focus();}}
+ function openDetail(btn){var kind=btn.getAttribute('data-list')||'plan',cur=btn.getAttribute('data-curator')||'',cash=btn.getAttribute('data-cashier')||'',curs=(btn.getAttribute('data-curators')||'').split('|').filter(Boolean);current=DETAIL.filter(function(x){return (!cur||x.curator===cur)&&(!cash||x.cashier===cash)&&(!curs.length||curs.indexOf(x.curator)>=0)&&(kind==='plan'||(kind==='paid'&&(x.bucket==='paid'||x.status==="To'lagan"))||(kind==='debt'&&(x.bucket?x.bucket==='debt':x.status!=="To'lagan")));});if(dsub)dsub.textContent=((cur||cash)?(cur||cash)+' · ':'')+(kind==='paid'?'To‘lagan':kind==='debt'?'Qarzdor':'PLAN tarkibi');if(ds)ds.value='';draw();if(dm){dm.hidden=false;document.body.style.overflow='hidden';if(ds)ds.focus();}}
  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-list]');if(b){openDetail(b);return;}if(e.target.closest&&e.target.closest('[data-close-detail]')){dm.hidden=true;document.body.style.overflow='';}});if(ds)ds.addEventListener('input',draw);document.addEventListener('keydown',function(e){if(e.key==='Escape'&&dm&&!dm.hidden){dm.hidden=true;document.body.style.overflow='';}});
 }());
 </script>""".replace("__SRVMS__", str(srv_ms)))

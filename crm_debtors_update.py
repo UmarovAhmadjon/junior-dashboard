@@ -142,7 +142,7 @@ def dashboard_row(team, short, full, c, source_rows, hidden=False):
     today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
     return dict(team=team, short=short, full=full, paid=paid, tol=paid, bit=0, sar=0,
         muz=c.get("frozen",counts["frozen"]), arx=c.get("deleted",counts["deleted"]), plan=c["total"], plansum=c["plan"],
-        debt=max(0,c["total"]-paid), sob=c["fact"],
+        debt=counts["debt"], sob=c["fact"],
         pct=round(paid/c["total"]*100) if c["total"] else 0,
         due=sum(1 for x in source_rows if x["due"]<=today), hidden=hidden)
 
@@ -154,6 +154,7 @@ def detail(source_rows):
         paid=status_key(x["status"])=="paid"
         out.append(dict(id=x.get("student_id") or i+1,name=x["name"],curator=curator,
             cashier=x.get("cashier","Biriktirilmagan"),
+            bucket=status_key(x["status"]),
             status="To'lagan" if paid else x["status"],
             paid=x["paid"] if paid else 0,debt=x["debt"],period=x["due"].strftime("%d.%m.%Y")))
     return out
@@ -272,7 +273,8 @@ def main():
         opaid=all_counts["paid"]-known_counts["paid"]
         month_rows.append(dict(team="U",short="Biriktirilmagan",full="Boshqa adminlar",paid=opaid,tol=opaid,bit=0,sar=0,
             muz=month_card["frozen"]-known_frozen,arx=month_card["deleted"]-known_deleted,
-            plan=other_total,plansum=month_card["plan"]-known_plan,debt=other_total-opaid,
+            plan=other_total,plansum=month_card["plan"]-known_plan,
+            debt=all_counts["debt"]-known_counts["debt"],
             sob=month_card["fact"]-known_fact,pct=round(opaid/other_total*100) if other_total else 0,due=0,hidden=True))
     datasets=[("month",START,END,PERIODS[0][3],month_card,month_source,month_rows)]
 
