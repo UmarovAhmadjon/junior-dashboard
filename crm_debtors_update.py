@@ -252,6 +252,11 @@ def main():
             for value,label in re.findall(r'<option[^>]*value=["\']([^"\']*)["\'][^>]*>(.*?)</option>',status_select.group(1),re.I|re.S):
                 options.append(f"{value}={strip_tags(label)}")
             print("CRM_STATUS_OPTIONS", " | ".join(options))
+        status_counts={}
+        for item in rows:
+            key=item["status"].strip() or "(empty)"
+            status_counts[key]=status_counts.get(key,0)+1
+        print("CRM_ROW_STATUSES", " | ".join(f"{k}={v}" for k,v in sorted(status_counts.items())))
         print("CRM_CHECK", " ".join(f"{k}={v}" for k,v in summary.items()))
         if summary["total"] != summary["paid"]+summary["debt"]+summary["frozen"]+summary["deleted"]:
             raise RuntimeError("CRM status totals do not match")
