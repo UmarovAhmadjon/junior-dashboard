@@ -124,6 +124,8 @@ def table_rows(raw):
 
 def status_key(value):
     s = value.lower().replace("‘", "'").replace("’", "'")
+    if "bitirdi" in s: return "bit"
+    if any(x in s for x in ("referral","referal","sarafan")): return "referral"
     if any(x in s for x in ("to'landi","tolandi","to'lagan","tolagan","to'langan","tolangan","paid")): return "paid"
     if "muz" in s: return "frozen"
     if "arxiv" in s or "o'ch" in s: return "deleted"
@@ -132,8 +134,11 @@ def status_key(value):
 def row_bucket(row):
     return row.get("_bucket") or status_key(row["status"])
 
+def is_effective_paid(row):
+    return row_bucket(row) in ("paid","bit","referral")
+
 def validate(label, c, rows):
-    counts = {k:0 for k in ("paid","debt","frozen","deleted")}
+    counts = {k:0 for k in ("paid","bit","referral","debt","frozen","deleted")}
     for row in rows: counts[row_bucket(row)] += 1
     if len(rows) != c["total"] or sum(counts.values()) != c["total"]:
         raise RuntimeError(f"{label}: CRM card/table mismatch")
@@ -141,10 +146,10 @@ def validate(label, c, rows):
 
 def dashboard_row(team, short, full, c, source_rows, hidden=False):
     counts = validate(short, c, source_rows)
-    paid = counts["paid"]
+    paid = counts["paid"]+counts["bit"]+counts["referral"]
     today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
-    return dict(team=team, short=short, full=full, paid=paid, tol=paid, bit=0, sar=0,
-        muz=c.get("frozen",counts["frozen"]), arx=c.get("deleted",counts["deleted"]), plan=c["total"], plansum=c["plan"],
+    return dict(team=team, short=short, full=full, paid=paid, tol=counts["paid"], bit=counts["bit"], sar=counts["referral"],
+        muz=counts["frozen"], arx=counts["deleted"], plan=c["total"], plansum=c["plan"],
         debt=counts["debt"], sob=c["fact"],
         pct=round(paid/c["total"]*100) if c["total"] else 0,
         due=sum(1 for x in source_rows if x["due"]<=today), hidden=hidden)
@@ -154,12 +159,12 @@ def detail(source_rows):
     for i,x in enumerate(source_rows):
         team_short=CURATORS.get(x["admin"])
         curator=team_short[1] if team_short else "Biriktirilmagan"
-        paid=row_bucket(x)=="paid"
+        bucket=row_bucket(x); paid=bucket in ("paid","bit","referral")
         out.append(dict(id=x.get("student_id") or i+1,name=x["name"],curator=curator,
             cashier=x.get("cashier","Biriktirilmagan"),
-            bucket=row_bucket(x),
-            status="To'lagan" if paid else x["status"],
-            paid=x["paid"] if paid else 0,debt=x["debt"],period=x["due"].strftime("%d.%m.%Y")))
+            bucket=bucket,
+            status="To'lagan" if bucket=="paid" else x["status"],
+            paid=x["paid"] if bucket=="paid" else 0,debt=x["debt"],period=x["due"].strftime("%d.%m.%Y")))
     return out
 
 def student_group_cashiers(source_rows):
@@ -205,13 +210,15 @@ def cashier_dataset(source_rows, group_meta):
     synthetic=[]; catalog=[]
     today=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
     for cid,d in grouped.items():
-        rr=d["source"]; paid=[x for x in rr if row_bucket(x)=="paid"]
+        rr=d["source"]; paid=[x for x in rr if is_effective_paid(x)]
+        actual_paid=[x for x in rr if row_bucket(x)=="paid"]
         short="cashier_"+cid
         teams=[CURATORS.get(x["admin"],("B",))[0] for x in rr]
         team="A" if teams.count("A")>=teams.count("B") else "B"
-        synthetic.append(dict(team=team,short=short,full=d["name"],paid=len(paid),tol=len(paid),bit=0,sar=0,
+        synthetic.append(dict(team=team,short=short,full=d["name"],paid=len(paid),tol=len(actual_paid),
+            bit=sum(row_bucket(x)=="bit" for x in rr),sar=sum(row_bucket(x)=="referral" for x in rr),
             muz=sum(row_bucket(x)=="frozen" for x in rr),arx=sum(row_bucket(x)=="deleted" for x in rr),
-            plan=len(rr),plansum=sum(x["plan"] for x in rr),debt=len(rr)-len(paid),sob=sum(x["paid"] for x in paid),
+            plan=len(rr),plansum=sum(x["plan"] for x in rr),debt=sum(row_bucket(x)=="debt" for x in rr),sob=sum(x["paid"] for x in actual_paid),
             pct=round(len(paid)/len(rr)*100) if rr else 0,due=sum(x["due"]<=today for x in rr)))
         labels=sorted(d["admins"])
         catalog.append((d["name"].split()[0] if d["name"]!="Biriktirilmagan" else d["name"],team,[short],labels,d["name"]))
@@ -221,15 +228,16 @@ def week_stats(month_rows):
     result=[]
     for _key,a,b,_label in PERIODS[1:]:
         rr=[x for x in month_rows if a<=x["due"]<=b]
-        paid=[x for x in rr if row_bucket(x)=="paid"]
+        paid=[x for x in rr if is_effective_paid(x)]
+        actual_paid=[x for x in rr if row_bucket(x)=="paid"]
         def team_of(x): return CURATORS.get(x["admin"],("U",))[0]
         result.append(dict(ws=a,we=b,total=len(rr),paid=len(paid),
             qarz=sum(row_bucket(x)=="debt" for x in rr),
             muz=sum(row_bucket(x)=="frozen" for x in rr),
             arx=sum(row_bucket(x)=="deleted" for x in rr),
-            sob=sum(x["paid"] for x in paid),
-            A_total=sum(team_of(x)=="A" for x in rr),A_paid=sum(team_of(x)=="A" for x in paid),A_sob=sum(x["paid"] for x in paid if team_of(x)=="A"),
-            B_total=sum(team_of(x)=="B" for x in rr),B_paid=sum(team_of(x)=="B" for x in paid),B_sob=sum(x["paid"] for x in paid if team_of(x)=="B")))
+            sob=sum(x["paid"] for x in actual_paid),
+            A_total=sum(team_of(x)=="A" for x in rr),A_paid=sum(team_of(x)=="A" for x in paid),A_sob=sum(x["paid"] for x in actual_paid if team_of(x)=="A"),
+            B_total=sum(team_of(x)=="B" for x in rr),B_paid=sum(team_of(x)=="B" for x in paid),B_sob=sum(x["paid"] for x in actual_paid if team_of(x)=="B")))
     return result
 
 def main():
@@ -284,7 +292,9 @@ def main():
     if len(bucket_by_student) != month_card["total"]:
         raise RuntimeError("CRM filtered status total does not match month total")
     for item in month_source:
-        item["_bucket"]=bucket_by_student.get(item.get("student_id"))
+        base_bucket=bucket_by_student.get(item.get("student_id"))
+        visible=status_key(item["status"])
+        item["_bucket"]=visible if visible in ("bit","referral") else base_bucket
         if not item["_bucket"]:
             raise RuntimeError("CRM student missing from status filters")
     validate("month",month_card,month_source)
@@ -294,11 +304,13 @@ def main():
     if len(group_meta) != len({x["student_id"] for x in month_source}):
         missing=len({x["student_id"] for x in month_source})-len(group_meta)
         raise RuntimeError(f"MCP group lookup incomplete ({missing} students); refusing to publish")
-    month_rows=[]; known_total=known_plan=known_fact=known_frozen=known_deleted=0; known_counts={k:0 for k in ("paid","debt","frozen","deleted")}
+    month_rows=[]; known_total=known_plan=known_fact=known_frozen=known_deleted=0; known_counts={k:0 for k in ("paid","bit","referral","debt","frozen","deleted")}
     for full,(team,short,cid) in CURATORS.items():
         cr=fetch(op,START,END,curator=cid); cc=card(cr); tr=table_rows(cr)
         for x in tr:
-            x["_bucket"]=bucket_by_student.get(x.get("student_id"))
+            base_bucket=bucket_by_student.get(x.get("student_id"))
+            visible=status_key(x["status"])
+            x["_bucket"]=visible if visible in ("bit","referral") else base_bucket
             if not x["_bucket"]: raise RuntimeError("Curator student missing from CRM status filters")
             known_counts[row_bucket(x)]+=1
         month_rows.append(dashboard_row(team,short,full,cc,tr))
@@ -307,8 +319,11 @@ def main():
     all_counts=validate("month",month_card,month_source)
     other_total=month_card["total"]-known_total
     if other_total:
-        opaid=all_counts["paid"]-known_counts["paid"]
-        month_rows.append(dict(team="U",short="Biriktirilmagan",full="Boshqa adminlar",paid=opaid,tol=opaid,bit=0,sar=0,
+        otol=all_counts["paid"]-known_counts["paid"]
+        obit=all_counts["bit"]-known_counts["bit"]
+        oref=all_counts["referral"]-known_counts["referral"]
+        opaid=otol+obit+oref
+        month_rows.append(dict(team="U",short="Biriktirilmagan",full="Boshqa adminlar",paid=opaid,tol=otol,bit=obit,sar=oref,
             muz=month_card["frozen"]-known_frozen,arx=month_card["deleted"]-known_deleted,
             plan=other_total,plansum=month_card["plan"]-known_plan,
             debt=all_counts["debt"]-known_counts["debt"],
