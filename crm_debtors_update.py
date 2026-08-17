@@ -129,9 +129,12 @@ def status_key(value):
     if "arxiv" in s or "o'ch" in s: return "deleted"
     return "debt"
 
+def row_bucket(row):
+    return row.get("_bucket") or status_key(row["status"])
+
 def validate(label, c, rows):
     counts = {k:0 for k in ("paid","debt","frozen","deleted")}
-    for row in rows: counts[status_key(row["status"])] += 1
+    for row in rows: counts[row_bucket(row)] += 1
     if len(rows) != c["total"] or sum(counts.values()) != c["total"]:
         raise RuntimeError(f"{label}: CRM card/table mismatch")
     return counts
@@ -151,10 +154,10 @@ def detail(source_rows):
     for i,x in enumerate(source_rows):
         team_short=CURATORS.get(x["admin"])
         curator=team_short[1] if team_short else "Biriktirilmagan"
-        paid=status_key(x["status"])=="paid"
+        paid=row_bucket(x)=="paid"
         out.append(dict(id=x.get("student_id") or i+1,name=x["name"],curator=curator,
             cashier=x.get("cashier","Biriktirilmagan"),
-            bucket=status_key(x["status"]),
+            bucket=row_bucket(x),
             status="To'lagan" if paid else x["status"],
             paid=x["paid"] if paid else 0,debt=x["debt"],period=x["due"].strftime("%d.%m.%Y")))
     return out
@@ -202,12 +205,12 @@ def cashier_dataset(source_rows, group_meta):
     synthetic=[]; catalog=[]
     today=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
     for cid,d in grouped.items():
-        rr=d["source"]; paid=[x for x in rr if status_key(x["status"])=="paid"]
+        rr=d["source"]; paid=[x for x in rr if row_bucket(x)=="paid"]
         short="cashier_"+cid
         teams=[CURATORS.get(x["admin"],("B",))[0] for x in rr]
         team="A" if teams.count("A")>=teams.count("B") else "B"
         synthetic.append(dict(team=team,short=short,full=d["name"],paid=len(paid),tol=len(paid),bit=0,sar=0,
-            muz=sum(status_key(x["status"])=="frozen" for x in rr),arx=sum(status_key(x["status"])=="deleted" for x in rr),
+            muz=sum(row_bucket(x)=="frozen" for x in rr),arx=sum(row_bucket(x)=="deleted" for x in rr),
             plan=len(rr),plansum=sum(x["plan"] for x in rr),debt=len(rr)-len(paid),sob=sum(x["paid"] for x in paid),
             pct=round(len(paid)/len(rr)*100) if rr else 0,due=sum(x["due"]<=today for x in rr)))
         labels=sorted(d["admins"])
@@ -218,12 +221,12 @@ def week_stats(month_rows):
     result=[]
     for _key,a,b,_label in PERIODS[1:]:
         rr=[x for x in month_rows if a<=x["due"]<=b]
-        paid=[x for x in rr if status_key(x["status"])=="paid"]
+        paid=[x for x in rr if row_bucket(x)=="paid"]
         def team_of(x): return CURATORS.get(x["admin"],("U",))[0]
         result.append(dict(ws=a,we=b,total=len(rr),paid=len(paid),
-            qarz=sum(status_key(x["status"])=="debt" for x in rr),
-            muz=sum(status_key(x["status"])=="frozen" for x in rr),
-            arx=sum(status_key(x["status"])=="deleted" for x in rr),
+            qarz=sum(row_bucket(x)=="debt" for x in rr),
+            muz=sum(row_bucket(x)=="frozen" for x in rr),
+            arx=sum(row_bucket(x)=="deleted" for x in rr),
             sob=sum(x["paid"] for x in paid),
             A_total=sum(team_of(x)=="A" for x in rr),A_paid=sum(team_of(x)=="A" for x in paid),A_sob=sum(x["paid"] for x in paid if team_of(x)=="A"),
             B_total=sum(team_of(x)=="B" for x in rr),B_paid=sum(team_of(x)=="B" for x in paid),B_sob=sum(x["paid"] for x in paid if team_of(x)=="B")))
@@ -253,6 +256,26 @@ def main():
     # Exact month: one full-module request plus one request per ranked curator.
     # Week pages are slices of this same validated 1331-row CRM response, avoiding 40 slow requests.
     all_raw=fetch(op,START,END); month_card=card(all_raw); month_source=table_rows(all_raw)
+    # The unfiltered table's visible STATUS text is not the authoritative CRM
+    # filter bucket. Build the exact bucket map from the four Qarzdorlar filters.
+    bucket_by_student={}
+    for bucket,crm_status in (("paid","paid"),("debt","qarzdor"),("frozen","frozen"),("deleted","deleted")):
+        filtered_raw=fetch(op,START,END,status=crm_status)
+        filtered_card=card(filtered_raw)
+        filtered_rows=table_rows(filtered_raw)
+        if len(filtered_rows) != filtered_card["total"]:
+            raise RuntimeError(f"CRM {bucket} filter card/table mismatch")
+        for item in filtered_rows:
+            sid=item.get("student_id")
+            if not sid or sid in bucket_by_student:
+                raise RuntimeError(f"CRM duplicate/missing student in {bucket} filter")
+            bucket_by_student[sid]=bucket
+    if len(bucket_by_student) != month_card["total"]:
+        raise RuntimeError("CRM filtered status total does not match month total")
+    for item in month_source:
+        item["_bucket"]=bucket_by_student.get(item.get("student_id"))
+        if not item["_bucket"]:
+            raise RuntimeError("CRM student missing from status filters")
     validate("month",month_card,month_source)
     if sum(bool(x.get("student_id")) for x in month_source) != len(month_source):
         raise RuntimeError("CRM student IDs are missing; refusing to publish cashier data")
@@ -263,10 +286,13 @@ def main():
     month_rows=[]; known_total=known_plan=known_fact=known_frozen=known_deleted=0; known_counts={k:0 for k in ("paid","debt","frozen","deleted")}
     for full,(team,short,cid) in CURATORS.items():
         cr=fetch(op,START,END,curator=cid); cc=card(cr); tr=table_rows(cr)
+        for x in tr:
+            x["_bucket"]=bucket_by_student.get(x.get("student_id"))
+            if not x["_bucket"]: raise RuntimeError("Curator student missing from CRM status filters")
+            known_counts[row_bucket(x)]+=1
         month_rows.append(dashboard_row(team,short,full,cc,tr))
         known_total+=cc["total"]; known_plan+=cc["plan"]; known_fact+=cc["fact"]
         known_frozen+=cc["frozen"]; known_deleted+=cc["deleted"]
-        for x in tr: known_counts[status_key(x["status"])]+=1
     all_counts=validate("month",month_card,month_source)
     other_total=month_card["total"]-known_total
     if other_total:
@@ -285,13 +311,13 @@ def main():
         for full,(team,short,_cid) in CURATORS.items():
             rr=[x for x in source if x["admin"]==full]
             c=dict(total=len(rr),plan=sum(x["plan"] for x in rr),
-                   fact=sum(x["paid"] for x in rr if status_key(x["status"])=="paid"))
+                   fact=sum(x["paid"] for x in rr if row_bucket(x)=="paid"))
             rows.append(dashboard_row(team,short,full,c,rr))
         rr=[x for x in source if x["admin"] not in CURATORS]
         if rr:
-            c=dict(total=len(rr),plan=sum(x["plan"] for x in rr),fact=sum(x["paid"] for x in rr if status_key(x["status"])=="paid"))
+            c=dict(total=len(rr),plan=sum(x["plan"] for x in rr),fact=sum(x["paid"] for x in rr if row_bucket(x)=="paid"))
             rows.append(dashboard_row("U","Biriktirilmagan","Boshqa adminlar",c,rr,True))
-        c=dict(total=len(source),plan=sum(x["plan"] for x in source),fact=sum(x["paid"] for x in source if status_key(x["status"])=="paid"))
+        c=dict(total=len(source),plan=sum(x["plan"] for x in source),fact=sum(x["paid"] for x in source if row_bucket(x)=="paid"))
         datasets.append((key,a,b,label,c,source,rows))
 
     month_rows=datasets[0][5]; weeks=week_stats(month_rows)
