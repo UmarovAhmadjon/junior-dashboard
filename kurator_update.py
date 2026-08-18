@@ -401,13 +401,13 @@ def churn_student_rows(admin_ids_list, weeks):
     )
     latest = {}
     for r in mcp(sql):
-        key = (str(r['admin']), int(r['student_id']))
+        key = int(r['student_id'])
         date = str(r.get('event_date') or '')[:10]
         if key not in latest or date > latest[key]['date']:
             week = next((w['key'] for w in weeks if w['start'] <= date < w['end_exclusive']), weeks[-1]['key'])
-            latest[key] = {'id':int(r['student_id']), 'name':r.get('name') or f"O‘quvchi #{r['student_id']}",
+            latest[key] = {'admin':str(r['admin']), 'id':int(r['student_id']), 'name':r.get('name') or f"O‘quvchi #{r['student_id']}",
                            'kind':r['kind'], 'date':date, 'wk':week}
-    return latest
+    return {(row['admin'], sid):{k:v for k,v in row.items() if k!='admin'} for sid,row in latest.items()}
 
 def old_snapshots():
     try:
