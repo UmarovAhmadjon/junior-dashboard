@@ -243,6 +243,21 @@ def current_student_counts(admin_ids_list):
     )
     return {str(r['admin']):int(r['students']) for r in mcp(sql)}
 
+def current_new_counts(admin_ids_list):
+    """Yangi = oxirgi statusi new, lekin guruh kartasida Holat Aktiv/Oylik; demo kirmaydi."""
+    ids = ','.join(admin_ids_list)
+    sql = (
+        f"SELECT g.ADMIN_ID admin,COUNT(DISTINCT s.STUDENT_ID) yangi "
+        f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
+        f"JOIN student_status_logs l ON l.id=(SELECT MAX(l2.id) FROM student_status_logs l2 "
+        f"WHERE l2.student_id=s.STUDENT_ID) "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND g.STATUS='active' "
+        f"AND LOWER(g.NAME) NOT LIKE '%test%' AND s.ACTIVE=1 "
+        f"AND s.STATUS='active' AND s.TYPE='monthly' AND l.to_status='new' "
+        f"GROUP BY g.ADMIN_ID"
+    )
+    return {str(r['admin']):int(r['yangi']) for r in mcp(sql)}
+
 def module_progress(admin_ids_list):
     """Amaldagi o'quvchilarning asosiy onlayn kursidagi eng oxirgi ko'rilgan moduli."""
     ids = ','.join(admin_ids_list)
@@ -499,6 +514,7 @@ def main():
     events = period_kpis([v[2] for v in CUR.values()], weeks_meta)
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
     db_students = current_student_counts([v[2] for v in CUR.values()])
+    db_new = current_new_counts([v[2] for v in CUR.values()])
     churn_status = status_churn_counts([v[2] for v in CUR.values()], weeks_meta)
     churn_students = churn_student_rows([v[2] for v in CUR.values()], weeks_meta)
     attendance_groups = group_attendance([v[2] for v in CUR.values()], MONTH)
@@ -513,7 +529,7 @@ def main():
                 'qarz_plan': debt_plan.get(aid,0),
             }
         }
-        M[key]['yangi'] = E[key]['month']['yangi']
+        M[key]['yangi'] = db_new.get(aid,0)
         M[key]['qayta'] = E[key]['month']['fao']
         M[key]['qarz_plan'] = E[key]['month']['qarz_plan']
         M[key]['db_students'] = db_students.get(aid,0)
