@@ -363,7 +363,8 @@ def status_churn_counts(admin_ids_list, weeks):
         f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
         f"AND (s.END_OF_SUBSCRIPTION IS NULL OR s.END_OF_SUBSCRIPTION='0000-00-00 00:00:00' "
         f"OR DATE(s.END_DATE)<DATE(s.END_OF_SUBSCRIPTION)) "
-        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a WHERE a.STUDENT_ID=s.STUDENT_ID "
+        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a JOIN group_list ga ON ga.ID=a.GROUP_ID "
+        f"WHERE a.STUDENT_ID=s.STUDENT_ID AND ga.ADMIN_ID=g.ADMIN_ID "
         f"AND a.ACTIVE=1 AND a.STATUS IN ('active','freezed','demo'))"
         f") x GROUP BY x.admin,wk,x.kind"
     )
@@ -395,7 +396,8 @@ def churn_student_rows(admin_ids_list, weeks):
         f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
         f"AND (s.END_OF_SUBSCRIPTION IS NULL OR s.END_OF_SUBSCRIPTION='0000-00-00 00:00:00' "
         f"OR DATE(s.END_DATE)<DATE(s.END_OF_SUBSCRIPTION)) "
-        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a WHERE a.STUDENT_ID=s.STUDENT_ID "
+        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a JOIN group_list ga ON ga.ID=a.GROUP_ID "
+        f"WHERE a.STUDENT_ID=s.STUDENT_ID AND ga.ADMIN_ID=g.ADMIN_ID "
         f"AND a.ACTIVE=1 AND a.STATUS IN ('active','freezed','demo'))"
         ") x JOIN student_list st ON st.ID=x.student_id ORDER BY x.event_date DESC"
     )
