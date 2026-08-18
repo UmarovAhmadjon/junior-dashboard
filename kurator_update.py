@@ -27,6 +27,10 @@ JULY_BASELINE = {
     },
     'note':'Foydalanuvchi bergan 01.07.2026 ro‘yxati; eski Munisa → Naima, Maryam → Munisa. New kurator olib tashlangan.'
 }
+AUGUST_BASELINE = {
+    'date':'2026-08-01', 'total':2135,
+    'note':'Foydalanuvchi tasdiqlagan 01.08.2026 umumiy baza. Kurator kesimi uchun oyning eng erta avtomatik snapshoti ishlatiladi.'
+}
 TEAM_A_IDS = '13799,14241,21463'
 TEAM_B_IDS = '14451,16386,14974,16005'
 
@@ -588,6 +592,13 @@ def main():
     snapshots.setdefault(JULY_BASELINE['date'], {
         'total': JULY_BASELINE['total'], 'curators': JULY_BASELINE['curators'],
         'manual': True, 'note': JULY_BASELINE['note']
+    })
+    # Avgustning haqiqiy oy-boshi umumiy soni foydalanuvchi tomonidan tasdiqlangan.
+    # Kuratorlar kesimidagi tarixiy sonlar mavjud bo'lmagani uchun ular oyning eng
+    # erta avtomatik snapshotidan olinadi; umumiy KPI esa aynan 2135 dan hisoblanadi.
+    snapshots.setdefault(AUGUST_BASELINE['date'], {
+        'total': AUGUST_BASELINE['total'],
+        'manual': True, 'note': AUGUST_BASELINE['note']
     })
 
     payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'G':G, 'CL':CL, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
