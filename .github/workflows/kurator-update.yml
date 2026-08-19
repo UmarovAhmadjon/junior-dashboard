@@ -2,7 +2,7 @@ name: Update Kurator Dashboard
 
 on:
   schedule:
-    - cron: "15 1 * * *" # 06:15 Tashkent
+    - cron: "15 * * * *" # har soatning 15-daqiqasida
   workflow_dispatch:
 
 permissions:
