@@ -1,0 +1,56 @@
+name: Update Kurator Dashboard
+
+on:
+  schedule:
+    - cron: "15 1 * * *" # 06:15 Tashkent
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kurator-dashboard-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build from current CRM and MCP data
+        env:
+          CRM_PHONE: ${{ secrets.CRM_PHONE }}
+          CRM_PASS: ${{ secrets.CRM_PASS }}
+          GITHUB_ACTIONS: "1"
+        run: python3 kurator_update.py
+      - name: Validate generated dashboard
+        run: |
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+          html = Path('kurator.html').read_text()
+          match = re.search(r'const __DATA__=(\{.*?\});', html)
+          if not match:
+              raise SystemExit('Dashboard data is missing')
+          data = json.loads(match.group(1))
+          churn = data['C']['all']
+          if churn['count'] < 0 or churn['base'] <= 0:
+              raise SystemExit('Invalid churn/base values')
+          if churn['frozen'] + churn['archive'] != churn['count']:
+              raise SystemExit('Churn breakdown does not match total')
+          expected = round(churn['count'] * 100 / churn['base'], 2)
+          if abs(expected - float(churn['pct'])) > 0.02:
+              raise SystemExit(f'Invalid churn percent: {churn}')
+          print('Validated:', churn)
+          PY
+      - name: Publish changed data
+        run: |
+          git config user.name "kurator-dashboard-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add kurator.html kurator-rating-test.html kurator-attendance-test.html
+          git diff --cached --quiet || git commit -m "Auto-update kurator dashboard"
+          git push
