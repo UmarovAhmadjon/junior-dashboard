@@ -53,4 +53,5 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add kurator.html kurator-rating-test.html kurator-attendance-test.html
           git diff --cached --quiet || git commit -m "Auto-update kurator dashboard"
-          git push
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin HEAD:"$GITHUB_REF_NAME"
