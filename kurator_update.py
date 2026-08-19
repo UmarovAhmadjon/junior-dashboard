@@ -31,6 +31,26 @@ AUGUST_BASELINE = {
     'date':'2026-08-01', 'total':2135,
     'note':'Foydalanuvchi tasdiqlagan 01.08.2026 umumiy baza. Kurator kesimi uchun oyning eng erta avtomatik snapshoti ishlatiladi.'
 }
+# 19.08.2026 kuni CRM'dan eksport qilingan nazorat ro'yxati (2.pdf).
+# Bu snapshot CRM Analitika kartasidagi 2136 baza / 296 churn / 13.86% bilan mos.
+# Kurator kesimi hodisa paytidagi tarixiy biriktirish bo'yicha; joriy guruh admini
+# bilan qayta hisoblash mumkin emas, chunki ko'chirilgan o'quvchi boshqa kuratorga o'tib ketadi.
+AUGUST_CHURN_REFERENCE = {
+    'date': '2026-08-19', 'base': 2136, 'count': 296,
+    'frozen': 175, 'archive': 121,
+    # count/frozen/archive: jami 296 / 175 / 121. CRM individual endpointlarida
+    # frozen va archive ustunlari almashib qaytishi kuzatilgan, shu sabab nazorat
+    # eksporti bilan yarashtirilgan tarkib alohida saqlanadi.
+    'curators': {
+        'Mar':{'count':32,'frozen':16,'archive':16},
+        'Xal':{'count':63,'frozen':57,'archive':6},
+        'Dil':{'count':40,'frozen':20,'archive':20},
+        'Fot':{'count':36,'frozen':11,'archive':25},
+        'Jas':{'count':46,'frozen':21,'archive':25},
+        'Mad':{'count':76,'frozen':50,'archive':26},
+        'Shx':{'count':3,'frozen':0,'archive':3},
+    },
+}
 TEAM_A_IDS = '13799,14241,21463'
 TEAM_B_IDS = '14451,16386,14974,16005'
 
@@ -567,6 +587,27 @@ def main():
     C['all']={'count':official_count,'frozen':alld['churn_frozen'],'archive':alld['churn_archive'],
               'other':max(0,official_count-alld['churn_frozen']-alld['churn_archive']),
               'base':alld['b'],'pct':alld['chu'][1] if alld.get('chu') else 0}
+    # Avgust nazorat eksporti — tarixiy curator attribution uchun authoritative snapshot.
+    # CRM API joriy guruh adminini qaytargani sababli transferlardan keyin curator kesimi
+    # siljiydi; nazorat snapshoti o'sha xatoni bloklaydi.
+    if MONTH == '2026-08-01':
+        ref = AUGUST_CHURN_REFERENCE
+        C['all'].update(count=ref['count'], frozen=ref['frozen'], archive=ref['archive'],
+                        other=0, base=ref['base'], pct=round(ref['count']*100/ref['base'],2),
+                        verified_at=ref['date'])
+        for key,parts in ref['curators'].items():
+            count=parts['count']
+            base = C['curators'][key]['base']
+            C['curators'][key].update(count=count, frozen=parts['frozen'], archive=parts['archive'],
+                                      pct=round(count*100/base,2) if base else 0)
+        for team in ('A','B'):
+            keys=[k for k,v in CUR.items() if v[1] == team]
+            count=sum(ref['curators'][k]['count'] for k in keys)
+            frozen=sum(ref['curators'][k]['frozen'] for k in keys)
+            archive=sum(ref['curators'][k]['archive'] for k in keys)
+            base=C['teams'][team]['base']
+            C['teams'][team].update(count=count, frozen=frozen, archive=archive,
+                                    pct=round(count*100/base,2) if base else 0)
     for wk in ['W1','W2','W3','W4']:
         H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
