@@ -551,27 +551,29 @@ def main():
         archive=sum(x['archive'] for x in H['curators'][key].values())
         cnt,base = frozen+archive,db_students.get(aid,0)
         # Kurator oy kesimi CRM Analitika tarkibi: Muzlatildi + Ketdi/Arxiv.
-        official=M[key]['chu'] or [M[key]['b'],0,M[key]['churn_frozen']+M[key]['churn_archive']]
-        cnt,base=int(official[2]),int(official[0] or M[key]['b'])
-        frozen=min(int(M[key]['churn_frozen']),cnt); archive=max(0,cnt-frozen)
-        C['curators'][key] = {'count':cnt,'frozen':frozen,'archive':archive,'base':base,'pct':float(official[1])}
+        # Faqat fakt ro'yxatlari: Muzlatildi + Ketdi. plan-card Fakt soni ayrim
+        # curatorlarda ro'yxatda yo'q yozuvlarni qo'shadi, shuning uchun KPIga kirmaydi.
+        frozen=int(M[key]['churn_frozen']); archive=int(M[key]['churn_archive'])
+        cnt,base=frozen+archive,int(M[key]['b'])
+        C['curators'][key] = {'count':cnt,'frozen':frozen,'archive':archive,'base':base,
+                              'pct':round(cnt*100/base,2) if base else 0}
         for wk in ['W1','W2','W3','W4']:
             dst=H['teams'][team].setdefault(wk,{'count':0,'frozen':0,'archive':0})
             for f in ('count','frozen','archive'): dst[f]+=H['curators'][key][wk][f]
     # Team churn CRM'ning tarkib kartalaridan olinadi. Bu Team churn kartasidagi
     # ko'chgan o'quvchi dublikatlarini yo'qotadi: A + B = Umumiy.
     for team,d in (('A',ta),('B',tb)):
-        official=d['chu'] or [d['b'],0,d['churn_frozen']+d['churn_archive']]
-        cnt,base=int(official[2]),int(official[0] or d['b'])
-        frozen=min(int(d['churn_frozen']),cnt); archive=max(0,cnt-frozen)
+        frozen=int(d['churn_frozen']); archive=int(d['churn_archive'])
+        cnt,base=frozen+archive,int(d['b'])
         C['teams'][team]={'count':cnt,'frozen':frozen,'archive':archive,
-                          'base':base,'pct':float(official[1])}
-    official_count=alld['chu'][2] if alld.get('chu') else alld['churn_frozen']+alld['churn_archive']
-    official_frozen=min(int(alld['churn_frozen']),official_count)
+                          'base':base,'pct':round(cnt*100/base,2) if base else 0}
+    official_frozen=int(alld['churn_frozen'])
+    official_archive=int(alld['churn_archive'])
+    official_count=official_frozen+official_archive
     official_base=int(alld['chu'][0] or alld['b']) if alld.get('chu') else int(alld['b'])
-    C['all']={'count':official_count,'frozen':official_frozen,'archive':official_count-official_frozen,
+    C['all']={'count':official_count,'frozen':official_frozen,'archive':official_archive,
               'other':0,
-              'base':official_base,'pct':alld['chu'][1] if alld.get('chu') else 0}
+              'base':official_base,'pct':round(official_count*100/official_base,2) if official_base else 0}
     for wk in ['W1','W2','W3','W4']:
         H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
