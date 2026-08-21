@@ -25,6 +25,7 @@ jobs:
         env:
           CRM_PHONE: ${{ secrets.CRM_PHONE }}
           CRM_PASS: ${{ secrets.CRM_PASS }}
+          JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY }}
           GITHUB_ACTIONS: "1"
         run: python3 kurator_update.py
       - name: Validate generated dashboard
