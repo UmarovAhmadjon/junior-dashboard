@@ -514,6 +514,15 @@ def main():
     events = period_kpis([v[2] for v in CUR.values()], weeks_meta)
     debt_plan = monthly_debtor_plan([v[2] for v in CUR.values()], MONTH)
     db_students = current_student_counts([v[2] for v in CUR.values()])
+    # MCP bo'sh yoki qisman javob qaytarsa 0/1 bazali buzilgan saytni yozmaymiz.
+    expected_admins = {v[2] for v in CUR.values()}
+    missing_admins = sorted(expected_admins - set(db_students))
+    implausible = {aid:n for aid,n in db_students.items() if n < 50 or n > 1000}
+    if missing_admins or implausible:
+        raise RuntimeError(
+            f"MCP student bazasi yaroqsiz; missing={missing_admins}, implausible={implausible}. "
+            "Oxirgi to'g'ri sayt saqlanadi."
+        )
     db_new = current_new_counts([v[2] for v in CUR.values()])
     churn_status = status_churn_counts([v[2] for v in CUR.values()], weeks_meta)
     churn_students = churn_student_rows([v[2] for v in CUR.values()], weeks_meta)
