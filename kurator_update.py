@@ -8,7 +8,7 @@ import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiej
 HOME = pathlib.Path.home() / 'junior-dashboard'
 REPO = 'UmarovAhmadjon/junior-dashboard'
 CRM = 'https://crm.junior-it.uz'
-MCP = 'https://myclinic.agc.uz/new_junior_mcp.php'
+MCP = os.environ.get('JUNIOR_MCP_GATEWAY') or 'https://myclinic.agc.uz/new_junior_mcp.php'
 TASHKENT_NOW = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5)))
 MONTH = os.environ.get('KURATOR_MONTH', TASHKENT_NOW.strftime('%Y-%m-01'))
 
