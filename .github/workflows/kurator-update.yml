@@ -38,6 +38,16 @@ jobs:
               raise SystemExit('Dashboard data is missing')
           data = json.loads(match.group(1))
           churn = data['C']['all']
+          curators = data.get('M', {})
+          if len(curators) != 7:
+              raise SystemExit(f'Expected 7 curators, got {len(curators)}')
+          bad_bases = {k: v.get('db_students') for k, v in curators.items()
+                       if not 50 <= int(v.get('db_students') or 0) <= 1000}
+          if bad_bases:
+              raise SystemExit(f'Invalid curator student bases: {bad_bases}')
+          current_total = sum(int(v['db_students']) for v in curators.values())
+          if not 1000 <= current_total <= 5000:
+              raise SystemExit(f'Invalid current student total: {current_total}')
           if churn['count'] < 0 or churn['base'] <= 0:
               raise SystemExit('Invalid churn/base values')
           if churn['frozen'] + churn['archive'] != churn['count']:
