@@ -54,7 +54,7 @@ const monthPrefix=__DATA__.month.slice(0,7),monthSnapshotKeys=Object.keys(__DATA
 function selected(){return keys.filter(k=>TEAM==='ALL'||M[k].team===TEAM)}
 function pKpi(k){const e=E[k]||{};return PERIOD==='ALL'?(e.month||{}):((e.weeks||{})[PERIOD]||{})}
 function noact(k){return M[k].x?M[k].x[0]:0}
-function directBase(k){return Number(M[k].db_students??M[k].b??0)}
+function directBase(k){const db=Number(M[k].db_students||0);return db>=50?db:Number(M[k].b||0)}
 function startBase(k){return Number(monthStartSnapshot?.curators?.[k]??monthCuratorSnapshot?.curators?.[k]??directBase(k))}
 function churnRows(k){let rs=k?(CL.curators?.[k]||[]):TEAM==='ALL'?(CL.all||[]):(CL.teams?.[TEAM]||[]);return PERIOD==='ALL'?rs:rs.filter(r=>r.wk===PERIOD)}
 function churn(k){const base=startBase(k);if(PERIOD==='ALL'){const c=(C.curators||{})[k]||{count:0,frozen:0,archive:0};return{...c,base,pct:base?c.count/base*100:0}}const h=H.curators?.[k]?.[PERIOD]||{count:0,frozen:0,archive:0};return {...h,base,pct:base?h.count/base*100:0}}
