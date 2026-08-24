@@ -620,38 +620,27 @@ def main():
             frozen = sum(r['kind'] == 'frozen' for r in rows)
             archive = sum(r['kind'] == 'archive' for r in rows)
             H['curators'][key][wk] = {'count':len(rows),'frozen':frozen,'archive':archive}
-    for team in ('A','B'):
-        for wk in week_keys:
-            rows = [r for r in CL['teams'][team] if r['wk'] == wk]
-            frozen = sum(r['kind'] == 'frozen' for r in rows)
-            archive = sum(r['kind'] == 'archive' for r in rows)
-            H['teams'][team][wk] = {'count':len(rows),'frozen':frozen,'archive':archive}
-    for wk in week_keys:
-        rows = [r for r in CL['all'] if r['wk'] == wk]
-        frozen = sum(r['kind'] == 'frozen' for r in rows)
-        archive = sum(r['kind'] == 'archive' for r in rows)
-        H['all'][wk] = {'count':len(rows),'frozen':frozen,'archive':archive}
-
-    C = {'curators':{}, 'teams':{}, 'all':{}}
+    # CRM Analytics Fakt — buyurtmachi tasdiqlagan asosiy KPI. Bazadan ID bilan
+    # topilmagan farq KPI ni kamaytirmaydi; joriy haftaga reconciliation sifatida
+    # qo'shiladi, modal esa topilgan kartochkalar sonini ochiq ko'rsatadi.
+    latest_week = week_keys[-1]
     for key in CUR:
-        rows = CL['curators'][key]
-        frozen = sum(r['kind'] == 'frozen' for r in rows)
-        archive = sum(r['kind'] == 'archive' for r in rows)
-        base = int(M[key]['b'])
-        C['curators'][key] = {'count':len(rows),'frozen':frozen,'archive':archive,
-                              'base':base,'pct':round(len(rows)*100/base,2) if base else 0}
+        fact = C['curators'][key]
+        found_frozen = sum(H['curators'][key][wk]['frozen'] for wk in week_keys)
+        found_archive = sum(H['curators'][key][wk]['archive'] for wk in week_keys)
+        add_frozen = max(0, int(fact['frozen']) - found_frozen)
+        add_archive = max(0, int(fact['archive']) - found_archive)
+        H['curators'][key][latest_week]['frozen'] += add_frozen
+        H['curators'][key][latest_week]['archive'] += add_archive
+        H['curators'][key][latest_week]['count'] += add_frozen + add_archive
     for team in ('A','B'):
-        rows = CL['teams'][team]
-        frozen = sum(r['kind'] == 'frozen' for r in rows)
-        archive = sum(r['kind'] == 'archive' for r in rows)
-        base = int((ta if team == 'A' else tb)['b'])
-        C['teams'][team] = {'count':len(rows),'frozen':frozen,'archive':archive,
-                            'base':base,'pct':round(len(rows)*100/base,2) if base else 0}
-    frozen = sum(r['kind'] == 'frozen' for r in CL['all'])
-    archive = sum(r['kind'] == 'archive' for r in CL['all'])
-    cbase = int(alld['chu'][0] or alld['b']) if alld.get('chu') else int(alld['b'])
-    C['all'] = {'count':len(CL['all']),'frozen':frozen,'archive':archive,'other':0,
-                'base':cbase, 'pct':round(len(CL['all'])*100/cbase,2) if cbase else 0}
+        members = [key for key,(_,t,_,_) in CUR.items() if t == team]
+        for wk in week_keys:
+            H['teams'][team][wk] = {f:sum(H['curators'][key][wk][f] for key in members)
+                                    for f in ('count','frozen','archive')}
+    for wk in week_keys:
+        H['all'][wk] = {f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f]
+                        for f in ('count','frozen','archive')}
     G = {'groups':[]}
     for r in attendance_groups:
         key = admin_to_key.get(r.pop('k_admin'))
