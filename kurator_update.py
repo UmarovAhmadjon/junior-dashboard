@@ -626,13 +626,16 @@ def main():
     latest_week = week_keys[-1]
     for key in CUR:
         fact = C['curators'][key]
-        found_frozen = sum(H['curators'][key][wk]['frozen'] for wk in week_keys)
-        found_archive = sum(H['curators'][key][wk]['archive'] for wk in week_keys)
-        add_frozen = max(0, int(fact['frozen']) - found_frozen)
-        add_archive = max(0, int(fact['archive']) - found_archive)
-        H['curators'][key][latest_week]['frozen'] += add_frozen
-        H['curators'][key][latest_week]['archive'] += add_archive
-        H['curators'][key][latest_week]['count'] += add_frozen + add_archive
+        for kind in ('frozen','archive'):
+            remaining = int(fact[kind])
+            for wk in week_keys:
+                accepted = min(H['curators'][key][wk][kind], remaining)
+                H['curators'][key][wk][kind] = accepted
+                remaining -= accepted
+            H['curators'][key][latest_week][kind] += remaining
+        for wk in week_keys:
+            H['curators'][key][wk]['count'] = (H['curators'][key][wk]['frozen'] +
+                                               H['curators'][key][wk]['archive'])
     for team in ('A','B'):
         members = [key for key,(_,t,_,_) in CUR.items() if t == team]
         for wk in week_keys:
@@ -641,6 +644,13 @@ def main():
     for wk in week_keys:
         H['all'][wk] = {f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f]
                         for f in ('count','frozen','archive')}
+    # CRM umumiy Fakt kurator kartalari yig'indisidan farq qilsa, umumiy
+    # ko'rsatkich baribir rasmiy all-card bilan tugashi kerak.
+    for kind in ('frozen','archive'):
+        current = sum(H['all'][wk][kind] for wk in week_keys)
+        H['all'][latest_week][kind] += max(0, int(C['all'][kind]) - current)
+    H['all'][latest_week]['count'] = (H['all'][latest_week]['frozen'] +
+                                      H['all'][latest_week]['archive'])
     G = {'groups':[]}
     for r in attendance_groups:
         key = admin_to_key.get(r.pop('k_admin'))
