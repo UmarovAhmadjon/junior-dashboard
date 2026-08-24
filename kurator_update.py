@@ -435,20 +435,29 @@ def old_snapshots():
         return {}
 
 def month_weeks(month):
-    """Oyni 1–7, 8–14, 15–21, 22–oy oxiri ko'rinishida avtomatik yaratadi."""
+    """Oy ichidagi davrlarni yakshanba–shanba kalendar haftalariga ajratadi."""
     y, mo = map(int, month[:7].split('-'))
     last = calendar.monthrange(y, mo)[1]
-    starts = (1, 8, 15, 22)
     weeks = []
-    for i, day in enumerate(starts, 1):
-        end_day = starts[i] if i < 4 else last + 1
-        end_exclusive = (datetime.date(y, mo, last) + datetime.timedelta(days=1)) if end_day > last else datetime.date(y, mo, end_day)
+    month_start = datetime.date(y, mo, 1)
+    month_end = datetime.date(y, mo, last)
+    # Haftalik filtrlar oyning birinchi yakshanbasidan boshlanadi. Oyning undan
+    # oldingi kunlari faqat "oy boshidan" kesimiga kiradi. Oxirgi hafta oy
+    # oxirigacha uzayadi (masalan Avgust 2026: 02–08, 09–15, 16–22, 23–31).
+    first_sunday = month_start + datetime.timedelta(days=(6 - month_start.weekday()) % 7)
+    for i in range(1, 5):
+        cursor = first_sunday + datetime.timedelta(days=(i - 1) * 7)
+        if cursor > month_end:
+            break
+        end = month_end if i == 4 else min(month_end, cursor + datetime.timedelta(days=6))
         weeks.append({
             'key': f'W{i}',
-            'start': f'{y:04d}-{mo:02d}-{day:02d}',
-            'end_exclusive': end_exclusive.isoformat(),
-            'from_day': day,
-            'to_day': (starts[i] - 1) if i < 4 else last,
+            'start': cursor.isoformat(),
+            'end_exclusive': (end + datetime.timedelta(days=1)).isoformat(),
+            'from_day': cursor.day,
+            'to_day': end.day,
+            'from_label': cursor.strftime('%d.%m'),
+            'to_label': end.strftime('%d.%m'),
         })
     return weeks
 
@@ -468,6 +477,7 @@ def main():
     alld['cj'] = churn_pct(op, 'all', pm)
 
     weeks_meta = month_weeks(MONTH)
+    week_keys = [w['key'] for w in weeks_meta]
     weeks = [(w['key'], w['end_exclusive'], weeks_meta[0]['start']) for w in weeks_meta]
     id2key = {v[2]:k for k,v in CUR.items()}
     wk_all = weekly([v[2] for v in CUR.values()], weeks)
@@ -475,9 +485,9 @@ def main():
         W = {}
         for aid,key in id2key.items():
             wd = wk_all.get(aid)
-            W[key] = {w:wd.get(w,[0,0,0]) for w in ['W1','W2','W3','W4']} if wd else None
+            W[key] = {w:wd.get(w,[0,0,0]) for w in week_keys} if wd else None
         # umumiy hafta = yig'indi
-        W['all'] = {w:[sum(wk_all.get(a,{}).get(w,[0,0,0])[i] for a in wk_all) for i in range(3)] for w in ['W1','W2','W3','W4']}
+        W['all'] = {w:[sum(wk_all.get(a,{}).get(w,[0,0,0])[i] for a in wk_all) for i in range(3)] for w in week_keys}
     else:
         # MCP vaqtincha ishlamasa, saytdagi oxirgi to'g'ri haftalik tarixni o'chirmaymiz.
         W = {}
@@ -490,7 +500,7 @@ def main():
             print('Oldingi W ham olinmadi:', e)
         for key in CUR:
             W.setdefault(key, None)
-        W.setdefault('all', {w:[0,0,0] for w in ['W1','W2','W3','W4']})
+        W.setdefault('all', {w:[0,0,0] for w in week_keys})
 
     # Noaktiv qoldig'i: joriy CRM snapshotidan orqaga, haftalik sof o'zgarishlar orqali.
     net = weekly_noaktiv_net([v[2] for v in CUR.values()], weeks_meta)
@@ -499,12 +509,12 @@ def main():
         current = int(M[key]['x'][0])
         vals = {}
         cursor = current
-        for wk in reversed(['W1','W2','W3','W4']):
+        for wk in reversed(week_keys):
             vals[wk] = {'count': cursor, 'delta': int(net.get(aid,{}).get(wk,0))}
             cursor -= vals[wk]['delta']
         N[key] = vals
     N['all'] = {}
-    for wk in ['W1','W2','W3','W4']:
+    for wk in week_keys:
         N['all'][wk] = {
             'count': sum(N[k][wk]['count'] for k in CUR),
             'delta': sum(N[k][wk]['delta'] for k in CUR),
@@ -529,7 +539,7 @@ def main():
     attendance_groups = group_attendance([v[2] for v in CUR.values()], MONTH)
     E = {}
     for key,(_,_,aid,_) in CUR.items():
-        wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in ['W1','W2','W3','W4']}
+        wk_data = {wk:events.get(aid,{}).get(wk,{'yangi':0,'fao':0}) for wk in week_keys}
         E[key] = {
             'weeks': wk_data,
             'month': {
@@ -543,7 +553,7 @@ def main():
         M[key]['qarz_plan'] = E[key]['month']['qarz_plan']
         M[key]['db_students'] = db_students.get(aid,0)
         wk_churn = {}
-        for wk in ['W1','W2','W3','W4']:
+        for wk in week_keys:
             parts=churn_status.get(aid,{}).get(wk,{'frozen':0,'archive':0})
             wk_churn[wk]={'frozen':parts['frozen'],'archive':parts['archive'],
                           'count':parts['frozen']+parts['archive']}
@@ -553,7 +563,7 @@ def main():
     C = {'curators':{},'teams':{},'all':{}}
     for key,(_,team,aid,_) in CUR.items():
         H['curators'][key]={}
-        for wk in ['W1','W2','W3','W4']:
+        for wk in week_keys:
             p=churn_status.get(aid,{}).get(wk,{'frozen':0,'archive':0})
             H['curators'][key][wk]={'frozen':p['frozen'],'archive':p['archive'],'count':p['frozen']+p['archive']}
         frozen=sum(x['frozen'] for x in H['curators'][key].values())
@@ -566,7 +576,7 @@ def main():
         cnt,base=frozen+archive,int(M[key]['b'])
         C['curators'][key] = {'count':cnt,'frozen':frozen,'archive':archive,'base':base,
                               'pct':round(cnt*100/base,2) if base else 0}
-        for wk in ['W1','W2','W3','W4']:
+        for wk in week_keys:
             dst=H['teams'][team].setdefault(wk,{'count':0,'frozen':0,'archive':0})
             for f in ('count','frozen','archive'): dst[f]+=H['curators'][key][wk][f]
     # Team churn CRM'ning tarkib kartalaridan olinadi. Bu Team churn kartasidagi
@@ -583,7 +593,7 @@ def main():
     C['all']={'count':official_count,'frozen':official_frozen,'archive':official_archive,
               'other':0,
               'base':official_base,'pct':round(official_count*100/official_base,2) if official_base else 0}
-    for wk in ['W1','W2','W3','W4']:
+    for wk in week_keys:
         H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
 
     admin_to_key = {aid:key for key,(_,_,aid,_) in CUR.items()}
