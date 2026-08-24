@@ -356,6 +356,7 @@ def group_attendance(admin_ids_list, month):
 def status_churn_counts(admin_ids_list, weeks):
     """Churn = davrda muzlatilib hozir frozen turgan + davrda terminal archive bo'lgan."""
     ids = ','.join(admin_ids_list)
+    month_start = weeks[0]['start'][:8] + '01'
     when = " ".join([f"WHEN x.event_date<'{w['end_exclusive']}' THEN '{w['key']}'" for w in weeks[:-1]])
     last = weeks[-1]['key']
     sql = (
@@ -364,7 +365,7 @@ def status_churn_counts(admin_ids_list, weeks):
         f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'frozen' kind,f.START_DATE event_date "
         f"FROM frozen_student_list f JOIN subscribe_list s ON s.STUDENT_ID=f.STUDENT_ID "
         f"AND s.ACTIVE=1 AND s.STATUS='freezed' JOIN group_list g ON g.ID=s.GROUP_ID "
-        f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{weeks[0]['start']}' "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{month_start}' "
         f"AND f.START_DATE<'{weeks[-1]['end_exclusive']}' "
         f"AND EXISTS (SELECT 1 FROM transaction_list p WHERE p.STUDENT_ID=s.STUDENT_ID "
         f"AND p.ACTION_TYPE='add' AND p.TRANSACTION_DATE<=f.START_DATE GROUP BY p.STUDENT_ID "
@@ -374,7 +375,7 @@ def status_churn_counts(admin_ids_list, weeks):
         f"UNION ALL "
         f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'archive' kind,s.END_DATE event_date "
         f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
-        f"WHERE g.ADMIN_ID IN ({ids}) AND s.STATUS='archive' AND s.END_DATE>='{weeks[0]['start']}' "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND s.STATUS='archive' AND s.END_DATE>='{month_start}' "
         f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
         f"AND (s.END_OF_SUBSCRIPTION IS NULL OR s.END_OF_SUBSCRIPTION='0000-00-00 00:00:00' "
         f"OR DATE(s.END_DATE)<DATE(s.END_OF_SUBSCRIPTION)) "
@@ -393,12 +394,13 @@ def status_churn_counts(admin_ids_list, weeks):
 def churn_student_rows(admin_ids_list, weeks):
     """Churn sonini tashkil qilgan o'quvchilar: har o'quvchining eng so'nggi churn hodisasi."""
     ids = ','.join(admin_ids_list)
+    month_start = weeks[0]['start'][:8] + '01'
     sql = (
         "SELECT x.admin,x.student_id,st.NAME name,x.kind,x.event_date FROM ("
         f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'frozen' kind,f.START_DATE event_date "
         f"FROM frozen_student_list f JOIN subscribe_list s ON s.STUDENT_ID=f.STUDENT_ID "
         f"AND s.ACTIVE=1 AND s.STATUS='freezed' JOIN group_list g ON g.ID=s.GROUP_ID "
-        f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{weeks[0]['start']}' "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{month_start}' "
         f"AND f.START_DATE<'{weeks[-1]['end_exclusive']}' "
         f"AND EXISTS (SELECT 1 FROM transaction_list p WHERE p.STUDENT_ID=s.STUDENT_ID "
         f"AND p.ACTION_TYPE='add' AND p.TRANSACTION_DATE<=f.START_DATE GROUP BY p.STUDENT_ID "
@@ -407,7 +409,7 @@ def churn_student_rows(admin_ids_list, weeks):
         f"AND d.ACTIVE=1 AND d.STATUS='demo') UNION ALL "
         f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'archive' kind,s.END_DATE event_date "
         f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
-        f"WHERE g.ADMIN_ID IN ({ids}) AND s.STATUS='archive' AND s.END_DATE>='{weeks[0]['start']}' "
+        f"WHERE g.ADMIN_ID IN ({ids}) AND s.STATUS='archive' AND s.END_DATE>='{month_start}' "
         f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
         f"AND (s.END_OF_SUBSCRIPTION IS NULL OR s.END_OF_SUBSCRIPTION='0000-00-00 00:00:00' "
         f"OR DATE(s.END_DATE)<DATE(s.END_OF_SUBSCRIPTION)) "
@@ -421,7 +423,7 @@ def churn_student_rows(admin_ids_list, weeks):
         key = int(r['student_id'])
         date = str(r.get('event_date') or '')[:10]
         if key not in latest or date > latest[key]['date']:
-            week = next((w['key'] for w in weeks if w['start'] <= date < w['end_exclusive']), weeks[-1]['key'])
+            week = next((w['key'] for w in weeks if date < w['end_exclusive']), weeks[-1]['key'])
             latest[key] = {'admin':str(r['admin']), 'id':int(r['student_id']), 'name':r.get('name') or f"O‘quvchi #{r['student_id']}",
                            'kind':r['kind'], 'date':date, 'wk':week}
     return {(row['admin'], sid):{k:v for k,v in row.items() if k!='admin'} for sid,row in latest.items()}
@@ -606,6 +608,50 @@ def main():
         CL['curators'][key].append(item)
         CL['teams'][CUR[key][1]].append(item)
         CL['all'].append(item)
+
+    # Bitta haqiqat manbai: oylik, haftalik, team va ro'yxat churn ko'rsatkichlari
+    # aynan bir xil deduplikatsiya qilingan o'quvchi ID ro'yxatidan hisoblanadi.
+    # Analytics kartalari boshqa qoidada sanashi sababli endi C/H ga aralashtirilmaydi.
+    H = {'curators':{}, 'teams':{'A':{},'B':{}}, 'all':{}}
+    for key in CUR:
+        H['curators'][key] = {}
+        for wk in week_keys:
+            rows = [r for r in CL['curators'][key] if r['wk'] == wk]
+            frozen = sum(r['kind'] == 'frozen' for r in rows)
+            archive = sum(r['kind'] == 'archive' for r in rows)
+            H['curators'][key][wk] = {'count':len(rows),'frozen':frozen,'archive':archive}
+    for team in ('A','B'):
+        for wk in week_keys:
+            rows = [r for r in CL['teams'][team] if r['wk'] == wk]
+            frozen = sum(r['kind'] == 'frozen' for r in rows)
+            archive = sum(r['kind'] == 'archive' for r in rows)
+            H['teams'][team][wk] = {'count':len(rows),'frozen':frozen,'archive':archive}
+    for wk in week_keys:
+        rows = [r for r in CL['all'] if r['wk'] == wk]
+        frozen = sum(r['kind'] == 'frozen' for r in rows)
+        archive = sum(r['kind'] == 'archive' for r in rows)
+        H['all'][wk] = {'count':len(rows),'frozen':frozen,'archive':archive}
+
+    C = {'curators':{}, 'teams':{}, 'all':{}}
+    for key in CUR:
+        rows = CL['curators'][key]
+        frozen = sum(r['kind'] == 'frozen' for r in rows)
+        archive = sum(r['kind'] == 'archive' for r in rows)
+        base = int(M[key]['b'])
+        C['curators'][key] = {'count':len(rows),'frozen':frozen,'archive':archive,
+                              'base':base,'pct':round(len(rows)*100/base,2) if base else 0}
+    for team in ('A','B'):
+        rows = CL['teams'][team]
+        frozen = sum(r['kind'] == 'frozen' for r in rows)
+        archive = sum(r['kind'] == 'archive' for r in rows)
+        base = int((ta if team == 'A' else tb)['b'])
+        C['teams'][team] = {'count':len(rows),'frozen':frozen,'archive':archive,
+                            'base':base,'pct':round(len(rows)*100/base,2) if base else 0}
+    frozen = sum(r['kind'] == 'frozen' for r in CL['all'])
+    archive = sum(r['kind'] == 'archive' for r in CL['all'])
+    cbase = int(alld['chu'][0] or alld['b']) if alld.get('chu') else int(alld['b'])
+    C['all'] = {'count':len(CL['all']),'frozen':frozen,'archive':archive,'other':0,
+                'base':cbase, 'pct':round(len(CL['all'])*100/cbase,2) if cbase else 0}
     G = {'groups':[]}
     for r in attendance_groups:
         key = admin_to_key.get(r.pop('k_admin'))
