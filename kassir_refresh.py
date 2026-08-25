@@ -117,8 +117,6 @@ frozen = q(
     "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
     "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
     "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
-    "AND fs.START_DATE IS NOT NULL AND DATE(fs.START_DATE)<=CURDATE() "
-    "AND MOD(DATEDIFF(CURDATE(),DATE(fs.START_DATE)),2)=0 "
     "ORDER BY fs.START_DATE DESC" % (TARIFF_MONTHS, ORG))
 
 # ---- yordamchilar ----
@@ -218,7 +216,7 @@ def task_row(r, kind):
 SECDEF = [
     ("t3","💳","To‘lovga 3 kun qoldi","to‘lov sanasidan aynan 3 kun oldin","b-t3", t3),
     ("debtor","📋","Qarzdor","qarzga kirgan kundan muzlatilguncha har kuni","b-debtor", debtors),
-    ("frozen","🧊","Muzlatilgan → Arxiv","muzlatilgandan arxiv statusiga o‘tguncha kun ora","b-frozen", frozen),
+    ("frozen","🧊","Muzlatilgan → Arxiv","muzlatilgandan arxiv statusiga o‘tguncha har kuni","b-frozen", frozen),
 ]
 
 def render_board(cash_id):
