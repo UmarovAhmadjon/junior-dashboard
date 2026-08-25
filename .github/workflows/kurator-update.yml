@@ -56,7 +56,18 @@ jobs:
           expected = round(churn['count'] * 100 / churn['base'], 2)
           if abs(expected - float(churn['pct'])) > 0.02:
               raise SystemExit(f'Invalid churn percent: {churn}')
-          print('Validated:', churn)
+          audit = data.get('AUDIT', {})
+          cards = len(data.get('CL', {}).get('all', []))
+          if audit.get('crm_fact') != churn['count'] or audit.get('mcp_cards') != cards:
+              raise SystemExit(f'Churn audit mismatch: churn={churn}, cards={cards}, audit={audit}')
+          if audit.get('difference') != churn['count'] - cards:
+              raise SystemExit(f'Invalid churn audit difference: {audit}')
+          if not audit.get('sheets_available') or not audit.get('sheets_last_date'):
+              raise SystemExit(f'Google Sheets audit unavailable: {audit}')
+          weekly_verified = sum(int(x.get('count',0)) for x in data.get('H',{}).get('all',{}).values())
+          if weekly_verified > churn['count']:
+              raise SystemExit(f'Weekly verified churn exceeds CRM Fakt: {weekly_verified}>{churn["count"]}')
+          print('Validated:', churn, audit)
           PY
       - name: Publish changed data
         run: |
