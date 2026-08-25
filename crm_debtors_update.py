@@ -25,6 +25,7 @@ CURATORS = {
 }
 TEST_ADMIN_IDS = {21453}  # MK admin — test account, never show in cashier ranking
 CURRENT_ADMIN_IDS = {int(value[2]) for value in CURATORS.values()}
+CURATOR_BY_ID = {int(cid):(full,team,short) for full,(team,short,cid) in CURATORS.items()}
 
 def strip_tags(value):
     value = re.sub(r"<script.*?</script>|<style.*?</style>", " ", value, flags=re.I|re.S)
@@ -158,7 +159,7 @@ def detail(source_rows):
     out=[]
     for i,x in enumerate(source_rows):
         team_short=CURATORS.get(x["admin"])
-        curator=team_short[1] if team_short else "Biriktirilmagan"
+        curator=x.get("_curator_short") or (team_short[1] if team_short else "Biriktirilmagan")
         bucket=row_bucket(x); paid=bucket in ("paid","bit","referral")
         out.append(dict(id=x.get("student_id") or i+1,name=x["name"],curator=curator,
             cashier=x.get("cashier","Biriktirilmagan"),
@@ -213,7 +214,7 @@ def cashier_dataset(source_rows, group_meta):
         rr=d["source"]; paid=[x for x in rr if is_effective_paid(x)]
         actual_paid=[x for x in rr if row_bucket(x)=="paid"]
         short="cashier_"+cid
-        teams=[CURATORS.get(x["admin"],("B",))[0] for x in rr]
+        teams=[x.get("_curator_team") or CURATORS.get(x["admin"],("B",))[0] for x in rr]
         team="A" if teams.count("A")>=teams.count("B") else "B"
         synthetic.append(dict(team=team,short=short,full=d["name"],paid=len(paid),tol=len(actual_paid),
             bit=sum(row_bucket(x)=="bit" for x in rr),sar=sum(row_bucket(x)=="referral" for x in rr),
@@ -230,7 +231,7 @@ def week_stats(month_rows):
         rr=[x for x in month_rows if a<=x["due"]<=b]
         paid=[x for x in rr if is_effective_paid(x)]
         actual_paid=[x for x in rr if row_bucket(x)=="paid"]
-        def team_of(x): return CURATORS.get(x["admin"],("U",))[0]
+        def team_of(x): return x.get("_curator_team") or CURATORS.get(x["admin"],("U",))[0]
         result.append(dict(ws=a,we=b,total=len(rr),paid=len(paid),
             qarz=sum(row_bucket(x)=="debt" for x in rr),
             muz=sum(row_bucket(x)=="frozen" for x in rr),
@@ -304,6 +305,13 @@ def main():
     if len(group_meta) != len({x["student_id"] for x in month_source}):
         missing=len({x["student_id"] for x in month_source})-len(group_meta)
         raise RuntimeError(f"MCP group lookup incomplete ({missing} students); refusing to publish")
+    # Canonical curator identity comes from the student's assigned group's ADMIN_ID.
+    # CRM display names can differ from CURATORS keys (for example Fotima).
+    for x in month_source:
+        meta=group_meta.get(x["student_id"],{})
+        curator=CURATOR_BY_ID.get(int(meta.get("admin_id") or 0))
+        if curator:
+            x["_curator_full"],x["_curator_team"],x["_curator_short"]=curator
     month_rows=[]; known_total=known_plan=known_fact=known_frozen=known_deleted=0; known_counts={k:0 for k in ("paid","bit","referral","debt","frozen","deleted")}
     for full,(team,short,cid) in CURATORS.items():
         cr=fetch(op,START,END,curator=cid); cc=card(cr); tr=table_rows(cr)
@@ -335,11 +343,11 @@ def main():
         source=[x for x in month_source if a<=x["due"]<=b]
         rows=[]
         for full,(team,short,_cid) in CURATORS.items():
-            rr=[x for x in source if x["admin"]==full]
+            rr=[x for x in source if x.get("_curator_full")==full]
             c=dict(total=len(rr),plan=sum(x["plan"] for x in rr),
                    fact=sum(x["paid"] for x in rr if row_bucket(x)=="paid"))
             rows.append(dashboard_row(team,short,full,c,rr))
-        rr=[x for x in source if x["admin"] not in CURATORS]
+        rr=[x for x in source if not x.get("_curator_full")]
         if rr:
             c=dict(total=len(rr),plan=sum(x["plan"] for x in rr),fact=sum(x["paid"] for x in rr if row_bucket(x)=="paid"))
             rows.append(dashboard_row("U","Biriktirilmagan","Boshqa adminlar",c,rr,True))
