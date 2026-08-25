@@ -3,12 +3,13 @@
 Manba: crm.junior-it.uz Analitika AJAX API. Login: .crm_login (phone / pass).
 Haftalik churn hodisalari: junior-lms MCP (student_status_logs).
 Deploy: GitHub Pages (kurator.html)."""
-import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar, time, datetime, calendar
+import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar, time, datetime, calendar, csv, io, unicodedata
 
 HOME = pathlib.Path.home() / 'junior-dashboard'
 REPO = 'UmarovAhmadjon/junior-dashboard'
 CRM = 'https://crm.junior-it.uz'
 MCP = os.environ.get('JUNIOR_MCP_GATEWAY') or 'https://myclinic.agc.uz/new_junior_mcp.php'
+CHURN_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1eTONqa-wYvZU5NAaIm13N3GZFuTBJqHCGhzVmWD412E/gviz/tq?tqx=out:csv&sheet=Churn%20A'
 TASHKENT_NOW = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5)))
 MONTH = os.environ.get('KURATOR_MONTH', TASHKENT_NOW.strftime('%Y-%m-01'))
 
@@ -52,6 +53,46 @@ def crm_session():
 
 def strip(html):
     return re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' ',html)).strip()
+
+def norm_name(value):
+    value = unicodedata.normalize('NFKD', str(value or '')).lower()
+    return re.sub(r'[^a-z0-9]+', '', value)
+
+def sheets_churn_audit(month):
+    """Team managers / Churn A ni nazorat reyestri sifatida o'qiydi."""
+    try:
+        raw = urllib.request.urlopen(CHURN_SHEET_CSV, timeout=40).read().decode('utf-8-sig')
+        rows = list(csv.reader(io.StringIO(raw)))
+        if not rows:
+            return {'available':False,'error':'empty sheet'}
+        header = rows[0]
+        starts = [i for i,v in enumerate(header) if str(v).strip() == 'Sana']
+        aliases = {'fotima':'Fot','madina':'Mad','dilafruz':'Dil','jasmina':'Jas',
+                   'shaxlo':'Shx','marjona':'Mar','xalima':'Xal','halima':'Xal'}
+        items, last_dates = [], {}
+        for start in starts:
+            name_col = start + 1
+            end = starts[starts.index(start)+1] if starts.index(start)+1 < len(starts) else len(header)
+            curator_col = next((i for i in range(start,end) if str(header[i]).strip()=='Kurator'), None)
+            reason_col = next((i for i in range(start,end) if str(header[i]).strip()=='Sabab'), None)
+            if curator_col is None or reason_col is None:
+                continue
+            current_date = ''
+            for row in rows[1:]:
+                row = row + [''] * (len(header)-len(row))
+                if row[start].strip():
+                    current_date = row[start].strip()
+                student, curator, reason = row[name_col].strip(), row[curator_col].strip(), row[reason_col].strip()
+                key = aliases.get(norm_name(curator))
+                if key and student and reason and current_date.endswith(month[5:7]+'.'+month[:4]):
+                    items.append({'name':student,'norm':norm_name(student),'k':key,'date':current_date,'reason':reason})
+                    last_dates[current_date] = True
+        unique = {(x['k'],x['norm']):x for x in items}
+        dates = sorted(last_dates, key=lambda d: datetime.datetime.strptime(d,'%d.%m.%Y'))
+        return {'available':True,'count':len(unique),'last_date':dates[-1] if dates else None,
+                'items':list(unique.values()),'url':'https://docs.google.com/spreadsheets/d/1eTONqa-wYvZU5NAaIm13N3GZFuTBJqHCGhzVmWD412E/edit#gid=1875956324'}
+    except Exception as e:
+        return {'available':False,'error':str(e)[:160]}
 
 def api(op, ep, admin, month=None):
     d = urllib.parse.urlencode({'admin_id':admin,'month':month or MONTH}).encode()
@@ -609,9 +650,8 @@ def main():
         CL['teams'][CUR[key][1]].append(item)
         CL['all'].append(item)
 
-    # Bitta haqiqat manbai: oylik, haftalik, team va ro'yxat churn ko'rsatkichlari
-    # aynan bir xil deduplikatsiya qilingan o'quvchi ID ro'yxatidan hisoblanadi.
-    # Analytics kartalari boshqa qoidada sanashi sababli endi C/H ga aralashtirilmaydi.
+    # H — faqat bazada ID bilan tasdiqlangan haftalik churn. CRM Faktga yetmagan
+    # farq hech qaysi haftaga sun'iy qo'shilmaydi.
     H = {'curators':{}, 'teams':{'A':{},'B':{}}, 'all':{}}
     for key in CUR:
         H['curators'][key] = {}
@@ -620,22 +660,6 @@ def main():
             frozen = sum(r['kind'] == 'frozen' for r in rows)
             archive = sum(r['kind'] == 'archive' for r in rows)
             H['curators'][key][wk] = {'count':len(rows),'frozen':frozen,'archive':archive}
-    # CRM Analytics Fakt — buyurtmachi tasdiqlagan asosiy KPI. Bazadan ID bilan
-    # topilmagan farq KPI ni kamaytirmaydi; joriy haftaga reconciliation sifatida
-    # qo'shiladi, modal esa topilgan kartochkalar sonini ochiq ko'rsatadi.
-    latest_week = week_keys[-1]
-    for key in CUR:
-        fact = C['curators'][key]
-        for kind in ('frozen','archive'):
-            remaining = int(fact[kind])
-            for wk in week_keys:
-                accepted = min(H['curators'][key][wk][kind], remaining)
-                H['curators'][key][wk][kind] = accepted
-                remaining -= accepted
-            H['curators'][key][latest_week][kind] += remaining
-        for wk in week_keys:
-            H['curators'][key][wk]['count'] = (H['curators'][key][wk]['frozen'] +
-                                               H['curators'][key][wk]['archive'])
     for team in ('A','B'):
         members = [key for key,(_,t,_,_) in CUR.items() if t == team]
         for wk in week_keys:
@@ -644,13 +668,22 @@ def main():
     for wk in week_keys:
         H['all'][wk] = {f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f]
                         for f in ('count','frozen','archive')}
-    # CRM umumiy Fakt kurator kartalari yig'indisidan farq qilsa, umumiy
-    # ko'rsatkich baribir rasmiy all-card bilan tugashi kerak.
-    for kind in ('frozen','archive'):
-        current = sum(H['all'][wk][kind] for wk in week_keys)
-        H['all'][latest_week][kind] += max(0, int(C['all'][kind]) - current)
-    H['all'][latest_week]['count'] = (H['all'][latest_week]['frozen'] +
-                                      H['all'][latest_week]['archive'])
+    sheet = sheets_churn_audit(MONTH)
+    db_names = {(key,norm_name(r['name'])) for key,rows in CL['curators'].items() for r in rows}
+    sheet_matches = sum((x['k'],x['norm']) in db_names for x in sheet.get('items',[]))
+    AUDIT = {
+        'crm_fact': int(C['all']['count']),
+        'crm_frozen': int(C['all']['frozen']),
+        'crm_archive': int(C['all']['archive']),
+        'mcp_cards': len(CL['all']),
+        'difference': int(C['all']['count']) - len(CL['all']),
+        'sheets_available': bool(sheet.get('available')),
+        'sheets_count': int(sheet.get('count',0)),
+        'sheets_last_date': sheet.get('last_date'),
+        'sheets_mcp_matches': int(sheet_matches),
+        'sheets_url': sheet.get('url'),
+        'status': 'verified' if int(C['all']['count']) == len(CL['all']) else 'difference',
+    }
     G = {'groups':[]}
     for r in attendance_groups:
         key = admin_to_key.get(r.pop('k_admin'))
@@ -680,7 +713,7 @@ def main():
         'manual': True, 'note': AUGUST_BASELINE['note']
     })
 
-    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'G':G, 'CL':CL, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
+    payload = {'M':M, 'W':W, 'N':N, 'E':E, 'C':C, 'H':H, 'G':G, 'CL':CL, 'AUDIT':AUDIT, 'snapshots':snapshots, 'weeks':weeks_meta, 'all':alld, 'TA':ta, 'TB':tb,
                'total_base': alld['b'], 'churn': alld['chu'], 'fao': alld['fao'],
                'qarz': grab.__self__ if False else None}
     payload['qarz_total'] = api(op,'top-cards/debtors-student-card','all')
@@ -703,7 +736,7 @@ def real_date():
 def render_and_deploy(d):
     rating_tpl = (BASE/'kurator_rating_template.html').read_text()
     attendance_tpl = (BASE/'kurator_attendance_template.html').read_text()
-    data = {k:d[k] for k in ('M','W','N','E','C','H','G','CL','snapshots','weeks','all','TA','TB')}
+    data = {k:d[k] for k in ('M','W','N','E','C','H','G','CL','AUDIT','snapshots','weeks','all','TA','TB')}
     data['snap'] = real_date()
     data['month'] = MONTH
     js = ("const __DATA__=" + json.dumps(data, ensure_ascii=False) + ";")
