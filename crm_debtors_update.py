@@ -310,6 +310,10 @@ def main():
     for x in month_source:
         meta=group_meta.get(x["student_id"],{})
         curator=CURATOR_BY_ID.get(int(meta.get("admin_id") or 0))
+        # CRM currently displays this curator as "Fotima", while its filter
+        # record is stored as "Fotimabonu Abdulkhakova".
+        if not curator and x["admin"].strip().lower().startswith("fotima"):
+            curator=CURATOR_BY_ID[int(CURATORS["Fotimabonu Abdulkhakova"][2])]
         if curator:
             x["_curator_full"],x["_curator_team"],x["_curator_short"]=curator
     month_rows=[]; known_total=known_plan=known_fact=known_frozen=known_deleted=0; known_counts={k:0 for k in ("paid","bit","referral","debt","frozen","deleted")}
