@@ -121,6 +121,12 @@ frozen = q(
     "LEFT JOIN frozen_student_list fs ON fs.ID=(SELECT MAX(f2.ID) FROM frozen_student_list f2 WHERE f2.STUDENT_ID=s.ID) "
     "LEFT JOIN frozen_reason fr ON fr.ID=fs.REASON_ID "
     "WHERE sub.ORG_ID=%d AND sub.ACTIVE=1 AND sub.TYPE='monthly' AND sub.STATUS='freezed' "
+    "AND NOT EXISTS (SELECT 1 FROM trial_lesson_list tl "
+    " WHERE tl.STUDENT_ID=s.ID AND tl.ACTIVE=1 AND tl.STATUS='active' "
+    " AND ABS(DATEDIFF(DATE(sub.START_DATE),tl.LESSON_DATE))<=7 "
+    " AND NOT EXISTS (SELECT 1 FROM transaction_list pay "
+    "  WHERE pay.STUDENT_ID=s.ID AND pay.ACTION_TYPE='add' "
+    "  AND pay.TRANSACTION_DATE>=tl.LESSON_DATE)) "
     "ORDER BY fs.START_DATE DESC" % (TARIFF_MONTHS, ORG))
 
 # ---- yordamchilar ----
