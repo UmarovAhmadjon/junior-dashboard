@@ -62,7 +62,7 @@ PAY_SEL = ("s.ID sid, s.NAME nm, s.PHONE ph, sub.ID subid, sub.GROUP_ID gid, g.N
            "DATE(sub.END_OF_SUBSCRIPTION) expiry, " + TARIFF_MONTHS + " tariff_months, "
            "tf.tariff_name, (%s) due_date, "
            "COALESCE((SELECT SUM(tx.AMOUNT) FROM transaction_list tx WHERE tx.STUDENT_ID=s.ID "
-           "AND tx.ACTION_TYPE='taken' AND tx.TRANSACTION_DATE>=(%s)),0) charged_sum, "
+           "AND tx.ACTION_TYPE='taken' AND tx.TRANSACTION_DATE>(%s)-INTERVAL 1 MONTH),0) charged_sum, "
            "nl.ID note_id, DATE_FORMAT(nl.CREATED_DATE,'%%H:%%i') note_time, "
            "nu.NAME note_author_name, nu.SURNAME note_author_surname")
 PAY_SEL = PAY_SEL % (DUE_DATE, DUE_DATE)
@@ -93,9 +93,9 @@ def pay_list(day, days_left):
 t3 = pay_list(D_T3, 3)
 debtors = q("SELECT %s %s AND (%s)<=1 "
             "AND sub.SPECIAL_PRICE>0 AND (%s)<=CURDATE() "
-            "AND COALESCE((SELECT SUM(tx.AMOUNT) FROM transaction_list tx "
+            "AND NOT EXISTS (SELECT 1 FROM transaction_list tx "
             "WHERE tx.STUDENT_ID=s.ID AND tx.ACTION_TYPE='taken' "
-            "AND tx.TRANSACTION_DATE>=(%s)),0)<sub.SPECIAL_PRICE "
+            "AND tx.TRANSACTION_DATE>(%s)-INTERVAL 1 MONTH) "
             "ORDER BY (%s) DESC, s.CURRENT_BALANCE ASC"
             % (PAY_SEL, PAY_FROM, TARIFF_MONTHS, DUE_DATE, DUE_DATE, DUE_DATE))
 frozen = q(
