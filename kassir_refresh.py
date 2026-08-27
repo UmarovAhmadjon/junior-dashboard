@@ -93,13 +93,15 @@ def pay_list(day, days_left):
 t3 = pay_list(D_T3, 3)
 debtors = q("SELECT %s %s AND (%s)<=1 "
             "AND sub.SPECIAL_PRICE>0 AND (%s)<=CURDATE() "
-            "AND DATE(sub.START_DATE)<DATE_FORMAT(CURDATE(),'%%Y-%%m-01') "
+            "AND EXISTS (SELECT 1 FROM transaction_list oldtx "
+            "WHERE oldtx.STUDENT_ID=s.ID AND oldtx.ACTION_TYPE='taken' "
+            "AND oldtx.TRANSACTION_DATE<(%s)) "
             "AND (s.CURRENT_BALANCE<0 OR (s.CURRENT_BALANCE>=sub.SPECIAL_PRICE "
             "AND NOT EXISTS (SELECT 1 FROM transaction_list tx "
             "WHERE tx.STUDENT_ID=s.ID AND tx.ACTION_TYPE='taken' "
-            "AND tx.TRANSACTION_DATE>=(%s)))) "
+            "AND tx.TRANSACTION_DATE>(%s)-INTERVAL 1 MONTH))) "
             "ORDER BY (%s) DESC, s.CURRENT_BALANCE ASC"
-            % (PAY_SEL, PAY_FROM, TARIFF_MONTHS, DUE_DATE, DUE_DATE, DUE_DATE))
+            % (PAY_SEL, PAY_FROM, TARIFF_MONTHS, DUE_DATE, DUE_DATE, DUE_DATE, DUE_DATE))
 frozen = q(
     "SELECT s.ID sid, s.NAME nm, s.PHONE ph, sub.GROUP_ID gid, g.NAME grp, g.CASHIER_ID cid, "
     "DATE(fs.START_DATE) fdate, fr.REASON reason, DATE(sub.END_OF_SUBSCRIPTION) expiry, "
