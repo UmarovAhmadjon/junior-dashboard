@@ -93,9 +93,11 @@ def pay_list(day, days_left):
 t3 = pay_list(D_T3, 3)
 debtors = q("SELECT %s %s AND (%s)<=1 "
             "AND sub.SPECIAL_PRICE>0 AND (%s)<=CURDATE() "
+            "AND DATE(sub.START_DATE)<DATE_FORMAT(CURDATE(),'%%Y-%%m-01') "
+            "AND (s.CURRENT_BALANCE<0 OR (s.CURRENT_BALANCE>=sub.SPECIAL_PRICE "
             "AND NOT EXISTS (SELECT 1 FROM transaction_list tx "
             "WHERE tx.STUDENT_ID=s.ID AND tx.ACTION_TYPE='taken' "
-            "AND tx.TRANSACTION_DATE>(%s)-INTERVAL 1 MONTH) "
+            "AND tx.TRANSACTION_DATE>=(%s)))) "
             "ORDER BY (%s) DESC, s.CURRENT_BALANCE ASC"
             % (PAY_SEL, PAY_FROM, TARIFF_MONTHS, DUE_DATE, DUE_DATE, DUE_DATE))
 frozen = q(
@@ -189,7 +191,7 @@ def task_row(r, kind):
         debit_bug = int(r.get("bal") or 0) >= int(r.get("price") or 0)
         detail = ('<span class="taskbadge overdue">⚠️ CRM автосписание amalga oshmadi</span>' if debit_bug else
                   '<span class="taskbadge overdue">📅 Oylik to‘lov muddati o‘tdi</span>')
-        amount = int(r.get("bal") or 0) if debit_bug else max(0, int(r.get("price") or 0)-int(r.get("bal") or 0))
+        amount = int(r.get("bal") or 0) if debit_bug else abs(int(r.get("bal") or 0))
         amount_label = "баланс" if debit_bug else "долг"
         metric = ('<span class="m m-debt">%s %s сум</span>'
                   '<span class="m m-dim">списание %s</span>' % (amount_label, nf(amount), fresh))
