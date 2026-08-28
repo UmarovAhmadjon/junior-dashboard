@@ -2,7 +2,9 @@ name: update-dashboard
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    # MCP is pull-only, so poll four times per hour. The generator commits only
+    # when CRM/MCP data changed, avoiding unnecessary GitHub Pages publishes.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch: {}
 
 permissions:
