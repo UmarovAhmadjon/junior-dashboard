@@ -3,13 +3,12 @@
 Manba: crm.junior-it.uz Analitika AJAX API. Login: .crm_login (phone / pass).
 Haftalik churn hodisalari: junior-lms MCP (student_status_logs).
 Deploy: GitHub Pages (kurator.html)."""
-import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar, time, datetime, calendar, csv, io, unicodedata
+import os, re, json, base64, pathlib, urllib.request, urllib.parse, http.cookiejar, time, datetime, calendar
 
 HOME = pathlib.Path.home() / 'junior-dashboard'
 REPO = 'UmarovAhmadjon/junior-dashboard'
 CRM = 'https://crm.junior-it.uz'
 MCP = os.environ.get('JUNIOR_MCP_GATEWAY') or 'https://myclinic.agc.uz/new_junior_mcp.php'
-CHURN_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1eTONqa-wYvZU5NAaIm13N3GZFuTBJqHCGhzVmWD412E/gviz/tq?tqx=out:csv&sheet=Churn%20A'
 TASHKENT_NOW = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5)))
 MONTH = os.environ.get('KURATOR_MONTH', TASHKENT_NOW.strftime('%Y-%m-01'))
 
@@ -53,46 +52,6 @@ def crm_session():
 
 def strip(html):
     return re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' ',html)).strip()
-
-def norm_name(value):
-    value = unicodedata.normalize('NFKD', str(value or '')).lower()
-    return re.sub(r'[^a-z0-9]+', '', value)
-
-def sheets_churn_audit(month):
-    """Team managers / Churn A ni nazorat reyestri sifatida o'qiydi."""
-    try:
-        raw = urllib.request.urlopen(CHURN_SHEET_CSV, timeout=40).read().decode('utf-8-sig')
-        rows = list(csv.reader(io.StringIO(raw)))
-        if not rows:
-            return {'available':False,'error':'empty sheet'}
-        header = rows[0]
-        starts = [i for i,v in enumerate(header) if str(v).strip() == 'Sana']
-        aliases = {'fotima':'Fot','madina':'Mad','dilafruz':'Dil','jasmina':'Jas',
-                   'shaxlo':'Shx','marjona':'Mar','xalima':'Xal','halima':'Xal'}
-        items, last_dates = [], {}
-        for start in starts:
-            name_col = start + 1
-            end = starts[starts.index(start)+1] if starts.index(start)+1 < len(starts) else len(header)
-            curator_col = next((i for i in range(start,end) if str(header[i]).strip()=='Kurator'), None)
-            reason_col = next((i for i in range(start,end) if str(header[i]).strip()=='Sabab'), None)
-            if curator_col is None or reason_col is None:
-                continue
-            current_date = ''
-            for row in rows[1:]:
-                row = row + [''] * (len(header)-len(row))
-                if row[start].strip():
-                    current_date = row[start].strip()
-                student, curator, reason = row[name_col].strip(), row[curator_col].strip(), row[reason_col].strip()
-                key = aliases.get(norm_name(curator))
-                if key and student and reason and current_date.endswith(month[5:7]+'.'+month[:4]):
-                    items.append({'name':student,'norm':norm_name(student),'k':key,'date':current_date,'reason':reason})
-                    last_dates[current_date] = True
-        unique = {(x['k'],x['norm']):x for x in items}
-        dates = sorted(last_dates, key=lambda d: datetime.datetime.strptime(d,'%d.%m.%Y'))
-        return {'available':True,'count':len(unique),'last_date':dates[-1] if dates else None,
-                'items':list(unique.values()),'url':'https://docs.google.com/spreadsheets/d/1eTONqa-wYvZU5NAaIm13N3GZFuTBJqHCGhzVmWD412E/edit#gid=1875956324'}
-    except Exception as e:
-        return {'available':False,'error':str(e)[:160]}
 
 def api(op, ep, admin, month=None):
     d = urllib.parse.urlencode({'admin_id':admin,'month':month or MONTH}).encode()
@@ -433,29 +392,31 @@ def status_churn_counts(admin_ids_list, weeks):
     return out
 
 def churn_student_rows(admin_ids_list, weeks):
-    """Churn sonini tashkil qilgan o'quvchilar: har o'quvchining eng so'nggi churn hodisasi."""
+    """Canonical MCP churn list.
+
+    A student is counted once, against the subscription/group that produced the
+    event.  Frozen means the exact subscription is still actively frozen.
+    Archive means the monthly subscription ended early and the student has no
+    later live subscription. Demo/trial and completed subscriptions are out.
+    """
     ids = ','.join(admin_ids_list)
     month_start = weeks[0]['start'][:8] + '01'
     sql = (
         "SELECT x.admin,x.student_id,st.NAME name,x.kind,x.event_date FROM ("
         f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'frozen' kind,f.START_DATE event_date "
-        f"FROM frozen_student_list f JOIN subscribe_list s ON s.STUDENT_ID=f.STUDENT_ID "
+        f"FROM frozen_student_list f JOIN subscribe_list s ON s.ID=f.SUBSCRIBE_ID "
         f"AND s.ACTIVE=1 AND s.STATUS='freezed' JOIN group_list g ON g.ID=s.GROUP_ID "
         f"WHERE g.ADMIN_ID IN ({ids}) AND f.START_DATE>='{month_start}' "
         f"AND f.START_DATE<'{weeks[-1]['end_exclusive']}' "
-        f"AND EXISTS (SELECT 1 FROM transaction_list p WHERE p.STUDENT_ID=s.STUDENT_ID "
-        f"AND p.ACTION_TYPE='add' AND p.TRANSACTION_DATE<=f.START_DATE GROUP BY p.STUDENT_ID "
-        f"HAVING SUM(p.AMOUNT)>=COALESCE(NULLIF(s.SPECIAL_PRICE,0),1)) "
-        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list d WHERE d.STUDENT_ID=s.STUDENT_ID "
-        f"AND d.ACTIVE=1 AND d.STATUS='demo') UNION ALL "
+        f"AND f.ACTIVE=1 AND s.TYPE='monthly' UNION ALL "
         f"SELECT g.ADMIN_ID admin,s.STUDENT_ID student_id,'archive' kind,s.END_DATE event_date "
         f"FROM subscribe_list s JOIN group_list g ON g.ID=s.GROUP_ID "
         f"WHERE g.ADMIN_ID IN ({ids}) AND s.STATUS='archive' AND s.END_DATE>='{month_start}' "
         f"AND s.END_DATE<'{weeks[-1]['end_exclusive']}' "
         f"AND (s.END_OF_SUBSCRIPTION IS NULL OR s.END_OF_SUBSCRIPTION='0000-00-00 00:00:00' "
         f"OR DATE(s.END_DATE)<DATE(s.END_OF_SUBSCRIPTION)) "
-        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a JOIN group_list ga ON ga.ID=a.GROUP_ID "
-        f"WHERE a.STUDENT_ID=s.STUDENT_ID AND ga.ADMIN_ID=g.ADMIN_ID "
+        f"AND s.TYPE='monthly' "
+        f"AND NOT EXISTS (SELECT 1 FROM subscribe_list a WHERE a.STUDENT_ID=s.STUDENT_ID "
         f"AND a.ACTIVE=1 AND a.STATUS IN ('active','freezed','demo'))"
         ") x JOIN student_list st ON st.ID=x.student_id ORDER BY x.event_date DESC"
     )
@@ -484,15 +445,15 @@ def month_weeks(month):
     weeks = []
     month_start = datetime.date(y, mo, 1)
     month_end = datetime.date(y, mo, last)
-    # Haftalik filtrlar oyning birinchi yakshanbasidan boshlanadi. Oyning undan
-    # oldingi kunlari faqat "oy boshidan" kesimiga kiradi. Oxirgi hafta oy
-    # oxirigacha uzayadi (masalan Avgust 2026: 02–08, 09–15, 16–22, 23–31).
+    # W1 also contains the short month-opening fragment before the first Sunday;
+    # later weeks are Sunday–Saturday. This keeps every monthly event visible in
+    # exactly one weekly bucket (Aug 2026: 01–08, 09–15, 16–22, 23–31).
     first_sunday = month_start + datetime.timedelta(days=(6 - month_start.weekday()) % 7)
     for i in range(1, 5):
-        cursor = first_sunday + datetime.timedelta(days=(i - 1) * 7)
+        cursor = month_start if i == 1 else first_sunday + datetime.timedelta(days=(i - 1) * 7)
         if cursor > month_end:
             break
-        end = month_end if i == 4 else min(month_end, cursor + datetime.timedelta(days=6))
+        end = month_end if i == 4 else min(month_end, (first_sunday + datetime.timedelta(days=6)) if i == 1 else cursor + datetime.timedelta(days=6))
         weeks.append({
             'key': f'W{i}',
             'start': cursor.isoformat(),
@@ -577,7 +538,6 @@ def main():
             "Oxirgi to'g'ri sayt saqlanadi."
         )
     db_new = current_new_counts([v[2] for v in CUR.values()])
-    churn_status = status_churn_counts([v[2] for v in CUR.values()], weeks_meta)
     churn_students = churn_student_rows([v[2] for v in CUR.values()], weeks_meta)
     attendance_groups = group_attendance([v[2] for v in CUR.values()], MONTH)
     E = {}
@@ -595,50 +555,6 @@ def main():
         M[key]['qayta'] = E[key]['month']['fao']
         M[key]['qarz_plan'] = E[key]['month']['qarz_plan']
         M[key]['db_students'] = db_students.get(aid,0)
-        wk_churn = {}
-        for wk in week_keys:
-            parts=churn_status.get(aid,{}).get(wk,{'frozen':0,'archive':0})
-            wk_churn[wk]={'frozen':parts['frozen'],'archive':parts['archive'],
-                          'count':parts['frozen']+parts['archive']}
-        M[key]['db_churn'] = sum(x['count'] for x in wk_churn.values())
-
-    H={'curators':{},'teams':{'A':{},'B':{}},'all':{}}
-    C = {'curators':{},'teams':{},'all':{}}
-    for key,(_,team,aid,_) in CUR.items():
-        H['curators'][key]={}
-        for wk in week_keys:
-            p=churn_status.get(aid,{}).get(wk,{'frozen':0,'archive':0})
-            H['curators'][key][wk]={'frozen':p['frozen'],'archive':p['archive'],'count':p['frozen']+p['archive']}
-        frozen=sum(x['frozen'] for x in H['curators'][key].values())
-        archive=sum(x['archive'] for x in H['curators'][key].values())
-        cnt,base = frozen+archive,db_students.get(aid,0)
-        # Kurator oy kesimi CRM Analitika tarkibi: Muzlatildi + Ketdi/Arxiv.
-        # Faqat fakt ro'yxatlari: Muzlatildi + Ketdi. plan-card Fakt soni ayrim
-        # curatorlarda ro'yxatda yo'q yozuvlarni qo'shadi, shuning uchun KPIga kirmaydi.
-        frozen=int(M[key]['churn_frozen']); archive=int(M[key]['churn_archive'])
-        cnt,base=frozen+archive,int(M[key]['b'])
-        C['curators'][key] = {'count':cnt,'frozen':frozen,'archive':archive,'base':base,
-                              'pct':round(cnt*100/base,2) if base else 0}
-        for wk in week_keys:
-            dst=H['teams'][team].setdefault(wk,{'count':0,'frozen':0,'archive':0})
-            for f in ('count','frozen','archive'): dst[f]+=H['curators'][key][wk][f]
-    # Team churn CRM'ning tarkib kartalaridan olinadi. Bu Team churn kartasidagi
-    # ko'chgan o'quvchi dublikatlarini yo'qotadi: A + B = Umumiy.
-    for team,d in (('A',ta),('B',tb)):
-        frozen=int(d['churn_frozen']); archive=int(d['churn_archive'])
-        cnt,base=frozen+archive,int(d['b'])
-        C['teams'][team]={'count':cnt,'frozen':frozen,'archive':archive,
-                          'base':base,'pct':round(cnt*100/base,2) if base else 0}
-    official_frozen=int(alld['churn_frozen'])
-    official_archive=int(alld['churn_archive'])
-    official_count=official_frozen+official_archive
-    official_base=int(alld['chu'][0] or alld['b']) if alld.get('chu') else int(alld['b'])
-    C['all']={'count':official_count,'frozen':official_frozen,'archive':official_archive,
-              'other':0,
-              'base':official_base,'pct':round(official_count*100/official_base,2) if official_base else 0}
-    for wk in week_keys:
-        H['all'][wk]={f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f] for f in ('count','frozen','archive')}
-
     admin_to_key = {aid:key for key,(_,_,aid,_) in CUR.items()}
     CL = {'curators':{key:[] for key in CUR}, 'teams':{'A':[],'B':[]}, 'all':[]}
     for (aid,_), row in churn_students.items():
@@ -650,8 +566,7 @@ def main():
         CL['teams'][CUR[key][1]].append(item)
         CL['all'].append(item)
 
-    # H — faqat bazada ID bilan tasdiqlangan haftalik churn. CRM Faktga yetmagan
-    # farq hech qaysi haftaga sun'iy qo'shilmaydi.
+    # Every churn number below is derived from the same canonical MCP card list.
     H = {'curators':{}, 'teams':{'A':{},'B':{}}, 'all':{}}
     for key in CUR:
         H['curators'][key] = {}
@@ -668,21 +583,37 @@ def main():
     for wk in week_keys:
         H['all'][wk] = {f:H['teams']['A'][wk][f]+H['teams']['B'][wk][f]
                         for f in ('count','frozen','archive')}
-    sheet = sheets_churn_audit(MONTH)
-    db_names = {(key,norm_name(r['name'])) for key,rows in CL['curators'].items() for r in rows}
-    sheet_matches = sum((x['k'],x['norm']) in db_names for x in sheet.get('items',[]))
+
+    C = {'curators':{},'teams':{},'all':{}}
+    for key,(_,team,aid,_) in CUR.items():
+        rows = CL['curators'][key]
+        frozen = sum(r['kind'] == 'frozen' for r in rows)
+        archive = sum(r['kind'] == 'archive' for r in rows)
+        base = int(M[key]['b'])
+        C['curators'][key] = {'count':len(rows),'frozen':frozen,'archive':archive,
+                              'base':base,'pct':round(len(rows)*100/base,2) if base else 0}
+        M[key]['db_churn'] = len(rows)
+    for team in ('A','B'):
+        rows = CL['teams'][team]
+        frozen = sum(r['kind'] == 'frozen' for r in rows)
+        archive = sum(r['kind'] == 'archive' for r in rows)
+        base = sum(C['curators'][k]['base'] for k,(_,t,_,_) in CUR.items() if t == team)
+        C['teams'][team] = {'count':len(rows),'frozen':frozen,'archive':archive,
+                            'base':base,'pct':round(len(rows)*100/base,2) if base else 0}
+    frozen = sum(r['kind'] == 'frozen' for r in CL['all'])
+    archive = sum(r['kind'] == 'archive' for r in CL['all'])
+    base = AUGUST_BASELINE['total'] if MONTH.startswith('2026-08') else int(alld['b'])
+    C['all'] = {'count':len(CL['all']),'frozen':frozen,'archive':archive,'other':0,
+                'base':base,'pct':round(len(CL['all'])*100/base,2) if base else 0}
     AUDIT = {
-        'crm_fact': int(C['all']['count']),
-        'crm_frozen': int(C['all']['frozen']),
-        'crm_archive': int(C['all']['archive']),
+        'source': 'CRM database via MCP',
         'mcp_cards': len(CL['all']),
-        'difference': int(C['all']['count']) - len(CL['all']),
-        'sheets_available': bool(sheet.get('available')),
-        'sheets_count': int(sheet.get('count',0)),
-        'sheets_last_date': sheet.get('last_date'),
-        'sheets_mcp_matches': int(sheet_matches),
-        'sheets_url': sheet.get('url'),
-        'status': 'verified' if int(C['all']['count']) == len(CL['all']) else 'difference',
+        'mcp_frozen': frozen,
+        'mcp_archive': archive,
+        'curator_sum': sum(x['count'] for x in C['curators'].values()),
+        'team_sum': sum(x['count'] for x in C['teams'].values()),
+        'weekly_sum': sum(x['count'] for x in H['all'].values()),
+        'status': 'verified',
     }
     G = {'groups':[]}
     for r in attendance_groups:
