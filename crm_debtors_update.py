@@ -74,10 +74,18 @@ def fetch(op, start=START, end=END, status="", curator=""):
         "filter_date_start": start.isoformat(), "filter_date_end": end.isoformat(),
         "filterModalSubmit": "1",
     }).encode()
-    raw = op.open(CRM + "/account/debtors/list", body, timeout=90).read().decode(errors="ignore")
-    if 'id="customtable"' not in raw and "id='customtable'" not in raw:
-        raise RuntimeError("CRM Qarzdorlar table is unavailable")
-    return raw
+    last_error=None
+    for attempt in range(3):
+        try:
+            raw = op.open(CRM + "/account/debtors/list", body, timeout=90).read().decode(errors="ignore")
+            if 'id="customtable"' in raw or "id='customtable'" in raw:
+                return raw
+            last_error=RuntimeError("CRM Qarzdorlar table is unavailable")
+        except Exception as exc:
+            last_error=exc
+        if attempt < 2:
+            time.sleep(5 * (attempt + 1))
+    raise RuntimeError(f"CRM Qarzdorlar table is unavailable after 3 attempts: {last_error}")
 
 def card(raw):
     cards = re.findall(r'<div[^>]*class=["\'][^"\']*\bcard\b[^"\']*["\'][^>]*>(.*?)</div>\s*</div>', raw, re.I|re.S)

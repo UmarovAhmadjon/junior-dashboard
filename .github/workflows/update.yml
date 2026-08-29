@@ -5,6 +5,10 @@ on:
     # MCP is pull-only, so poll four times per hour. The generator commits only
     # when CRM/MCP data changed, avoiding unnecessary GitHub Pages publishes.
     - cron: "7,22,37,52 * * * *"
+  # Independent backup: refresh debts whenever the curator updater completes.
+  workflow_run:
+    workflows: ["Update Kurator Dashboard"]
+    types: [completed]
   workflow_dispatch: {}
 
 permissions:
@@ -16,6 +20,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
