@@ -58,15 +58,18 @@ jobs:
               raise SystemExit(f'Invalid churn percent: {churn}')
           audit = data.get('AUDIT', {})
           cards = len(data.get('CL', {}).get('all', []))
-          if audit.get('crm_fact') != churn['count'] or audit.get('mcp_cards') != cards:
+          if churn['count'] != cards or audit.get('mcp_cards') != cards:
               raise SystemExit(f'Churn audit mismatch: churn={churn}, cards={cards}, audit={audit}')
-          if audit.get('difference') != churn['count'] - cards:
-              raise SystemExit(f'Invalid churn audit difference: {audit}')
-          if not audit.get('sheets_available') or not audit.get('sheets_last_date'):
-              raise SystemExit(f'Google Sheets audit unavailable: {audit}')
           weekly_verified = sum(int(x.get('count',0)) for x in data.get('H',{}).get('all',{}).values())
-          if weekly_verified > churn['count']:
-              raise SystemExit(f'Weekly verified churn exceeds CRM Fakt: {weekly_verified}>{churn["count"]}')
+          curator_sum = sum(int(x.get('count',0)) for x in data.get('C',{}).get('curators',{}).values())
+          team_sum = sum(int(x.get('count',0)) for x in data.get('C',{}).get('teams',{}).values())
+          if len({cards, weekly_verified, curator_sum, team_sum}) != 1:
+              raise SystemExit(f'Churn totals differ: cards={cards}, weekly={weekly_verified}, curators={curator_sum}, teams={team_sum}')
+          ids = [int(x['id']) for x in data.get('CL',{}).get('all',[])]
+          if len(ids) != len(set(ids)):
+              raise SystemExit('Duplicate student_id in canonical churn list')
+          if audit.get('status') != 'verified':
+              raise SystemExit(f'Churn audit is not verified: {audit}')
           print('Validated:', churn, audit)
           PY
       - name: Publish changed data
