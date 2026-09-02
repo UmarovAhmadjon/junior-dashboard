@@ -20,6 +20,7 @@ PREVIEW = ("preview" in sys.argv)   # `python3 live_update.py preview` -> previe
 IS_CI = os.environ.get("GITHUB_ACTIONS")=="true"   # GitHub Actions (bulut) rejimi: fayl yoziladi, commitni workflow qiladi
 PERIOD = next((x for x in sys.argv[1:] if re.fullmatch(r"(?:n)?(?:month|w[1-4])", x)), "month")
 DETAIL_DATA = []
+MONTH_ARCHIVES = []
 CASHIER_ROWS = None
 
 # Kassir -> qaysi kuratorlar bilan ishlaydi (Лист12 dan, foydalanuvchi bergan)
@@ -619,6 +620,12 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
             else:
                 target=("index.html" if key=="month" else f"index-{key}.html") if kind=="index" else f"{kind}{'' if key=='month' else '-'+key}.html"
             opts.append(f'<option value="{target}"{" selected" if key==PERIOD else ""}>{esc(label)}</option>')
+        archive_opts=[]
+        for archive_key,archive_label in MONTH_ARCHIVES:
+            target=f'{kind}-cycle-{archive_key}.html'
+            archive_opts.append(f'<option value="{target}">{esc(archive_label)}</option>')
+        if archive_opts:
+            opts += ['<option disabled>──────── История ────────</option>'] + archive_opts
         return f'''<label class="period-picker"><span>📅 Период</span><select aria-label="Выберите период" onchange="location.href=this.value">{"".join(opts)}</select></label>'''
     def page(active, body, subtitle, kind):
         return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="3600"><title>Junior · {subtitle} · Долги</title>

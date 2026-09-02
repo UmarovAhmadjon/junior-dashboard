@@ -1,19 +1,36 @@
 #!/usr/bin/env python3
 """Dashboard source: CRM Qarzdorlar module, using the module's own POST filters."""
-import os, re, html, json, time, datetime, urllib.request, urllib.parse, http.cookiejar
+import os, re, html, json, time, datetime, urllib.request, urllib.parse, http.cookiejar, shutil, glob
 import live_update as ui
 
 CRM = "https://crm.junior-it.uz"
-START = datetime.date(2026, 7, 25)
-END = datetime.date(2026, 8, 24)
+def current_cycle(today=None):
+    today=today or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
+    if today.day >= 25:
+        start=today.replace(day=25)
+        next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
+        end=next_month.replace(day=24)
+    else:
+        end=today.replace(day=24)
+        previous=end.replace(day=1)-datetime.timedelta(days=1)
+        start=previous.replace(day=25)
+    return start,end
+
+def cycle_periods(start,end):
+    first_next=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
+    cuts=[(start,min(first_next-datetime.timedelta(days=1),end))]
+    cursor=cuts[-1][1]+datetime.timedelta(days=1)
+    while cursor<=end and len(cuts)<4:
+        finish=end if len(cuts)==3 else min(cursor+datetime.timedelta(days=6),end)
+        cuts.append((cursor,finish)); cursor=finish+datetime.timedelta(days=1)
+    return [("month",start,end,f"{start.strftime('%d.%m')}–{end.strftime('%d.%m')} · текущий цикл")]+[
+        (f"w{i}",a,b,f"{a.strftime('%d.%m')}–{b.strftime('%d.%m')} · неделя {i}")
+        for i,(a,b) in enumerate(cuts,1)
+    ]
+
+START,END=current_cycle()
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
-PERIODS = [
-    ("month", START, END, "25.07–24.08 · весь цикл"),
-    ("w1", datetime.date(2026,7,25), datetime.date(2026,7,31), "25.07–31.07 · неделя 1"),
-    ("w2", datetime.date(2026,8,1), datetime.date(2026,8,7), "01.08–07.08 · неделя 2"),
-    ("w3", datetime.date(2026,8,8), datetime.date(2026,8,14), "08.08–14.08 · неделя 3"),
-    ("w4", datetime.date(2026,8,15), datetime.date(2026,8,24), "15.08–24.08 · неделя 4"),
-]
+PERIODS = cycle_periods(START,END)
 CURATORS = {
     "Fotimabonu Abdulkhakova": ("A", "Fotima", "13799"),
     "Dilafruz Shokirova": ("A", "Dilafruz", "14241"),
@@ -26,6 +43,68 @@ CURATORS = {
 TEST_ADMIN_IDS = {21453}  # MK admin — test account, never show in cashier ranking
 CURRENT_ADMIN_IDS = {int(value[2]) for value in CURATORS.values()}
 CURATOR_BY_ID = {int(cid):(full,team,short) for full,(team,short,cid) in CURATORS.items()}
+
+def archive_end(start):
+    next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
+    return next_month.replace(day=24)
+
+def archive_label(start):
+    end=archive_end(start)
+    return f"{start.strftime('%d.%m.%Y')}–{end.strftime('%d.%m.%Y')} · прошлый цикл"
+
+def archived_cycles():
+    result=[]
+    for path in glob.glob(os.path.join(os.path.dirname(__file__), "index-cycle-????-??-??.html")):
+        match=re.search(r"index-cycle-(\d{4}-\d{2}-\d{2})\.html$",path)
+        if match:
+            start=datetime.date.fromisoformat(match.group(1))
+            result.append((match.group(1),archive_label(start)))
+    return sorted(result,reverse=True)
+
+def existing_cycle(path):
+    if not os.path.isfile(path): return None
+    raw=open(path,encoding="utf-8").read(120000)
+    match=re.search(r"ЦИКЛ\s+(\d{2})\.(\d{2})\s*-\s*(\d{2})\.(\d{2})",raw,re.I)
+    if not match: return None
+    day,month=int(match.group(1)),int(match.group(2))
+    candidates=[datetime.date(START.year+delta,month,day) for delta in (-1,0,1)]
+    return min(candidates,key=lambda value:abs((value-START).days))
+
+def archive_previous_cycle():
+    base=os.path.dirname(__file__)
+    old_start=existing_cycle(os.path.join(base,"index.html"))
+    if not old_start or old_start==START: return
+    if old_start>START:
+        raise RuntimeError(f"Existing dashboard cycle {old_start} is newer than requested {START}")
+    key=old_start.isoformat()
+    for kind in ("index","weeks","cashiers"):
+        source=os.path.join(base,f"{kind}.html")
+        target=os.path.join(base,f"{kind}-cycle-{key}.html")
+        if os.path.isfile(source) and not os.path.exists(target):
+            shutil.copyfile(source,target)
+    print(f"ARCHIVED cycle {old_start}–{archive_end(old_start)}")
+
+def refresh_archive_navigation():
+    base=os.path.dirname(__file__)
+    archives=archived_cycles()
+    current_label=f"{START.strftime('%d.%m.%Y')}–{END.strftime('%d.%m.%Y')} · текущий цикл"
+    for key,_label in archives:
+        for kind,title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")):
+            path=os.path.join(base,f"{kind}-cycle-{key}.html")
+            if not os.path.isfile(path): continue
+            raw=open(path,encoding="utf-8").read()
+            nav='<nav class="rnav">'+''.join(
+                f'<a href="{nav_kind}-cycle-{key}.html" class="{"on" if nav_kind==kind else ""}">{nav_title}</a>'
+                for nav_kind,nav_title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")))+'</nav>'
+            raw=re.sub(r'<nav class="rnav">.*?</nav>',nav,raw,count=1,flags=re.S)
+            options=[f'<option value="{kind}.html">{html.escape(current_label)}</option>',
+                     '<option disabled>──────── История ────────</option>']
+            for archive_key,label in archives:
+                selected=' selected' if archive_key==key else ''
+                options.append(f'<option value="{kind}-cycle-{archive_key}.html"{selected}>{html.escape(label)}</option>')
+            select=f'<select aria-label="Выберите период" onchange="location.href=this.value">{"".join(options)}</select>'
+            raw=re.sub(r'<select aria-label="Выберите период"[^>]*>.*?</select>',select,raw,count=1,flags=re.S)
+            with open(path,"w",encoding="utf-8") as out: out.write(raw)
 
 def strip_tags(value):
     value = re.sub(r"<script.*?</script>|<style.*?</style>", " ", value, flags=re.I|re.S)
@@ -250,6 +329,8 @@ def week_stats(month_rows):
     return result
 
 def main():
+    archive_previous_cycle()
+    ui.MONTH_ARCHIVES=archived_cycles()
     op = crm_session()
     raw = fetch(op)
     all_card = card(raw)
@@ -377,6 +458,7 @@ def main():
         ui.CASHIERS=cashier_catalog; ui.CASHIER_ROWS=cashier_rows
         due_total=sum(r["due"] for r in rows); due_paid=sum(min(r["paid"],r["due"]) for r in rows)
         ui.render(now,a,b,rows,c["total"],c["plan"],weeks,due_total,due_paid,PERIODS,label)
+    refresh_archive_navigation()
 
 if __name__ == "__main__":
     main()
