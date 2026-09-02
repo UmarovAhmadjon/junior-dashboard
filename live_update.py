@@ -613,20 +613,20 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         links="".join(f'<a href="{fn}" class="{"on" if fn==active else ""}">{ttl}</a>' for fn,ttl in PAGES)
         return f'<nav class="rnav">{links}</nav>'
     def period_select(kind):
-        opts=[]
+        week_opts=[]
         for key,_a,_b,label in periods:
             if PREVIEW:
                 target="preview.html" if kind=="index" and key=="month" else f"preview-{kind}{'' if key=='month' else '-'+key}.html"
             else:
                 target=("index.html" if key=="month" else f"index-{key}.html") if kind=="index" else f"{kind}{'' if key=='month' else '-'+key}.html"
-            opts.append(f'<option value="{target}"{" selected" if key==PERIOD else ""}>{esc(label)}</option>')
-        archive_opts=[]
+            week_opts.append(f'<option value="{target}"{" selected" if key==PERIOD else ""}>{esc(label)}</option>')
+        current_cycle_target="index.html" if kind=="index" else f"{kind}.html"
+        cycle_opts=[f'<option value="{current_cycle_target}" selected>{esc(periods[0][3])}</option>']
         for archive_key,archive_label in MONTH_ARCHIVES:
             target=f'{kind}-cycle-{archive_key}.html'
-            archive_opts.append(f'<option value="{target}">{esc(archive_label)}</option>')
-        if archive_opts:
-            opts += ['<option disabled>──────── История ────────</option>'] + archive_opts
-        return f'''<label class="period-picker"><span>📅 Период</span><select aria-label="Выберите период" onchange="location.href=this.value">{"".join(opts)}</select></label>'''
+            cycle_opts.append(f'<option value="{target}">{esc(archive_label)}</option>')
+        return (f'''<label class="period-picker cycle-picker"><span>📅 Цикл</span><select aria-label="Выберите цикл" onchange="location.href=this.value">{"".join(cycle_opts)}</select></label>'''
+                f'''<label class="period-picker week-picker"><span>Неделя</span><select aria-label="Выберите неделю" onchange="location.href=this.value">{"".join(week_opts)}</select></label>''')
     def page(active, body, subtitle, kind):
         return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="3600"><title>Junior · {subtitle} · Долги</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700;800&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">

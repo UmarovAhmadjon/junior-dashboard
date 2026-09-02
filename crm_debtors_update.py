@@ -78,10 +78,11 @@ def archive_previous_cycle():
         raise RuntimeError(f"Existing dashboard cycle {old_start} is newer than requested {START}")
     key=old_start.isoformat()
     for kind in ("index","weeks","cashiers"):
-        source=os.path.join(base,f"{kind}.html")
-        target=os.path.join(base,f"{kind}-cycle-{key}.html")
-        if os.path.isfile(source) and not os.path.exists(target):
-            shutil.copyfile(source,target)
+        for suffix in ("","-w1","-w2","-w3","-w4"):
+            source=os.path.join(base,f"{kind}{suffix}.html")
+            target=os.path.join(base,f"{kind}-cycle-{key}{suffix}.html")
+            if os.path.isfile(source) and not os.path.exists(target):
+                shutil.copyfile(source,target)
     print(f"ARCHIVED cycle {old_start}–{archive_end(old_start)}")
 
 def refresh_archive_navigation():
@@ -89,22 +90,32 @@ def refresh_archive_navigation():
     archives=archived_cycles()
     current_label=f"{START.strftime('%d.%m.%Y')}–{END.strftime('%d.%m.%Y')} · текущий цикл"
     for key,_label in archives:
-        for kind,title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")):
-            path=os.path.join(base,f"{kind}-cycle-{key}.html")
-            if not os.path.isfile(path): continue
-            raw=open(path,encoding="utf-8").read()
-            nav='<nav class="rnav">'+''.join(
-                f'<a href="{nav_kind}-cycle-{key}.html" class="{"on" if nav_kind==kind else ""}">{nav_title}</a>'
-                for nav_kind,nav_title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")))+'</nav>'
-            raw=re.sub(r'<nav class="rnav">.*?</nav>',nav,raw,count=1,flags=re.S)
-            options=[f'<option value="{kind}.html">{html.escape(current_label)}</option>',
-                     '<option disabled>──────── История ────────</option>']
-            for archive_key,label in archives:
-                selected=' selected' if archive_key==key else ''
-                options.append(f'<option value="{kind}-cycle-{archive_key}.html"{selected}>{html.escape(label)}</option>')
-            select=f'<select aria-label="Выберите период" onchange="location.href=this.value">{"".join(options)}</select>'
-            raw=re.sub(r'<select aria-label="Выберите период"[^>]*>.*?</select>',select,raw,count=1,flags=re.S)
-            with open(path,"w",encoding="utf-8") as out: out.write(raw)
+        old_start=datetime.date.fromisoformat(key); old_end=archive_end(old_start)
+        old_periods=cycle_periods(old_start,old_end)
+        for suffix in ("","-w1","-w2","-w3","-w4"):
+            selected_period="month" if not suffix else suffix[1:]
+            for kind,title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")):
+                path=os.path.join(base,f"{kind}-cycle-{key}{suffix}.html")
+                if not os.path.isfile(path): continue
+                raw=open(path,encoding="utf-8").read()
+                nav='<nav class="rnav">'+''.join(
+                    f'<a href="{nav_kind}-cycle-{key}{suffix}.html" class="{"on" if nav_kind==kind else ""}">{nav_title}</a>'
+                    for nav_kind,nav_title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")))+'</nav>'
+                raw=re.sub(r'<nav class="rnav">.*?</nav>',nav,raw,count=1,flags=re.S)
+                cycle_options=[f'<option value="{kind}.html">{html.escape(current_label)}</option>']
+                for archive_key,label in archives:
+                    selected=' selected' if archive_key==key else ''
+                    cycle_options.append(f'<option value="{kind}-cycle-{archive_key}.html"{selected}>{html.escape(label)}</option>')
+                week_options=[]
+                for period_key,_a,_b,label in old_periods:
+                    target=f'{kind}-cycle-{key}.html' if period_key=="month" else f'{kind}-cycle-{key}-{period_key}.html'
+                    text=f'{old_start.strftime("%d.%m")}–{old_end.strftime("%d.%m")} · весь цикл' if period_key=="month" else label
+                    selected=' selected' if period_key==selected_period else ''
+                    week_options.append(f'<option value="{target}"{selected}>{html.escape(text)}</option>')
+                pickers=(f'<label class="period-picker cycle-picker"><span>📅 Цикл</span><select aria-label="Выберите цикл" onchange="location.href=this.value">{"".join(cycle_options)}</select></label>'
+                         f'<label class="period-picker week-picker"><span>Неделя</span><select aria-label="Выберите неделю" onchange="location.href=this.value">{"".join(week_options)}</select></label>')
+                raw=re.sub(r'<label class="period-picker.*?</label>(?:<label class="period-picker.*?</label>)?',pickers,raw,count=1,flags=re.S)
+                with open(path,"w",encoding="utf-8") as out: out.write(raw)
 
 def strip_tags(value):
     value = re.sub(r"<script.*?</script>|<style.*?</style>", " ", value, flags=re.I|re.S)
