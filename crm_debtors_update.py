@@ -64,7 +64,7 @@ def archived_cycles():
 def existing_cycle(path):
     if not os.path.isfile(path): return None
     raw=open(path,encoding="utf-8").read(120000)
-    match=re.search(r"ЦИКЛ\s+(\d{2})\.(\d{2})\s*-\s*(\d{2})\.(\d{2})",raw,re.I)
+    match=re.search(r"ЦИКЛ\s+(\d{2})\.(\d{2})\s*[-–—]\s*(\d{2})\.(\d{2})",raw,re.I)
     if not match: return None
     day,month=int(match.group(1)),int(match.group(2))
     candidates=[datetime.date(START.year+delta,month,day) for delta in (-1,0,1)]
