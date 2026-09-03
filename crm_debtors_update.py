@@ -4,17 +4,31 @@ import os, re, html, json, time, datetime, urllib.request, urllib.parse, http.co
 import live_update as ui
 
 CRM = "https://crm.junior-it.uz"
+CYCLE_CUTOFF = datetime.date(2026, 8, 25)
+CYCLE_RULE_START = datetime.date(2026, 9, 24)
+
 def current_cycle(today=None):
     today=today or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
+    # Transition cycle approved by the business: 25.08–23.09.
+    # From 24.09 onward every cycle is contiguous: 24th–23rd.
+    if CYCLE_CUTOFF <= today < CYCLE_RULE_START:
+        return CYCLE_CUTOFF, CYCLE_RULE_START-datetime.timedelta(days=1)
+    if today >= CYCLE_RULE_START and today.day >= 24:
+        start=today.replace(day=24)
+        next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
+        return start,next_month.replace(day=23)
+    if today >= CYCLE_RULE_START:
+        end=today.replace(day=23)
+        previous=end.replace(day=1)-datetime.timedelta(days=1)
+        return previous.replace(day=24),end
+    # Historical rule before the transition: 25th–24th.
     if today.day >= 25:
         start=today.replace(day=25)
         next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
-        end=next_month.replace(day=24)
-    else:
-        end=today.replace(day=24)
-        previous=end.replace(day=1)-datetime.timedelta(days=1)
-        start=previous.replace(day=25)
-    return start,end
+        return start,next_month.replace(day=24)
+    end=today.replace(day=24)
+    previous=end.replace(day=1)-datetime.timedelta(days=1)
+    return previous.replace(day=25),end
 
 def cycle_periods(start,end):
     first_next=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
@@ -46,7 +60,7 @@ CURATOR_BY_ID = {int(cid):(full,team,short) for full,(team,short,cid) in CURATOR
 
 def archive_end(start):
     next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
-    return next_month.replace(day=24)
+    return next_month.replace(day=23 if start >= CYCLE_CUTOFF else 24)
 
 def archive_label(start):
     end=archive_end(start)
