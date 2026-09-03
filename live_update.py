@@ -591,7 +591,6 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
   {"".join(row_html(r) for r in ALL)}
   <div class="ltot">Всего: оплатили <b>{TOTAL_PAID}</b> из <b>{TOTAL_PLAN}</b> · <b>{PCT}%</b> · по графику к {today.strftime('%d.%m')} должно быть <b>{due_total}</b> · отрыв <b>{TOTAL_PAID-due_total:+d}</b> · собрано <b>{mln(TOTAL_SOB)} млн</b></div></div>"""
 
-    cashier_html = cashier_section(rows)
     week_html = week_section(weeks_agg, today)
     deadline_html = ""   # alohida blok kerak emas — grafik/otryv kurator qatorlarida
 
@@ -608,7 +607,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         if PREVIEW:
             return "preview.html" if kind=="index" and PERIOD=="month" else f"preview-{kind}{suffix}.html"
         return ("index.html" if PERIOD=="month" else f"index{suffix}.html") if kind=="index" else f"{kind}{suffix}.html"
-    PAGES=[(page_file("index"),"Кураторы"),(page_file("weeks"),"Недели"),(page_file("cashiers"),"Кассиры")]
+    PAGES=[(page_file("index"),"Кураторы"),(page_file("weeks"),"Недели")]
     def nav(active):
         links="".join(f'<a href="{fn}" class="{"on" if fn==active else ""}">{ttl}</a>' for fn,ttl in PAGES)
         return f'<nav class="rnav">{links}</nav>'
@@ -651,7 +650,6 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     FILES={
       page_file("index"):    page(page_file("index"),    f"{hero}\n{deadline_html}\n{champ}\n{ticker}\n{boards}", "Кураторы", "index"),
       page_file("weeks"):    page(page_file("weeks"),    f"{champ}\n{week_html}",                "Недели", "weeks"),
-      page_file("cashiers"): page(page_file("cashiers"), f"{champ}\n{cashier_html}",             "Кассиры", "cashiers"),
     }
     for fn,html in FILES.items():
         local = fn if (IS_CI or fn not in ("index.html","preview.html")) else "kuratorlar.html"

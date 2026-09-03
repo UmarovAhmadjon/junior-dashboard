@@ -91,7 +91,7 @@ def archive_previous_cycle():
     if old_start>START:
         raise RuntimeError(f"Existing dashboard cycle {old_start} is newer than requested {START}")
     key=old_start.isoformat()
-    for kind in ("index","weeks","cashiers"):
+    for kind in ("index","weeks"):
         for suffix in ("","-w1","-w2","-w3","-w4"):
             source=os.path.join(base,f"{kind}{suffix}.html")
             target=os.path.join(base,f"{kind}-cycle-{key}{suffix}.html")
@@ -108,13 +108,13 @@ def refresh_archive_navigation():
         old_periods=cycle_periods(old_start,old_end)
         for suffix in ("","-w1","-w2","-w3","-w4"):
             selected_period="month" if not suffix else suffix[1:]
-            for kind,title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")):
+            for kind,title in (("index","Кураторы"),("weeks","Недели")):
                 path=os.path.join(base,f"{kind}-cycle-{key}{suffix}.html")
                 if not os.path.isfile(path): continue
                 raw=open(path,encoding="utf-8").read()
                 nav='<nav class="rnav">'+''.join(
                     f'<a href="{nav_kind}-cycle-{key}{suffix}.html" class="{"on" if nav_kind==kind else ""}">{nav_title}</a>'
-                    for nav_kind,nav_title in (("index","Кураторы"),("weeks","Недели"),("cashiers","Кассиры")))+'</nav>'
+                    for nav_kind,nav_title in (("index","Кураторы"),("weeks","Недели")))+'</nav>'
                 raw=re.sub(r'<nav class="rnav">.*?</nav>',nav,raw,count=1,flags=re.S)
                 cycle_options=[f'<option value="{kind}.html">{html.escape(current_label)}</option>']
                 for archive_key,label in archives:
