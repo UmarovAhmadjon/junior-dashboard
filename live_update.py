@@ -570,7 +570,8 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         posc=f"p{r['pos']}" if r['pos']<=3 else ""; tpc=f"tp{r['pos']}" if r['pos']<=3 else ""
         pace=r.get('pace_pct',0)
         fill="goldf" if r['pct']>=100 else ("okf" if r['pct']>=40 else "lagf")
-        gap="goldg" if r['pct']>=100 else ("okg" if r['pct']>=80 else "badg")
+        green_threshold=70 if r['short'] in ("Halima","Shaxlo") else 80
+        gap="goldg" if r['pct']>=100 else ("okg" if r['pct']>=green_threshold else "badg")
         badge=f'<span class="tbadge t{r["team"]}">{r["team"]}</span>'
         # grafik: bugungacha muddati kelganlar (due) — oq marker; otryv = fakt - due
         due=r.get('due',0); plan=max(1,r['plan'])
