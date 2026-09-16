@@ -521,9 +521,16 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     CSS=re.search(r"<style>.*?</style>",src,re.S).group(0)
 
     # Reyting = umumiy reja bajarilishi: FAKT / PLAN.
-    # Bugungi grafik alohida oq marker va "otryv" ustunida qoladi.
+    # Oq marker va "otryv" 100% qarzdorlikka emas, kuratorning KPI rejasiga
+    # nisbatan hisoblanadi. Reja kalendar oy davomida bir tekis o'sadi.
+    month_days=calendar.monthrange(today.year,today.month)[1]
+    month_progress=min(1,max(0,today.day/month_days))
     for x in rows:
+        target_pct=70 if x['short'] in ("Halima","Shaxlo") else 80
+        x['target_pct']=target_pct
+        x['due']=round(x['plan']*target_pct/100*month_progress)
         x['pace_pct'] = round(x['paid']/x['due']*100) if x.get('due',0)>0 else (100 if x['paid']>=0 else 0)
+    due_total=sum(x.get('due',0) for x in rows)
     ALL=sorted([x for x in rows if not x.get('hidden')],key=lambda x:(-x['pct'],-x['paid']))
     for i,x in enumerate(ALL,1): x['pos']=i
     def team_tot(t):
@@ -570,10 +577,10 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         posc=f"p{r['pos']}" if r['pos']<=3 else ""; tpc=f"tp{r['pos']}" if r['pos']<=3 else ""
         pace=r.get('pace_pct',0)
         fill="goldf" if r['pct']>=100 else ("okf" if r['pct']>=40 else "lagf")
-        green_threshold=70 if r['short'] in ("Halima","Shaxlo") else 80
+        green_threshold=r.get('target_pct',70 if r['short'] in ("Halima","Shaxlo") else 80)
         gap="goldg" if r['pct']>=100 else ("okg" if r['pct']>=green_threshold else "badg")
         badge=f'<span class="tbadge t{r["team"]}">{r["team"]}</span>'
-        # grafik: bugungacha muddati kelganlar (due) — oq marker; otryv = fakt - due
+        # Grafik: KPI maqsadining bugungi kalendar tempiga to'g'ri keladigan qismi.
         due=r.get('due',0); plan=max(1,r['plan'])
         pacepct=min(100, round(due/plan*100))
         marker=f'<span style="position:absolute;left:{pacepct}%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span>' if due>0 else ""
@@ -587,7 +594,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     <span class="track"><span class="fill {fill}" style="--w:{min(100,r['pct'])}%"></span>{marker}<span class="tfin"></span></span>
     <span class="fact"><button class="numlink row-num" data-list="paid" data-curator="{esc(r['short'])}">{r['paid']}</button><i>/<button class="numlink inline-num" data-list="plan" data-curator="{esc(r['short'])}">{r['plan']}</button> · {mln(r['sob'])}м</i></span>
     <span class="gap {gap}">{r['pct']}%</span><span class="wk">{chip}</span></div>"""
-    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению плана</span><span class="lbleg">% = факт ÷ общий план · белая метка = график к сегодня · отрыв = факт − график</span></div>
+    boards=f"""<div class="panel lbcard"><div class="ph"><span class="ptitle">Рейтинг кураторов <i class="sl">//</i> по выполнению плана</span><span class="lbleg">KPI: Halima/Shaxlo 70% · остальные 80% · белая метка = темп KPI к сегодня · отрыв = факт − темп</span></div>
   <div class="lhead"><span>Поз</span><span>Куратор</span><span>Трасса к плану</span><span>Факт/план·собр</span><span>% плана</span><span>Отрыв</span></div>
   {"".join(row_html(r) for r in ALL)}
   <div class="ltot">Всего: оплатили <b>{TOTAL_PAID}</b> из <b>{TOTAL_PLAN}</b> · <b>{PCT}%</b> · по графику к {today.strftime('%d.%m')} должно быть <b>{due_total}</b> · отрыв <b>{TOTAL_PAID-due_total:+d}</b> · собрано <b>{mln(TOTAL_SOB)} млн</b></div></div>"""
