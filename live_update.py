@@ -21,6 +21,8 @@ IS_CI = os.environ.get("GITHUB_ACTIONS")=="true"   # GitHub Actions (bulut) reji
 PERIOD = next((x for x in sys.argv[1:] if re.fullmatch(r"(?:n)?(?:month|w[1-4])", x)), "month")
 DETAIL_DATA = []
 MONTH_ARCHIVES = []
+OUTPUT_CYCLE_KEY = ""
+CURRENT_CYCLE_LABEL = ""
 CASHIER_ROWS = None
 
 # Kassir -> qaysi kuratorlar bilan ishlaydi (Лист12 dan, foydalanuvchi bergan)
@@ -614,6 +616,8 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     def page_file(kind):
         if PREVIEW:
             return "preview.html" if kind=="index" and PERIOD=="month" else f"preview-{kind}{suffix}.html"
+        if OUTPUT_CYCLE_KEY:
+            return f"{kind}-cycle-{OUTPUT_CYCLE_KEY}{suffix}.html"
         return ("index.html" if PERIOD=="month" else f"index{suffix}.html") if kind=="index" else f"{kind}{suffix}.html"
     PAGES=[(page_file("index"),"Кураторы"),(page_file("weeks"),"Недели")]
     def nav(active):
@@ -624,14 +628,18 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         for key,_a,_b,label in periods:
             if PREVIEW:
                 target="preview.html" if kind=="index" and key=="month" else f"preview-{kind}{'' if key=='month' else '-'+key}.html"
+            elif OUTPUT_CYCLE_KEY:
+                target=f"{kind}-cycle-{OUTPUT_CYCLE_KEY}{'' if key=='month' else '-'+key}.html"
             else:
                 target=("index.html" if key=="month" else f"index-{key}.html") if kind=="index" else f"{kind}{'' if key=='month' else '-'+key}.html"
             week_opts.append(f'<option value="{target}"{" selected" if key==PERIOD else ""}>{esc(label)}</option>')
         current_cycle_target="index.html" if kind=="index" else f"{kind}.html"
-        cycle_opts=[f'<option value="{current_cycle_target}" selected>{esc(periods[0][3])}</option>']
+        current_label=CURRENT_CYCLE_LABEL or periods[0][3]
+        cycle_opts=[f'<option value="{current_cycle_target}"{"" if OUTPUT_CYCLE_KEY else " selected"}>{esc(current_label)}</option>']
         for archive_key,archive_label in MONTH_ARCHIVES:
             target=f'{kind}-cycle-{archive_key}.html'
-            cycle_opts.append(f'<option value="{target}">{esc(archive_label)}</option>')
+            selected=' selected' if archive_key==OUTPUT_CYCLE_KEY else ''
+            cycle_opts.append(f'<option value="{target}"{selected}>{esc(archive_label)}</option>')
         return (f'''<label class="period-picker cycle-picker"><span>📅 Цикл</span><select aria-label="Выберите цикл" onchange="location.href=this.value">{"".join(cycle_opts)}</select></label>'''
                 f'''<label class="period-picker week-picker"><span>Неделя</span><select aria-label="Выберите неделю" onchange="location.href=this.value">{"".join(week_opts)}</select></label>''')
     def page(active, body, subtitle, kind):

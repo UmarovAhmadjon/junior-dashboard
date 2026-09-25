@@ -42,9 +42,17 @@ def cycle_periods(start,end):
         for i,(a,b) in enumerate(cuts,1)
     ]
 
-START,END=current_cycle()
+REQUESTED_CYCLE = next((arg.split("=",1)[1] for arg in os.sys.argv[1:] if arg.startswith("--cycle=")), "")
+if REQUESTED_CYCLE:
+    START=datetime.date.fromisoformat(REQUESTED_CYCLE)
+    _next_month=(START.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
+    END=_next_month.replace(day=23 if START >= CYCLE_CUTOFF else 24)
+else:
+    START,END=current_cycle()
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
 PERIODS = cycle_periods(START,END)
+if REQUESTED_CYCLE:
+    PERIODS[0]=("month",START,END,f"{START.strftime('%d.%m')}–{END.strftime('%d.%m')} · весь цикл")
 CURATORS = {
     "Fotimabonu Abdulkhakova": ("A", "Fotima", "13799"),
     "Dilafruz Shokirova": ("A", "Dilafruz", "14241"),
@@ -354,8 +362,12 @@ def week_stats(month_rows):
     return result
 
 def main():
-    archive_previous_cycle()
+    if not REQUESTED_CYCLE:
+        archive_previous_cycle()
     ui.MONTH_ARCHIVES=archived_cycles()
+    ui.OUTPUT_CYCLE_KEY=REQUESTED_CYCLE
+    _current_start,_current_end=current_cycle()
+    ui.CURRENT_CYCLE_LABEL=f"{_current_start.strftime('%d.%m.%Y')}–{_current_end.strftime('%d.%m.%Y')} · текущий цикл"
     op = crm_session()
     raw = fetch(op)
     all_card = card(raw)
@@ -483,7 +495,8 @@ def main():
         ui.CASHIERS=cashier_catalog; ui.CASHIER_ROWS=cashier_rows
         due_total=sum(r["due"] for r in rows); due_paid=sum(min(r["paid"],r["due"]) for r in rows)
         ui.render(now,a,b,rows,c["total"],c["plan"],weeks,due_total,due_paid,PERIODS,label)
-    refresh_archive_navigation()
+    if not REQUESTED_CYCLE:
+        refresh_archive_navigation()
 
 if __name__ == "__main__":
     main()
