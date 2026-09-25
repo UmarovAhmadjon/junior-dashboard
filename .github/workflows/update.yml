@@ -32,12 +32,16 @@ jobs:
           JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: |
           python3 crm_debtors_update.py
+          latest=""
           for page in index-cycle-????-??-??.html; do
             [ -e "$page" ] || continue
-            cycle="${page#index-cycle-}"
+            latest="$page"
+          done
+          if [ -n "$latest" ]; then
+            cycle="${latest#index-cycle-}"
             cycle="${cycle%.html}"
             python3 crm_debtors_update.py "--cycle=$cycle"
-          done
+          fi
 
       - name: Commit & push if changed
         run: |
