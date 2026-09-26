@@ -6,26 +6,27 @@ import live_update as ui
 CRM = "https://crm.junior-it.uz"
 CYCLE_CUTOFF = datetime.date(2026, 8, 25)
 CYCLE_RULE_START = datetime.date(2026, 9, 24)
+CYCLE_STANDARD_START = datetime.date(2026, 10, 25)
+
+def cycle_end_for_start(start):
+    # Approved transition: 25.08–23.09, then 24.09–24.10.
+    # All following cycles use the stable 25th–24th rule.
+    if start == CYCLE_CUTOFF:
+        return CYCLE_RULE_START-datetime.timedelta(days=1)
+    next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
+    return next_month.replace(day=24)
 
 def current_cycle(today=None):
     today=today or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5))).date()
-    # Transition cycle approved by the business: 25.08–23.09.
-    # From 24.09 onward every cycle is contiguous: 24th–23rd.
+    # Business-approved transition cycles.
     if CYCLE_CUTOFF <= today < CYCLE_RULE_START:
-        return CYCLE_CUTOFF, CYCLE_RULE_START-datetime.timedelta(days=1)
-    if today >= CYCLE_RULE_START and today.day >= 24:
-        start=today.replace(day=24)
-        next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
-        return start,next_month.replace(day=23)
-    if today >= CYCLE_RULE_START:
-        end=today.replace(day=23)
-        previous=end.replace(day=1)-datetime.timedelta(days=1)
-        return previous.replace(day=24),end
-    # Historical rule before the transition: 25th–24th.
+        return CYCLE_CUTOFF,cycle_end_for_start(CYCLE_CUTOFF)
+    if CYCLE_RULE_START <= today < CYCLE_STANDARD_START:
+        return CYCLE_RULE_START,cycle_end_for_start(CYCLE_RULE_START)
+    # Stable rule from 25.10 onward: 25th–24th.
     if today.day >= 25:
         start=today.replace(day=25)
-        next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
-        return start,next_month.replace(day=24)
+        return start,cycle_end_for_start(start)
     end=today.replace(day=24)
     previous=end.replace(day=1)-datetime.timedelta(days=1)
     return previous.replace(day=25),end
@@ -45,8 +46,7 @@ def cycle_periods(start,end):
 REQUESTED_CYCLE = next((arg.split("=",1)[1] for arg in os.sys.argv[1:] if arg.startswith("--cycle=")), "")
 if REQUESTED_CYCLE:
     START=datetime.date.fromisoformat(REQUESTED_CYCLE)
-    _next_month=(START.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
-    END=_next_month.replace(day=23 if START >= CYCLE_CUTOFF else 24)
+    END=cycle_end_for_start(START)
 else:
     START,END=current_cycle()
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
@@ -67,8 +67,7 @@ CURRENT_ADMIN_IDS = {int(value[2]) for value in CURATORS.values()}
 CURATOR_BY_ID = {int(cid):(full,team,short) for full,(team,short,cid) in CURATORS.items()}
 
 def archive_end(start):
-    next_month=(start.replace(day=28)+datetime.timedelta(days=4)).replace(day=1)
-    return next_month.replace(day=23 if start >= CYCLE_CUTOFF else 24)
+    return cycle_end_for_start(start)
 
 def archive_label(start):
     end=archive_end(start)
