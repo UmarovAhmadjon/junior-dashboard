@@ -662,6 +662,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         cycle_opts=[f'<option value="{current_cycle_target}"{"" if OUTPUT_CYCLE_KEY else " selected"}>{esc(current_label)}</option>']
         for archive_key,archive_label in MONTH_ARCHIVES:
             target=f'{kind}-cycle-{archive_key}.html'
+            if kind=="upsell" and not os.path.isfile(os.path.join(BASE,target)): continue
             selected=' selected' if archive_key==OUTPUT_CYCLE_KEY else ''
             cycle_opts.append(f'<option value="{target}"{selected}>{esc(archive_label)}</option>')
         return (f'''<label class="period-picker cycle-picker"><span>📅 Цикл</span><select aria-label="Выберите цикл" onchange="location.href=this.value">{"".join(cycle_opts)}</select></label>'''

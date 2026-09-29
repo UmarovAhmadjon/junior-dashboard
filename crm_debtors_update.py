@@ -115,16 +115,19 @@ def refresh_archive_navigation():
         old_periods=cycle_periods(old_start,old_end)
         for suffix in ("","-w1","-w2","-w3","-w4"):
             selected_period="month" if not suffix else suffix[1:]
-            for kind,title in (("index","Кураторы"),("weeks","Недели"),("upsell","Upsell")):
+            available=[(kind,title) for kind,title in (("index","Кураторы"),("weeks","Недели"),("upsell","Upsell"))
+                       if os.path.isfile(os.path.join(base,f"{kind}-cycle-{key}{suffix}.html"))]
+            for kind,title in available:
                 path=os.path.join(base,f"{kind}-cycle-{key}{suffix}.html")
                 if not os.path.isfile(path): continue
                 raw=open(path,encoding="utf-8").read()
                 nav='<nav class="rnav">'+''.join(
                     f'<a href="{nav_kind}-cycle-{key}{suffix}.html" class="{"on" if nav_kind==kind else ""}">{nav_title}</a>'
-                    for nav_kind,nav_title in (("index","Кураторы"),("weeks","Недели"),("upsell","Upsell")))+'</nav>'
+                    for nav_kind,nav_title in available)+'</nav>'
                 raw=re.sub(r'<nav class="rnav">.*?</nav>',nav,raw,count=1,flags=re.S)
                 cycle_options=[f'<option value="{kind}.html">{html.escape(current_label)}</option>']
                 for archive_key,label in archives:
+                    if not os.path.isfile(os.path.join(base,f'{kind}-cycle-{archive_key}.html')): continue
                     selected=' selected' if archive_key==key else ''
                     cycle_options.append(f'<option value="{kind}-cycle-{archive_key}.html"{selected}>{html.escape(label)}</option>')
                 week_options=[]
