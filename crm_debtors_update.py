@@ -217,7 +217,24 @@ def card(raw):
         out[key] = number(m.group(1)) if m else 0
     return out
 
-def table_rows(raw):
+def row_key(row):
+    """A CRM billing row is identified by student and payment date."""
+    return row["student_id"], row["due"]
+
+def register_row(buckets, row, source):
+    key = row_key(row)
+    if key in buckets:
+        # The internal debt bucket is called qarzdor in the CRM filter.
+        filters = {"debt": "qarzdor"}
+        previous = filters.get(buckets[key], buckets[key])
+        current = filters.get(source, source)
+        raise RuntimeError(
+            f"CRM duplicate row: student_id={key[0]}, due={key[1].isoformat()}, "
+            f"previous_filter={previous}, current_filter={current}"
+        )
+    buckets[key] = source
+
+def table_rows(raw, source="all"):
     m = re.search(r'<table[^>]*id=["\']customtable["\'][^>]*>(.*?)</table>', raw, re.I|re.S)
     if not m: return []
     table=m.group(1)
@@ -231,18 +248,26 @@ def table_rows(raw):
     ix_status=col("status",1); ix_debt=col("qarzdorlik"); ix_paid=col("summasi")
     required=[ix_date,ix_name,ix_student_status,ix_admin,ix_tariff,ix_plan,ix_status,ix_debt,ix_paid]
     if min(required)<0: raise RuntimeError("CRM Qarzdorlar columns changed")
-    out = []
+    out = []; seen = {}
     for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', table, re.I|re.S):
         raw_cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', tr, re.I|re.S)
         cells = [strip_tags(x) for x in raw_cells]
         if len(cells) < len(headers) or not any(x.isdigit() for x in cells[:2]): continue
         sid_match=re.search(r'/account/student_list/detail/(\d+)',raw_cells[ix_name],re.I)
         student_id=int(sid_match.group(1)) if sid_match else 0
+        if not student_id:
+            raise RuntimeError(f"CRM missing student ID in {source} (table row {cells[0]})")
         try: due = datetime.datetime.strptime(cells[ix_date], "%d.%m.%Y").date()
-        except ValueError: due = START
-        out.append({"student_id":student_id,"due":due,"name":cells[ix_name],"student_status":cells[ix_student_status],"admin":cells[ix_admin],
+        except ValueError as exc:
+            raise RuntimeError(
+                f"CRM invalid due date: student_id={student_id}, "
+                f"date={cells[ix_date]!r}, source={source}"
+            ) from exc
+        row={"student_id":student_id,"due":due,"name":cells[ix_name],"student_status":cells[ix_student_status],"admin":cells[ix_admin],
                     "tariff":cells[ix_tariff],"plan":number(cells[ix_plan]),"status":cells[ix_status],
-                    "debt":number(cells[ix_debt]),"paid":number(cells[ix_paid])})
+                    "debt":number(cells[ix_debt]),"paid":number(cells[ix_paid])}
+        register_row(seen, row, source)
+        out.append(row)
     return out
 
 def status_key(value):
@@ -407,22 +432,24 @@ def main():
     all_raw=fetch(op,START,END); month_card=card(all_raw); month_source=table_rows(all_raw)
     # The unfiltered table's visible STATUS text is not the authoritative CRM
     # filter bucket. Build the exact bucket map from the four Qarzdorlar filters.
-    bucket_by_student={}
+    bucket_by_row={}
     for bucket,crm_status in (("paid","paid"),("debt","qarzdor"),("frozen","frozen"),("deleted","deleted")):
         filtered_raw=fetch(op,START,END,status=crm_status)
         filtered_card=card(filtered_raw)
-        filtered_rows=table_rows(filtered_raw)
+        filtered_rows=table_rows(filtered_raw, source=crm_status)
         if len(filtered_rows) != filtered_card["total"]:
             raise RuntimeError(f"CRM {bucket} filter card/table mismatch")
         for item in filtered_rows:
-            sid=item.get("student_id")
-            if not sid or sid in bucket_by_student:
-                raise RuntimeError(f"CRM duplicate/missing student in {bucket} filter")
-            bucket_by_student[sid]=bucket
-    if len(bucket_by_student) != month_card["total"]:
+            register_row(bucket_by_row, item, bucket)
+    if len(bucket_by_row) != month_card["total"]:
         raise RuntimeError("CRM filtered status total does not match month total")
     for item in month_source:
-        base_bucket=bucket_by_student.get(item.get("student_id"))
+        base_bucket=bucket_by_row.get(row_key(item))
+        if base_bucket is None:
+            raise RuntimeError(
+                f"CRM row missing from status filters: student_id={item['student_id']}, "
+                f"due={item['due'].isoformat()}"
+            )
         visible=status_key(item["status"])
         item["_bucket"]=visible if visible in ("bit","referral") else base_bucket
         if not item["_bucket"]:
@@ -447,9 +474,14 @@ def main():
             x["_curator_full"],x["_curator_team"],x["_curator_short"]=curator
     month_rows=[]; known_total=known_plan=known_fact=known_frozen=known_deleted=0; known_counts={k:0 for k in ("paid","bit","referral","debt","frozen","deleted")}
     for full,(team,short,cid) in CURATORS.items():
-        cr=fetch(op,START,END,curator=cid); cc=card(cr); tr=table_rows(cr)
+        cr=fetch(op,START,END,curator=cid); cc=card(cr); tr=table_rows(cr, source=f"curator {cid}")
         for x in tr:
-            base_bucket=bucket_by_student.get(x.get("student_id"))
+            base_bucket=bucket_by_row.get(row_key(x))
+            if base_bucket is None:
+                raise RuntimeError(
+                    f"Curator {cid} row missing from CRM status filters: "
+                    f"student_id={x['student_id']}, due={x['due'].isoformat()}"
+                )
             visible=status_key(x["status"])
             x["_bucket"]=visible if visible in ("bit","referral") else base_bucket
             if not x["_bucket"]: raise RuntimeError("Curator student missing from CRM status filters")
