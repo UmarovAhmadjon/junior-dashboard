@@ -25,23 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate current and archived dashboard cycles from CRM Qarzdorlar module
+      - name: Generate current dashboard cycle from CRM Qarzdorlar module
         env:
           CRM_PHONE: ${{ secrets.CRM_PHONE }}
           CRM_PASS: ${{ secrets.CRM_PASS }}
           JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: |
           python3 crm_debtors_update.py
-          latest=""
-          for page in index-cycle-????-??-??.html; do
-            [ -e "$page" ] || continue
-            latest="$page"
-          done
-          if [ -n "$latest" ]; then
-            cycle="${latest#index-cycle-}"
-            cycle="${cycle%.html}"
-            python3 crm_debtors_update.py "--cycle=$cycle"
-          fi
 
       - name: Commit & push if changed
         run: |
