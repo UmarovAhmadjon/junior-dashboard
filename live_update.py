@@ -25,6 +25,10 @@ OUTPUT_CYCLE_KEY = ""
 CURRENT_CYCLE_LABEL = ""
 CASHIER_ROWS = None
 
+def cumulative_kpi_due(scheduled_due, target_pct):
+    """KPI plan due now from debtors whose billing date has arrived."""
+    return round(max(0, scheduled_due) * target_pct / 100)
+
 # Kassir -> qaysi kuratorlar bilan ishlaydi (Лист12 dan, foydalanuvchi bergan)
 CASHIERS = [
  ("Abror","A",["Dilafruz","Shaxlo"]),
@@ -546,10 +550,9 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     CSS=re.search(r"<style>.*?</style>",src,re.S).group(0)
 
     # Reyting = umumiy reja bajarilishi: FAKT / PLAN.
-    # Oq marker va "otryv" 100% qarzdorlikka emas, kuratorning KPI rejasiga
-    # nisbatan hisoblanadi. Reja kalendar oy davomida bir tekis o'sadi.
-    month_days=calendar.monthrange(today.year,today.month)[1]
-    month_progress=min(1,max(0,today.day/month_days))
+    # Oq marker va "otryv" sanalar bo'yicha yig'ilgan qarzdorlar rejasidan
+    # hisoblanadi. Har bir qatordagi `due` — sikl boshidan bugungacha qarz
+    # sanasi yetib kelgan o'quvchilar soni; uni 30 kunga teng bo'lib yubormaymiz.
     unified_kpi=c_start>=datetime.date(2026,9,24)
     for x in rows:
         # 24.09.2026 siklidan boshlab barcha kuratorlar: 80% asosiy,
@@ -557,7 +560,8 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         target_pct=80 if unified_kpi else (70 if x['short'] in ("Halima","Shaxlo") else 80)
         x['target_pct']=target_pct
         x['stretch_pct']=85 if unified_kpi else 100
-        x['due']=round(x['plan']*target_pct/100*month_progress)
+        scheduled_due=x.get('due',0)
+        x['due']=cumulative_kpi_due(scheduled_due,target_pct)
         x['pace_pct'] = round(x['paid']/x['due']*100) if x.get('due',0)>0 else (100 if x['paid']>=0 else 0)
     due_total=sum(x.get('due',0) for x in rows)
     ALL=sorted([x for x in rows if not x.get('hidden')],key=lambda x:(-x['pct'],-x['paid']))
@@ -610,7 +614,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
         green_threshold=r.get('target_pct',70 if r['short'] in ("Halima","Shaxlo") else 80)
         gap="goldg" if r['pct']>=stretch_threshold else ("okg" if r['pct']>=green_threshold else "badg")
         badge=f'<span class="tbadge t{r["team"]}">{r["team"]}</span>'
-        # Grafik: KPI maqsadining bugungi kalendar tempiga to'g'ri keladigan qismi.
+        # Grafik: bugungacha sanasi kelgan qarzdorlarning KPI bo'yicha qismi.
         due=r.get('due',0); plan=max(1,r['plan'])
         pacepct=min(100, round(due/plan*100))
         marker=f'<span style="position:absolute;left:{pacepct}%;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.55);z-index:3"></span>' if due>0 else ""
