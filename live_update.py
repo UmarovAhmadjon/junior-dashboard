@@ -638,7 +638,8 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
     upsell_html = upsell_section()
     deadline_html = ""   # alohida blok kerak emas — grafik/otryv kurator qatorlarida
 
-    pstate=json.dumps({"v":"sheet1","period":PERIOD,"upd":UPD,"paid":TOTAL_PAID,"debt":TOTAL_DEBT,"sob":TOTAL_SOB,"pct":PCT},ensure_ascii=False)
+    UPSELL_PAID=sum(x.get("bucket")=="paid" and bool(upsell_month(x.get("tariff"))) for x in DETAIL_DATA)
+    pstate=json.dumps({"v":"sheet2","period":PERIOD,"upd":UPD,"paid":TOTAL_PAID,"debt":TOTAL_DEBT,"sob":TOTAL_SOB,"pct":PCT,"upsell":UPSELL_PAID},ensure_ascii=False)
     JS=open_js(SRV_MS)
     details_json=json.dumps(DETAIL_DATA,ensure_ascii=False,separators=(",",":")).replace("<","\\u003c")
     detail_modal=f'''<script id="detail-data" type="application/json">{details_json}</script>
@@ -697,6 +698,7 @@ def render(tnow,c_start,c_end,rows,GPLAN,GPLANSUM,weeks_agg,due_total,due_paid,p
 <span class="clkwrap"><span class="clk" id="clk">--:--</span><span class="cdate" id="cdate"></span></span></header>
 {body}
 {detail_modal}
+<button id="sndbtn" hidden>🔊 включить звук продаж</button>
 {JS}
 </body></html>"""
     FILES={
@@ -787,6 +789,13 @@ def open_js(srv_ms):
  function nowd(){return new Date(SRV+((window.performance&&performance.now)?(performance.now()-P0):0));}
  var WD=['вс','пн','вт','ср','чт','пт','сб'];
  var MO=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+ var AC=null,pendingSale=0;
+ try{pendingSale=+(sessionStorage.getItem('juniorUpsellSound')||0);}catch(e){}
+ function audioState(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();return AC.state;}catch(e){return 'na';}}
+ function soundButton(){var b=document.getElementById('sndbtn'),s=audioState();if(b)b.hidden=(s==='running'||s==='na');}
+ function tone(f,t,d,g){var o=AC.createOscillator(),v=AC.createGain();o.type='triangle';o.frequency.value=f;v.gain.setValueAtTime(.0001,t);v.gain.linearRampToValueAtTime(g,t+.02);v.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(v);v.connect(AC.destination);o.start(t);o.stop(t+d+.05);}
+ function saleSound(n){pendingSale=Math.max(pendingSale,n||1);try{sessionStorage.setItem('juniorUpsellSound',pendingSale);}catch(e){}if(!AC||AC.state!=='running')return;var t=AC.currentTime+.04;[659,784,1047,1319].forEach(function(f,i){tone(f,t+i*.11,.45,.22);});pendingSale=0;try{sessionStorage.removeItem('juniorUpsellSound');}catch(e){}}
+ function unlockSound(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();AC.resume().then(function(){soundButton();if(pendingSale)saleSound(pendingSale);});}catch(e){}}
  function stateNow(){var e=document.getElementById('pstate');if(!e)return null;try{return JSON.parse(e.textContent);}catch(x){return null;}}
  function initPage(){
   function clk(){var e=document.getElementById('clk');if(e){var d=nowd();e.textContent=('0'+d.getUTCHours()).slice(-2)+':'+('0'+d.getUTCMinutes()).slice(-2);}}
@@ -794,13 +803,15 @@ def open_js(srv_ms):
   var cd=document.getElementById('cdate');if(cd){var d=nowd();cd.textContent=WD[d.getUTCDay()]+', '+d.getUTCDate()+' '+MO[d.getUTCMonth()];}
   var tb=document.getElementById('tbtn');function ticon(){if(tb)tb.textContent=document.body.classList.contains('light')?'🌙':'☀️';}ticon();
   if(tb)tb.onclick=function(){document.body.classList.toggle('light');try{localStorage.setItem('jTheme',document.body.classList.contains('light')?'light':'dark');}catch(e){}ticon();};
+  var sb=document.getElementById('sndbtn');if(sb)sb.onclick=unlockSound;soundButton();
   document.querySelectorAll('[data-cnt]').forEach(function(el){var v=+el.getAttribute('data-cnt'),suf=el.getAttribute('data-suf')||'',t0=null;
    function st(ts){if(!t0)t0=ts;var p=Math.min(1,(ts-t0)/1200),e2=1-Math.pow(1-p,3);el.textContent=Math.round(v*e2)+suf;if(p<1)requestAnimationFrame(st);}requestAnimationFrame(st);});
   requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('go');});});
  }initPage();
  var lastOk=Date.now();
- function checkUpdate(){fetch(location.pathname+'?ts='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(html){lastOk=Date.now();var doc=new DOMParser().parseFromString(html,'text/html');var ne=doc.getElementById('pstate');if(!ne)return;var S;try{S=JSON.parse(ne.textContent);}catch(x){return;}var C=stateNow();if(!C)return;if(JSON.stringify(S)!==JSON.stringify(C))location.reload();}).catch(function(x){if(Date.now()-lastOk>3*3600*1000)location.reload();});}
- setInterval(checkUpdate,Math.max(60,+(QS.get('refresh')||240))*1000);
+ function checkUpdate(){fetch(location.pathname+'?ts='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(html){lastOk=Date.now();var doc=new DOMParser().parseFromString(html,'text/html');var ne=doc.getElementById('pstate');if(!ne)return;var S;try{S=JSON.parse(ne.textContent);}catch(x){return;}var C=stateNow();if(!C)return;if(JSON.stringify(S)!==JSON.stringify(C)){var added=Math.max(0,(S.upsell||0)-(C.upsell||0));if(added)saleSound(added);setTimeout(function(){location.reload();},added?1100:0);}}).catch(function(x){if(Date.now()-lastOk>3*3600*1000)location.reload();});}
+ document.addEventListener('pointerdown',unlockSound,true);
+ setInterval(checkUpdate,Math.max(60,+(QS.get('refresh')||120))*1000);
  var dm=document.getElementById('dmodal'),dl=document.getElementById('dlist'),ds=document.getElementById('dsearch'),df=document.getElementById('dfrom'),dt=document.getElementById('dto'),dclear=document.getElementById('dclear'),dsts=document.getElementById('dstatuses'),dc=document.getElementById('dcount'),dsub=document.getElementById('dsub'),current=[];
  var raw=document.getElementById('detail-data'),DETAIL=[];try{DETAIL=JSON.parse(raw&&raw.textContent||'[]');}catch(e){}
  function money(v){return Number(v||0).toLocaleString('ru-RU')+' сум';}
