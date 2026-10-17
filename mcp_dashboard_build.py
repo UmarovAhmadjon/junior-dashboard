@@ -224,16 +224,6 @@ def load_data():
             "is_referral": bool(int(member_flags.get(sid, {}).get("is_referral") or 0)),
             "analytics_bucket": analytics_buckets.get(sid, ""),
         }
-        if old_received:
-            old_dates = [str(x["tx_date"])[:10] for x in before if x["action"] == "taken"]
-            old_due = max(old_dates) if old_dates else (CYCLE_START - dt.timedelta(days=1)).isoformat()
-            records.append({**common,
-                "obligation": "delayed", "due": old_due, "due_arrived": True,
-                "paid": True, "partial": False, "delayed": True,
-                "amount": old_received, "required": old_received, "debt_amount": 0,
-                "payments": len(cycle_adds), "last_paid": str(paid.get("last_paid") or ""),
-                "price": old_received, "balance": balance,
-            })
         records.append({**common,
             "obligation": "current",
             "due": due.isoformat(),
