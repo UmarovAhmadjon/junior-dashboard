@@ -48,6 +48,11 @@ def money(value):
 
 def load_analytics_rows():
     """Temporary analytics snapshot for statuses and paid Upsell sales."""
+    if os.environ.get("CRM_PHONE") and os.environ.get("CRM_PASS"):
+        import crm_debtors_update as crm
+        rows = crm.table_rows(crm.fetch(crm.crm_session(), CYCLE_START, CYCLE_END))
+        return [{"id": row["student_id"], "bucket": crm.status_key(row["status"])}
+                for row in rows]
     page = urllib.request.urlopen(ANALYTICS_URL, timeout=120).read().decode("utf-8")
     match = re.search(r'<script id="detail-data" type="application/json">(.*?)</script>', page, re.S)
     if not match:
@@ -126,6 +131,7 @@ def load_data():
         for row in query(
             "SELECT s.ID sid,s.NAME student_name,s.CURRENT_BALANCE balance,sub.ID sub_id,"
             "sub.ACTIVE sub_active,sub.STATUS sub_status,sub.PAYMENT_STATUS payment_status,sub.START_DATE sub_start_date,"
+            "(SELECT MIN(s0.START_DATE) FROM subscribe_list s0 WHERE s0.ORG_ID=6 AND s0.STUDENT_ID=s.ID) first_sub_start,"
             "sub.DAY pay_day,COALESCE(NULLIF(sub.STANDARD_PRICE_SNAPSHOT,0),NULLIF(sub.SPECIAL_PRICE,0),0) price,sub.PRICE_TYPE price_type,sub.GROUP_ID group_id,"
             "g.NAME group_name,g.ADMIN_ID admin_id,u.NAME admin_name,u.SURNAME admin_surname,u.TEAM_ID team_id "
             "FROM student_list s LEFT JOIN subscribe_list sub ON sub.STUDENT_ID=s.ID AND sub.ORG_ID=6 "
@@ -167,7 +173,7 @@ def load_data():
         # Debtors are repeat monthly payers only. A student whose current
         # subscription started inside this cycle is still in month one and
         # must not affect the debtor plan, fact, gap, statuses or rating.
-        sub_start_raw = str(sub.get("sub_start_date") or "")[:10]
+        sub_start_raw = str(sub.get("first_sub_start") or sub.get("sub_start_date") or "")[:10]
         try:
             sub_start = dt.date.fromisoformat(sub_start_raw)
         except ValueError:
@@ -213,6 +219,7 @@ def load_data():
             "payment_status": sub.get("payment_status") or "—",
             "has_subscription": bool(sub),
             "subscription_start": str(sub.get("sub_start_date") or "")[:10],
+            "first_subscription_start": sub_start_raw,
             "tariff": str(member_flags.get(sid, {}).get("member_tariff") or sub.get("price_type") or "").strip(),
             "is_referral": bool(int(member_flags.get(sid, {}).get("is_referral") or 0)),
             "analytics_bucket": analytics_buckets.get(sid, ""),
