@@ -153,6 +153,7 @@ def load_data():
     records = []
     test_excluded = 0
     other_admin_excluded = 0
+    first_month_excluded = 0
     for sid in ids:
         base = students.get(sid, {})
         sub = subscriptions.get(sid, {})
@@ -162,6 +163,17 @@ def load_data():
             continue
         if admin_id and admin_id not in CURRENT_ADMINS:
             other_admin_excluded += 1
+            continue
+        # Debtors are repeat monthly payers only. A student whose current
+        # subscription started inside this cycle is still in month one and
+        # must not affect the debtor plan, fact, gap, statuses or rating.
+        sub_start_raw = str(sub.get("sub_start_date") or "")[:10]
+        try:
+            sub_start = dt.date.fromisoformat(sub_start_raw)
+        except ValueError:
+            sub_start = None
+        if sub_start and CYCLE_START <= sub_start <= CYCLE_END:
+            first_month_excluded += 1
             continue
         full_admin = (str(sub.get("admin_name") or "").strip() + " " +
                       str(sub.get("admin_surname") or "").strip()).strip()
@@ -243,6 +255,7 @@ def load_data():
         "unassigned": sum(not r["admin_id"] for r in records),
         "test_excluded": test_excluded,
         "other_admin_excluded": other_admin_excluded,
+        "first_month_excluded": first_month_excluded,
         "generated": dt.datetime.now(dt.timezone(dt.timedelta(hours=5))).strftime("%d.%m.%Y %H:%M"),
         "today": today.isoformat(),
     }
