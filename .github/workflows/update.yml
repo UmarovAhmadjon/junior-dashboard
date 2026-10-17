@@ -2,9 +2,8 @@ name: update-dashboard
 
 on:
   schedule:
-    # MCP is pull-only, so poll every five minutes. The generator commits only
-    # when CRM/MCP data changed, avoiding unnecessary GitHub Pages publishes.
-    - cron: "*/5 * * * *"
+    # Refresh independently of any user's computer.
+    - cron: "15 * * * *"
   # Independent backup: refresh debts whenever the curator updater completes.
   workflow_run:
     workflows: ["Update Kurator Dashboard"]
@@ -25,19 +24,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate current dashboard cycle from CRM Qarzdorlar module
+      - name: Generate current MCP dashboard for production and test
         env:
           CRM_PHONE: ${{ secrets.CRM_PHONE }}
           CRM_PASS: ${{ secrets.CRM_PASS }}
           JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: |
-          python3 crm_debtors_update.py
+          MCP_TEST_OUT=index.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
+          MCP_TEST_OUT=mcp-test/index.html DASHBOARD_LABEL="MCP TEST" python3 mcp_dashboard_build.py
 
       - name: Commit & push if changed
         run: |
           git config user.name "dashboard-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add index*.html weeks*.html upsell*.html
+          git add index.html mcp-test/index.html
           if git diff --cached --quiet; then
             echo "No changes - skip commit"
           else
