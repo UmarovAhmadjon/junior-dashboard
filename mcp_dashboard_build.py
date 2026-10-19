@@ -65,9 +65,16 @@ def load_analytics_rows():
                 for row in rows]
     page = urllib.request.urlopen(ANALYTICS_URL, timeout=120).read().decode("utf-8")
     match = re.search(r'<script id="detail-data" type="application/json">(.*?)</script>', page, re.S)
+    if match:
+        return json.loads(match.group(1))
+    # The current MCP dashboard stores the already verified CRM bucket inside
+    # its canonical data payload. Reuse it when CRM credentials are not
+    # available (for example during an emergency local refresh).
+    match = re.search(r'<script id="data" type="application/json">(.*?)</script>', page, re.S)
     if not match:
         return []
-    return json.loads(match.group(1))
+    return [{"id": row["id"], "bucket": row.get("analytics_bucket", "")}
+            for row in json.loads(match.group(1))]
 
 
 def short_name(value):
