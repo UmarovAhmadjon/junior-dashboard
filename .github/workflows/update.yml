@@ -3,7 +3,10 @@ name: update-dashboard
 on:
   schedule:
     # Refresh independently of any user's computer.
-    - cron: "15 * * * *"
+    # Poll every 15 minutes so a delayed/failed GitHub runner still produces
+    # at least one successful refresh within the hour. Commits occur only
+    # when the generated data or timestamp changes.
+    - cron: "*/15 * * * *"
   # Independent backup: refresh debts whenever the curator updater completes.
   workflow_run:
     workflows: ["Update Kurator Dashboard"]

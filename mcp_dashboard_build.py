@@ -6,6 +6,7 @@ import html
 import json
 import os
 import re
+import time
 import urllib.request
 
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
@@ -22,8 +23,17 @@ ANALYTICS_URL = "https://umarovahmadjon.github.io/junior-dashboard/index.html"
 def query(sql):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                        "params": {"name": "query_db", "arguments": {"sql": sql}}}).encode()
-    req = urllib.request.Request(GATEWAY, data=body, headers={"Content-Type": "application/json"})
-    raw = json.loads(urllib.request.urlopen(req, timeout=120).read().decode())
+    last_error = None
+    for attempt in range(4):
+        try:
+            req = urllib.request.Request(GATEWAY, data=body, headers={"Content-Type": "application/json"})
+            raw = json.loads(urllib.request.urlopen(req, timeout=180).read().decode())
+            break
+        except Exception as error:
+            last_error = error
+            if attempt == 3:
+                raise RuntimeError(f"MCP query failed after 4 attempts: {last_error}") from error
+            time.sleep(5 * (attempt + 1))
     text = raw["result"]["content"][0]["text"]
     payload = json.loads(text)
     rows = payload.get("data", {}).get("data", [])
