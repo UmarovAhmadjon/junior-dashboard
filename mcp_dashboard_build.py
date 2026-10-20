@@ -168,7 +168,7 @@ def load_data():
         for row in query(
             "SELECT STUDENT_ID sid,ACTION_TYPE action,AMOUNT amount,TRANSACTION_DATE tx_date "
             "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE IN ('add','taken') "
-            "AND TRANSACTION_DATE>='2026-08-01' AND TRANSACTION_DATE<'2026-10-25' "
+            "AND TRANSACTION_DATE>='2026-01-01' AND TRANSACTION_DATE<'2026-10-25' "
             f"AND STUDENT_ID IN ({joined}) ORDER BY STUDENT_ID,TRANSACTION_DATE,ID"):
             transactions.setdefault(int(row["sid"]), []).append(row)
 
@@ -204,28 +204,64 @@ def load_data():
         txs = transactions.get(sid, [])
         price = max(0, int(sub.get("price") or 0))
         balance = int(base.get("balance") or 0)
-        balance_debt = max(0, -balance)
         due = due_date(sub.get("pay_day"))
         current_charge_rows = [x for x in txs if x["action"] == "taken" and
                                abs((dt.date.fromisoformat(str(x["tx_date"])[:10]) - due).days) <= 2]
         current_charge = int(current_charge_rows[-1]["amount"] or 0) if current_charge_rows else 0
-        # The old implementation subtracted an estimated historical debt first,
-        # which turned fully-paid students into artificial partial debtors.
-        # Include prepayments made anywhere inside the selected cycle. A
-        # payment may precede the automatic charge date, but still closes the
-        # current cycle obligation. Historical payments remain outside it.
-        current_adds = [x for x in txs if x["action"] == "add" and
-                        CYCLE_START.isoformat() <= str(x["tx_date"])[:10] <= CYCLE_END.isoformat()]
-        amount = sum(int(x["amount"] or 0) for x in current_adds)
         tariff_text = str(sub.get("price_type") or "").strip().lower()
         is_package = (any(word in tariff_text for word in ("upsell", "nasiya")) or
                       price >= 900000)
         required = current_charge or price
+        # FIFO reconciliation: every payment closes the oldest outstanding
+        # charge first. Surplus is retained as credit and can cover a future
+        # charge, but a late payment can never be counted twice as prepayment.
+        current_key = "current"
+        events = []
+        matched_current = False
+        for pos, tx in enumerate(txs):
+            tx_date = str(tx["tx_date"])[:10]
+            key = None
+            if tx["action"] == "taken" and current_charge_rows and tx is current_charge_rows[-1]:
+                key = current_key
+                matched_current = True
+            events.append((tx_date, 0 if tx["action"] == "taken" else 1,
+                           pos, tx["action"], int(tx["amount"] or 0), key))
+        if not matched_current and required > 0:
+            events.append((due.isoformat(), 0, -1, "taken", required, current_key))
+        events.sort()
+        obligations = []
+        credit = 0
+        current_obligation = None
+        current_last_paid = ""
+        for tx_date, _, _, action, value, key in events:
+            if action == "taken":
+                applied = min(credit, value)
+                credit -= applied
+                obligation = {"key": key, "required": value, "remaining": value - applied}
+                obligations.append(obligation)
+                if key == current_key:
+                    current_obligation = obligation
+                    if applied:
+                        current_last_paid = tx_date
+            else:
+                left = value
+                for obligation in obligations:
+                    if left <= 0:
+                        break
+                    applied = min(left, obligation["remaining"])
+                    if applied:
+                        obligation["remaining"] -= applied
+                        left -= applied
+                        if obligation["key"] == current_key:
+                            current_last_paid = tx_date
+                credit += left
+        current_remaining = (current_obligation["remaining"] if current_obligation else required)
+        amount = max(0, required - current_remaining)
         # A zero/positive CRM balance plus SUCCESS means the obligation was
         # explicitly closed (discount/rounding may make payment slightly lower).
         success_closed = str(sub.get("payment_status") or "").lower() == "success" and balance >= 0
-        fully_paid = required > 0 and (amount >= required or success_closed)
-        debt_amount = 0 if fully_paid else max(balance_debt, required - amount)
+        fully_paid = required > 0 and (current_remaining <= 0 or success_closed)
+        debt_amount = 0 if fully_paid else current_remaining
         common = {
             "id": sid,
             "name": base.get("student_name") or f"Student {sid}",
@@ -257,7 +293,7 @@ def load_data():
             "required": required,
             "debt_amount": debt_amount,
             "payments": int(paid.get("payment_count") or 0),
-            "last_paid": str(paid.get("last_paid") or ""),
+            "last_paid": current_last_paid or str(paid.get("last_paid") or ""),
             "price": price,
             "balance": balance,
         })
