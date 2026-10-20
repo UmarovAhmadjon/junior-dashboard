@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Local-only MCP prototype. It never writes to the production dashboard."""
 import datetime as dt
+import calendar
 import html
 import json
 import os
@@ -93,6 +94,21 @@ def due_date(day):
     return dt.date(2026, 10, max(1, min(day, 24)))
 
 
+def add_months(value, months):
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    return dt.date(year, month, min(value.day, calendar.monthrange(year, month)[1]))
+
+
+def package_months(tariff, price):
+    text = str(tariff or "").lower()
+    match = re.search(r"(?:upsell|nasiya).*?(12|6|3)|-\s*(12|6|3)(?:\D|$)", text)
+    if match:
+        return int(next(value for value in match.groups() if value))
+    return 12 if price >= 2500000 else (6 if price >= 1750000 else (3 if price >= 900000 else 0))
+
+
 def load_data():
     analytics_rows = load_analytics_rows()
     analytics_buckets = {int(row["id"]): str(row.get("bucket") or "") for row in analytics_rows}
@@ -142,7 +158,6 @@ def load_data():
     students = {}
     subscriptions = {}
     payments = {}
-    transactions = {}
     for part in chunks(ids):
         joined = sql_ids(part)
         for row in query(
@@ -165,18 +180,13 @@ def load_data():
             f"AND TRANSACTION_DATE>='{CYCLE_START}' AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
             f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
             payments[int(row["sid"])] = row
-        for row in query(
-            "SELECT STUDENT_ID sid,ACTION_TYPE action,AMOUNT amount,TRANSACTION_DATE tx_date "
-            "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE IN ('add','taken') "
-            "AND TRANSACTION_DATE>='2026-01-01' AND TRANSACTION_DATE<'2026-10-25' "
-            f"AND STUDENT_ID IN ({joined}) ORDER BY STUDENT_ID,TRANSACTION_DATE,ID"):
-            transactions.setdefault(int(row["sid"]), []).append(row)
 
     today = min(CYCLE_END, dt.datetime.now(dt.timezone(dt.timedelta(hours=5))).date())
     records = []
     test_excluded = 0
     other_admin_excluded = 0
     first_month_excluded = 0
+    expired_package_excluded = 0
     for sid in ids:
         base = students.get(sid, {})
         sub = subscriptions.get(sid, {})
@@ -201,67 +211,28 @@ def load_data():
         full_admin = (str(sub.get("admin_name") or "").strip() + " " +
                       str(sub.get("admin_surname") or "").strip()).strip()
         paid = payments.get(sid, {})
-        txs = transactions.get(sid, [])
         price = max(0, int(sub.get("price") or 0))
         balance = int(base.get("balance") or 0)
         due = due_date(sub.get("pay_day"))
-        current_charge_rows = [x for x in txs if x["action"] == "taken" and
-                               abs((dt.date.fromisoformat(str(x["tx_date"])[:10]) - due).days) <= 2]
-        current_charge = int(current_charge_rows[-1]["amount"] or 0) if current_charge_rows else 0
         tariff_text = str(sub.get("price_type") or "").strip().lower()
-        is_package = (any(word in tariff_text for word in ("upsell", "nasiya")) or
-                      price >= 900000)
-        required = current_charge or price
-        # FIFO reconciliation: every payment closes the oldest outstanding
-        # charge first. Surplus is retained as credit and can cover a future
-        # charge, but a late payment can never be counted twice as prepayment.
-        current_key = "current"
-        events = []
-        matched_current = False
-        for pos, tx in enumerate(txs):
-            tx_date = str(tx["tx_date"])[:10]
-            key = None
-            if tx["action"] == "taken" and current_charge_rows and tx is current_charge_rows[-1]:
-                key = current_key
-                matched_current = True
-            events.append((tx_date, 0 if tx["action"] == "taken" else 1,
-                           pos, tx["action"], int(tx["amount"] or 0), key))
-        if not matched_current and required > 0:
-            events.append((due.isoformat(), 0, -1, "taken", required, current_key))
-        events.sort()
-        obligations = []
-        credit = 0
-        current_obligation = None
-        current_last_paid = ""
-        for tx_date, _, _, action, value, key in events:
-            if action == "taken":
-                applied = min(credit, value)
-                credit -= applied
-                obligation = {"key": key, "required": value, "remaining": value - applied}
-                obligations.append(obligation)
-                if key == current_key:
-                    current_obligation = obligation
-                    if applied:
-                        current_last_paid = tx_date
-            else:
-                left = value
-                for obligation in obligations:
-                    if left <= 0:
-                        break
-                    applied = min(left, obligation["remaining"])
-                    if applied:
-                        obligation["remaining"] -= applied
-                        left -= applied
-                        if obligation["key"] == current_key:
-                            current_last_paid = tx_date
-                credit += left
-        current_remaining = (current_obligation["remaining"] if current_obligation else required)
-        amount = max(0, required - current_remaining)
-        # A zero/positive CRM balance plus SUCCESS means the obligation was
-        # explicitly closed (discount/rounding may make payment slightly lower).
-        success_closed = str(sub.get("payment_status") or "").lower() == "success" and balance >= 0
-        fully_paid = required > 0 and (current_remaining <= 0 or success_closed)
-        debt_amount = 0 if fully_paid else current_remaining
+        months = package_months(tariff_text, price)
+        package_start_raw = str(sub.get("sub_start_date") or "")[:10]
+        try:
+            package_start = dt.date.fromisoformat(package_start_raw)
+        except ValueError:
+            package_start = None
+        package_until = add_months(package_start, months) if package_start and months else None
+        if months and package_until and package_until <= CYCLE_START:
+            expired_package_excluded += 1
+            continue
+        is_package = bool(months and package_start and package_start <= CYCLE_END and
+                          package_until > CYCLE_START)
+        # The CRM card already exposes the authoritative total balance. Do not
+        # reconstruct it from historical transactions or trust SUCCESS alone.
+        debt_amount = 0 if is_package else max(0, -balance)
+        required = max(0, round(price / months)) if is_package and months else price
+        amount = required if debt_amount == 0 else max(0, required - debt_amount)
+        fully_paid = is_package or debt_amount == 0
         common = {
             "id": sid,
             "name": base.get("student_name") or f"Student {sid}",
@@ -280,6 +251,8 @@ def load_data():
             "tariff": str(member_flags.get(sid, {}).get("member_tariff") or sub.get("price_type") or "").strip(),
             "is_referral": bool(int(member_flags.get(sid, {}).get("is_referral") or 0)),
             "is_package": is_package,
+            "package_months": months if is_package else 0,
+            "package_until": package_until.isoformat() if is_package else "",
             "analytics_bucket": analytics_buckets.get(sid, ""),
         }
         records.append({**common,
@@ -293,7 +266,7 @@ def load_data():
             "required": required,
             "debt_amount": debt_amount,
             "payments": int(paid.get("payment_count") or 0),
-            "last_paid": current_last_paid or str(paid.get("last_paid") or ""),
+            "last_paid": str(paid.get("last_paid") or ""),
             "price": price,
             "balance": balance,
         })
@@ -311,6 +284,7 @@ def load_data():
         "test_excluded": test_excluded,
         "other_admin_excluded": other_admin_excluded,
         "first_month_excluded": first_month_excluded,
+        "expired_package_excluded": expired_package_excluded,
         "generated": dt.datetime.now(dt.timezone(dt.timedelta(hours=5))).strftime("%d.%m.%Y %H:%M"),
         "today": today.isoformat(),
     }
