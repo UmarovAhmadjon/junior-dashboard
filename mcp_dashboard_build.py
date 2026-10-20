@@ -209,13 +209,13 @@ def load_data():
         current_charge_rows = [x for x in txs if x["action"] == "taken" and
                                abs((dt.date.fromisoformat(str(x["tx_date"])[:10]) - due).days) <= 2]
         current_charge = int(current_charge_rows[-1]["amount"] or 0) if current_charge_rows else 0
-        charge_date = (str(current_charge_rows[-1]["tx_date"])[:10]
-                       if current_charge_rows else due.isoformat())
-        # Payments made on/after this month's charge belong to this obligation.
         # The old implementation subtracted an estimated historical debt first,
         # which turned fully-paid students into artificial partial debtors.
+        # Include prepayments made anywhere inside the selected cycle. A
+        # payment may precede the automatic charge date, but still closes the
+        # current cycle obligation. Historical payments remain outside it.
         current_adds = [x for x in txs if x["action"] == "add" and
-                        charge_date <= str(x["tx_date"])[:10] <= CYCLE_END.isoformat()]
+                        CYCLE_START.isoformat() <= str(x["tx_date"])[:10] <= CYCLE_END.isoformat()]
         amount = sum(int(x["amount"] or 0) for x in current_adds)
         tariff_text = str(sub.get("price_type") or "").strip().lower()
         is_package = (any(word in tariff_text for word in ("upsell", "nasiya")) or

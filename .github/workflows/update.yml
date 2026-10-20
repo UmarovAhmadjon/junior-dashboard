@@ -27,14 +27,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate production with approved rules and test with candidate rules
+      - name: Generate current MCP dashboard for production and test
         env:
           CRM_PHONE: ${{ secrets.CRM_PHONE }}
           CRM_PASS: ${{ secrets.CRM_PASS }}
           JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: |
-          git show b66a5f6:mcp_dashboard_build.py > /tmp/mcp_dashboard_build_production.py
-          MCP_TEST_OUT=index.html DASHBOARD_LABEL=LIVE python3 /tmp/mcp_dashboard_build_production.py
+          MCP_TEST_OUT=index.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
           MCP_TEST_OUT=mcp-test/index.html DASHBOARD_LABEL="MCP TEST" python3 mcp_dashboard_build.py
 
       - name: Commit & push if changed
