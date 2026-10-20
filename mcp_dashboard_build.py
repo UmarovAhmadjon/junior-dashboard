@@ -149,7 +149,7 @@ def load_data():
             "SELECT s.ID sid,s.NAME student_name,s.CURRENT_BALANCE balance,sub.ID sub_id,"
             "sub.ACTIVE sub_active,sub.STATUS sub_status,sub.PAYMENT_STATUS payment_status,sub.START_DATE sub_start_date,"
             "(SELECT MIN(s0.START_DATE) FROM subscribe_list s0 WHERE s0.ORG_ID=6 AND s0.STUDENT_ID=s.ID) first_sub_start,"
-            "sub.DAY pay_day,COALESCE(NULLIF(sub.STANDARD_PRICE_SNAPSHOT,0),NULLIF(sub.SPECIAL_PRICE,0),0) price,sub.PRICE_TYPE price_type,sub.GROUP_ID group_id,"
+            "sub.DAY pay_day,COALESCE(NULLIF(sub.SPECIAL_PRICE,0),NULLIF(sub.STANDARD_PRICE_SNAPSHOT,0),0) price,sub.PRICE_TYPE price_type,sub.GROUP_ID group_id,"
             "g.NAME group_name,g.ADMIN_ID admin_id,u.NAME admin_name,u.SURNAME admin_surname,u.TEAM_ID team_id "
             "FROM student_list s LEFT JOIN subscribe_list sub ON sub.STUDENT_ID=s.ID AND sub.ORG_ID=6 "
             "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID "
@@ -202,26 +202,30 @@ def load_data():
                       str(sub.get("admin_surname") or "").strip()).strip()
         paid = payments.get(sid, {})
         txs = transactions.get(sid, [])
-        before = [x for x in txs if str(x["tx_date"])[:10] < CYCLE_START.isoformat()]
-        cycle_adds = [x for x in txs if x["action"] == "add" and
-                      CYCLE_START.isoformat() <= str(x["tx_date"])[:10] <= CYCLE_END.isoformat()]
-        old_debt = max(0, sum(int(x["amount"] or 0) for x in before if x["action"] == "taken") -
-                       sum(int(x["amount"] or 0) for x in before if x["action"] == "add"))
-        cycle_amount = sum(int(x["amount"] or 0) for x in cycle_adds)
-        old_received = min(old_debt, cycle_amount)
-        amount = max(0, cycle_amount - old_received)
         price = max(0, int(sub.get("price") or 0))
         balance = int(base.get("balance") or 0)
         balance_debt = max(0, -balance)
         due = due_date(sub.get("pay_day"))
-        current_charges = [int(x["amount"] or 0) for x in txs if x["action"] == "taken" and
-                           abs((dt.date.fromisoformat(str(x["tx_date"])[:10]) - due).days) <= 2]
-        all_charges = [int(x["amount"] or 0) for x in txs if x["action"] == "taken"]
-        fallback_charge = all_charges[-1] if all_charges else 0
-        required = max(price, current_charges[-1] if current_charges else fallback_charge,
-                       amount + balance_debt)
-        debt_amount = max(balance_debt, required - amount)
-        fully_paid = required > 0 and amount >= required
+        current_charge_rows = [x for x in txs if x["action"] == "taken" and
+                               abs((dt.date.fromisoformat(str(x["tx_date"])[:10]) - due).days) <= 2]
+        current_charge = int(current_charge_rows[-1]["amount"] or 0) if current_charge_rows else 0
+        charge_date = (str(current_charge_rows[-1]["tx_date"])[:10]
+                       if current_charge_rows else due.isoformat())
+        # Payments made on/after this month's charge belong to this obligation.
+        # The old implementation subtracted an estimated historical debt first,
+        # which turned fully-paid students into artificial partial debtors.
+        current_adds = [x for x in txs if x["action"] == "add" and
+                        charge_date <= str(x["tx_date"])[:10] <= CYCLE_END.isoformat()]
+        amount = sum(int(x["amount"] or 0) for x in current_adds)
+        tariff_text = str(sub.get("price_type") or "").strip().lower()
+        is_package = (any(word in tariff_text for word in ("upsell", "nasiya")) or
+                      price >= 900000)
+        required = current_charge or price
+        # A zero/positive CRM balance plus SUCCESS means the obligation was
+        # explicitly closed (discount/rounding may make payment slightly lower).
+        success_closed = str(sub.get("payment_status") or "").lower() == "success" and balance >= 0
+        fully_paid = required > 0 and (amount >= required or success_closed)
+        debt_amount = 0 if fully_paid else max(balance_debt, required - amount)
         common = {
             "id": sid,
             "name": base.get("student_name") or f"Student {sid}",
@@ -239,6 +243,7 @@ def load_data():
             "first_subscription_start": sub_start_raw,
             "tariff": str(member_flags.get(sid, {}).get("member_tariff") or sub.get("price_type") or "").strip(),
             "is_referral": bool(int(member_flags.get(sid, {}).get("is_referral") or 0)),
+            "is_package": is_package,
             "analytics_bucket": analytics_buckets.get(sid, ""),
         }
         records.append({**common,
@@ -273,6 +278,23 @@ def load_data():
         "generated": dt.datetime.now(dt.timezone(dt.timedelta(hours=5))).strftime("%d.%m.%Y %H:%M"),
         "today": today.isoformat(),
     }
+    def is_special_fact(row):
+        bucket = str(row["analytics_bucket"] or "").lower()
+        return (bucket in {"bit", "referral"} or row["is_referral"] or row["is_package"] or
+                str(row["tariff"] or "").strip().upper() == "SARAFAN RADIO")
+
+    audit["anomalies"] = {
+        "debt_with_zero": sum((not r["paid"]) and not is_special_fact(r) and
+                              r["subscription_status"] == "active" and r["debt_amount"] <= 0
+                              for r in records),
+        "paid_with_debt": sum(r["paid"] and r["debt_amount"] > 0 for r in records),
+        "duplicate_students": len(records) - len({r["id"] for r in records}),
+    }
+    if any(audit["anomalies"].values()):
+        invalid_ids = [r["id"] for r in records if ((not r["paid"] and not is_special_fact(r) and
+                                                     r["subscription_status"] == "active" and r["debt_amount"] <= 0) or
+                                                     (r["paid"] and r["debt_amount"] > 0))]
+        raise RuntimeError(f"Dashboard integrity check failed: {audit['anomalies']}; ids={invalid_ids}")
     collection_rows = query(
         "SELECT DATE(TRANSACTION_DATE) paid_date,SUM(AMOUNT) amount "
         "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE='add' AND STUDENT_TYPE='student' "
@@ -308,7 +330,7 @@ const $=id=>document.getElementById(id),money=n=>Number(n||0).toLocaleString('ru
 const collectionAmount=(a,b)=>COLLECTION_DATA.filter(x=>x.date>=a&&x.date<=b).reduce((s,x)=>s+x.amount,0);
 function pageRows(){const [a,b]=periods[$('period').value];return DATA.filter(x=>rowDate(x)>=a&&rowDate(x)<=b&&x.curator!=='Biriktirilmagan')}
 const debtEligible=x=>x.subscription_status==='active';
-const businessStatus=x=>{const a=String(x.analytics_bucket||'').toLowerCase();if(a==='bit')return'finished';if(a==='referral')return'referral';if(a==='frozen')return'frozen';if(a==='deleted')return'archive';if(a==='paid')return'paid';if(a==='debt')return'debt';return(x.is_referral||String(x.tariff||'').trim().toUpperCase()==='SARAFAN RADIO')?'referral':(x.subscription_status==='freezed'?'frozen':(x.subscription_status==='archive'?'archive':(x.subscription_status!=='active'?'archive':(x.paid?'paid':'debt'))))};
+const businessStatus=x=>{const a=String(x.analytics_bucket||'').toLowerCase();if(a==='bit')return'finished';if(a==='referral'||x.is_referral||String(x.tariff||'').trim().toUpperCase()==='SARAFAN RADIO')return'referral';if(a==='frozen'||x.subscription_status==='freezed')return'frozen';if(a==='deleted')return'archive';if(x.is_package||x.paid)return'paid';if(x.subscription_status==='archive'||x.subscription_status!=='active')return'archive';return'debt'};
 const isFact=x=>['paid','finished','referral'].includes(businessStatus(x));
 const displayStatus=x=>{const s=businessStatus(x);return s==='finished'?'Bitirdi':s==='referral'?'Referal':s==='frozen'?'Muzlagan':s==='archive'?'Arxiv':s==='paid'?"To'lagan":(x.due<=TODAY?'Qarzdor':'Kutilmoqda')};
 const displayClass=x=>{const s=businessStatus(x);return s==='paid'?'paid':s==='finished'?'delayed':s==='referral'?'future':s==='debt'?(x.due<=TODAY?'overdue':'future'):'archive'};
