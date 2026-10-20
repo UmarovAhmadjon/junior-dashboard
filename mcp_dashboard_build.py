@@ -147,7 +147,22 @@ def load_data():
     plan = query("SELECT ID,START_DATE,END_DATE,DATA FROM debtors_plan "
                  "WHERE ORG_ID=6 ORDER BY ID DESC LIMIT 1")[0]
     raw_ids = [int(x) for x in json.loads(plan["DATA"])]
-    ids = sorted(set(raw_ids))
+    # Safety net for omissions in debtors_plan: an active repeat student with
+    # a negative authoritative balance must still appear as a debtor.
+    admin_ids = ",".join(str(x) for x in sorted(CURRENT_ADMINS))
+    balance_candidates = query(
+        "SELECT DISTINCT s.ID sid FROM student_list s "
+        "JOIN subscribe_list sub ON sub.STUDENT_ID=s.ID AND sub.ORG_ID=6 "
+        "AND sub.ACTIVE=1 AND sub.STATUS='active' "
+        "JOIN group_list g ON g.ID=sub.GROUP_ID "
+        "WHERE s.ORG_ID=6 AND s.ACTIVE=1 AND s.CURRENT_BALANCE<0 "
+        f"AND g.ADMIN_ID IN ({admin_ids}) "
+        f"AND (SELECT MIN(s0.START_DATE) FROM subscribe_list s0 WHERE s0.ORG_ID=6 "
+        f"AND s0.STUDENT_ID=s.ID)<'{CYCLE_START}'")
+    balance_candidate_ids = {int(row["sid"]) for row in balance_candidates}
+    plan_id_set = set(raw_ids)
+    balance_added_ids = balance_candidate_ids - plan_id_set
+    ids = sorted(plan_id_set | balance_candidate_ids)
 
     member = query("SELECT COUNT(*) cnt,COUNT(DISTINCT STUDENT_ID) unique_cnt "
                    "FROM debtors_plan_members WHERE ORG_ID=6 AND MONTH_KEY='2026-10'")[0]
@@ -277,6 +292,7 @@ def load_data():
         "plan_end": plan["END_DATE"],
         "raw_ids": len(raw_ids),
         "unique_ids": len(ids),
+        "balance_debtors_added": len(balance_added_ids),
         "member_rows": int(member["cnt"]),
         "member_unique": int(member["unique_cnt"]),
         "missing_subscription": sum(not r["has_subscription"] for r in records),
