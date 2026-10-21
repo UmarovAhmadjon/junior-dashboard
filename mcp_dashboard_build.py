@@ -383,8 +383,8 @@ const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=
     document = (document.replace("__DATA__", data_json)
                 .replace("__UPSELL_DATA__", upsell_json)
                 .replace("__COLLECTION_DATA__", collection_json)
-                .replace("__GENERATED__", html.escape(audit["generated"]))
                 .replace("__GENERATED_ISO__", html.escape(audit["generated_iso"]))
+                .replace("__GENERATED__", html.escape(audit["generated"]))
                 .replace("__SITE_LABEL__", html.escape(SITE_LABEL))
                 .replace("__TODAY__", audit["today"]))
     with open(OUT, "w", encoding="utf-8") as handle:
