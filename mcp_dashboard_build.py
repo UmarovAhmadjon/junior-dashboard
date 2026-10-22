@@ -15,30 +15,29 @@ from zoneinfo import ZoneInfo
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
 ORG_ID = 6
 BUSINESS_TZ = ZoneInfo("America/Los_Angeles")
-CYCLE_CUTOFF = dt.date(2026, 8, 25)
-CYCLE_RULE_START = dt.date(2026, 9, 24)
-CYCLE_STANDARD_START = dt.date(2026, 10, 25)
+
+
+def month_end(value):
+    return value.replace(day=calendar.monthrange(value.year, value.month)[1])
 
 
 def cycle_end_for_start(start):
-    if start == CYCLE_CUTOFF:
-        return CYCLE_RULE_START - dt.timedelta(days=1)
+    # A cycle contains the last seven days of the previous month and
+    # all days of the next month except its final seven days.
     next_month = (start.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
-    return next_month.replace(day=24)
+    return month_end(next_month) - dt.timedelta(days=7)
 
 
 def current_cycle(today=None):
     today = today or dt.datetime.now(BUSINESS_TZ).date()
-    if CYCLE_CUTOFF <= today < CYCLE_RULE_START:
-        return CYCLE_CUTOFF, cycle_end_for_start(CYCLE_CUTOFF)
-    if CYCLE_RULE_START <= today < CYCLE_STANDARD_START:
-        return CYCLE_RULE_START, cycle_end_for_start(CYCLE_RULE_START)
-    if today.day >= 25:
-        start = today.replace(day=25)
-        return start, cycle_end_for_start(start)
-    end = today.replace(day=24)
-    previous = end.replace(day=1) - dt.timedelta(days=1)
-    return previous.replace(day=25), end
+    this_month = today.replace(day=1)
+    previous_end = this_month - dt.timedelta(days=1)
+    start = previous_end - dt.timedelta(days=6)
+    end = month_end(this_month) - dt.timedelta(days=7)
+    if today <= end:
+        return start, end
+    next_month = (this_month.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
+    return month_end(this_month) - dt.timedelta(days=6), month_end(next_month) - dt.timedelta(days=7)
 
 
 def cycle_periods(start, end):
