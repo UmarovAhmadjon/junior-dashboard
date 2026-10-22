@@ -7,14 +7,53 @@ import html
 import json
 import os
 import re
+import shutil
 import time
 import urllib.request
 from zoneinfo import ZoneInfo
 
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
 ORG_ID = 6
-CYCLE_START = dt.date(2026, 9, 24)
-CYCLE_END = dt.date(2026, 10, 24)
+BUSINESS_TZ = ZoneInfo("America/Los_Angeles")
+CYCLE_CUTOFF = dt.date(2026, 8, 25)
+CYCLE_RULE_START = dt.date(2026, 9, 24)
+CYCLE_STANDARD_START = dt.date(2026, 10, 25)
+
+
+def cycle_end_for_start(start):
+    if start == CYCLE_CUTOFF:
+        return CYCLE_RULE_START - dt.timedelta(days=1)
+    next_month = (start.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
+    return next_month.replace(day=24)
+
+
+def current_cycle(today=None):
+    today = today or dt.datetime.now(BUSINESS_TZ).date()
+    if CYCLE_CUTOFF <= today < CYCLE_RULE_START:
+        return CYCLE_CUTOFF, cycle_end_for_start(CYCLE_CUTOFF)
+    if CYCLE_RULE_START <= today < CYCLE_STANDARD_START:
+        return CYCLE_RULE_START, cycle_end_for_start(CYCLE_RULE_START)
+    if today.day >= 25:
+        start = today.replace(day=25)
+        return start, cycle_end_for_start(start)
+    end = today.replace(day=24)
+    previous = end.replace(day=1) - dt.timedelta(days=1)
+    return previous.replace(day=25), end
+
+
+def cycle_periods(start, end):
+    first_next = (start.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
+    cuts = [(start, min(first_next - dt.timedelta(days=1), end))]
+    cursor = cuts[-1][1] + dt.timedelta(days=1)
+    while cursor <= end and len(cuts) < 4:
+        finish = end if len(cuts) == 3 else min(cursor + dt.timedelta(days=6), end)
+        cuts.append((cursor, finish))
+        cursor = finish + dt.timedelta(days=1)
+    return cuts
+
+
+CYCLE_START, CYCLE_END = current_cycle()
+CYCLE_WEEKS = cycle_periods(CYCLE_START, CYCLE_END)
 TEST_ADMINS = {21453}
 CURRENT_ADMINS = {13799, 14974, 14241, 14451, 16386, 16005, 21463}
 OUT = os.environ.get("MCP_TEST_OUT", os.path.join(os.path.dirname(__file__), "index.html"))
@@ -197,7 +236,7 @@ def load_data():
             f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
             payments[int(row["sid"])] = row
 
-    today = min(CYCLE_END, dt.datetime.now(ZoneInfo("America/Los_Angeles")).date())
+    today = min(CYCLE_END, dt.datetime.now(BUSINESS_TZ).date())
     records = []
     test_excluded = 0
     other_admin_excluded = 0
@@ -342,6 +381,44 @@ def load_data():
     return records, audit, upsells, collections
 
 
+def short_date(value):
+    return value.strftime("%d.%m")
+
+
+def archive_previous_dashboard(path):
+    if not os.path.isfile(path) or os.path.basename(path) != "index.html":
+        return
+    with open(path, encoding="utf-8") as handle:
+        previous = handle.read()
+    match = re.search(r"const periods=\{all:\['(\d{4}-\d{2}-\d{2})'", previous)
+    if not match or match.group(1) == CYCLE_START.isoformat():
+        return
+    target = os.path.join(os.path.dirname(path), f"index-cycle-{match.group(1)}.html")
+    if not os.path.exists(target):
+        shutil.copyfile(path, target)
+        print(f"ARCHIVED dashboard cycle {match.group(1)} -> {target}")
+
+
+def cycle_archive_options(path):
+    if os.path.basename(path) != "index.html" or os.path.basename(os.path.dirname(path)) == "mcp-test":
+        return ""
+    base = os.path.dirname(path) or "."
+    current_label = f"{short_date(CYCLE_START)}–{short_date(CYCLE_END)}"
+    options = [f'<option value="index.html" selected>{current_label} · текущий</option>']
+    prefix = "index-cycle-"
+    for name in sorted(os.listdir(base), reverse=True):
+        if not (name.startswith(prefix) and name.endswith(".html")):
+            continue
+        raw = name[len(prefix):-5]
+        try:
+            start = dt.date.fromisoformat(raw)
+        except ValueError:
+            continue
+        end = cycle_end_for_start(start)
+        options.append(f'<option value="{html.escape(name)}">{short_date(start)}–{short_date(end)} · архив</option>')
+    return '<select id="cycleHistory" aria-label="История циклов" onchange="location.href=this.value">' + "".join(options) + '</select>'
+
+
 def render(records, audit, upsells, collections):
     data_json = json.dumps(records, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     upsell_json = json.dumps(upsells, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
@@ -388,6 +465,21 @@ function applyLanguage(){document.documentElement.lang=LANG;document.querySelect
 document.addEventListener('click',e=>{const l=e.target.closest('[data-lang]');if(l){LANG=l.dataset.lang;localStorage.setItem('dashboardLang',LANG);applyLanguage();return}const p=e.target.closest('[data-page]');if(p){showPage(p.dataset.page);return}const uc=e.target.closest('[data-upsell-curator]');if(uc){showUpsellDetails(uc.dataset.upsellCurator);return}const um=e.target.closest('[data-upsell-month]');if(um){showUpsellDetails('',um.dataset.upsellMonth);return}if(e.target.closest('[data-upsell-reset]')){showUpsellDetails();return}const b=e.target.closest('[data-list]');if(b){if(b.dataset.week){$('period').value=b.dataset.week;render()}openRows(b.dataset.list,b.dataset.curator||'',b.dataset.team||'',Number(b.dataset.limit||0))}});$('period').onchange=render;$('close').onclick=()=>$('modal').hidden=true;$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').hidden=true};['search','from','to'].forEach(id=>$(id).oninput=drawModal);document.querySelectorAll('[name=st]').forEach(x=>x.onchange=drawModal);$('reset').onclick=()=>{$('from').value='';$('to').value='';$('search').value='';document.querySelectorAll('[name=st],[name=grp]').forEach(x=>x.checked=true);drawModal()};applyLanguage();
 const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=await fetch(location.pathname+'?refresh='+Date.now(),{cache:'no-store'}).then(r=>r.text());const doc=new DOMParser().parseFromString(text,'text/html');const stamp=(doc.querySelector('.updated')||{}).textContent||'';if(stamp&&!stamp.includes(PAGE_BUILD))location.reload()}catch(_){}}setInterval(checkForUpdate,5*60*1000);
 </script></body></html>'''
+    archive_previous_dashboard(OUT)
+    cycle_label = f"{short_date(CYCLE_START)}–{short_date(CYCLE_END)}"
+    week_labels = [f"{short_date(start)}–{short_date(end)}" for start, end in CYCLE_WEEKS]
+    old_labels = ["24.09–24.10", "24.09–30.09", "01.10–07.10", "08.10–14.10", "15.10–24.10"]
+    for old, new in zip(old_labels, [cycle_label] + week_labels):
+        document = document.replace(old, new)
+    period_data = {"all": [CYCLE_START.isoformat(), CYCLE_END.isoformat(), cycle_label]}
+    period_data.update({f"w{i}": [start.isoformat(), end.isoformat(), week_labels[i - 1]]
+                        for i, (start, end) in enumerate(CYCLE_WEEKS, 1)})
+    document = re.sub(r"const periods=\{all:.*?\};",
+                      "const periods=" + json.dumps(period_data, ensure_ascii=False, separators=(",", ":")) + ";",
+                      document)
+    history = cycle_archive_options(OUT)
+    if history:
+        document = document.replace('<div class="controls">', '<div class="controls">' + history, 1)
     document = (document.replace("__DATA__", data_json)
                 .replace("__UPSELL_DATA__", upsell_json)
                 .replace("__COLLECTION_DATA__", collection_json)
