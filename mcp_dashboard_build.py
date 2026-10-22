@@ -9,6 +9,7 @@ import os
 import re
 import time
 import urllib.request
+from zoneinfo import ZoneInfo
 
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
 ORG_ID = 6
@@ -196,7 +197,7 @@ def load_data():
             f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
             payments[int(row["sid"])] = row
 
-    today = min(CYCLE_END, dt.datetime.now(dt.timezone(dt.timedelta(hours=5))).date())
+    today = min(CYCLE_END, dt.datetime.now(ZoneInfo("America/Los_Angeles")).date())
     records = []
     test_excluded = 0
     other_admin_excluded = 0
@@ -242,10 +243,16 @@ def load_data():
             continue
         is_package = bool(months and package_start and package_start <= CYCLE_END and
                           package_until > CYCLE_START)
-        # The CRM card already exposes the authoritative total balance. Do not
-        # reconstruct it from historical transactions or trust SUCCESS alone.
-        debt_amount = 0 if is_package else max(0, -balance)
         required = max(0, round(price / months)) if is_package and months else price
+        # Before the scheduled debit, a non-negative balance is only a
+        # prepayment toward this cycle. It counts as paid only when it covers
+        # the full upcoming charge; otherwise the student is still expected.
+        if is_package:
+            debt_amount = 0
+        elif due > today:
+            debt_amount = max(0, required - max(0, balance))
+        else:
+            debt_amount = max(0, -balance)
         amount = required if debt_amount == 0 else max(0, required - debt_amount)
         fully_paid = is_package or debt_amount == 0
         common = {
@@ -357,14 +364,15 @@ const DATA=JSON.parse(document.getElementById('data').textContent),UPSELL_DATA=J
 const I18N={ru:{brandDebt:'⚡ ДОЛГИ',brandCurators:'КУРАТОРЫ',updated:'обновлено',curators:'Кураторы',weeks:'Недели',cycleOption:'📅 Цикл 24.09–24.10',week1:'Неделя 24.09–30.09',week2:'Неделя 01.10–07.10',week3:'Неделя 08.10–14.10',week4:'Неделя 15.10–24.10',of:'из',debtorsPaid:'должников оплатили',needCollect:'Нужно собрать',collected:'Собрано',paid:'Оплатили',stillOwe:'Ещё должны',allStatuses:'СТАТУСЫ // ВСЕ КУРАТОРЫ',ratingTitle:'РЕЙТИНГ КУРАТОРОВ // ПО ВЫПОЛНЕНИЮ ПЛАНА',ratingHint:'белая метка = срок оплаты наступил · отрыв = не оплатили до сегодня',position:'Поз',curator:'Куратор',planTrack:'Трасса к плану',planFact:'План / факт · сбор',gap:'Отрыв',weeksTitle:'НЕДЕЛИ // ДИНАМИКА ЗАКРЫТИЯ',weeksHint:'план, факт, процент, отрыв и сбор по каждой неделе',upsellTitle:'UPSELL // ПАКЕТНЫЕ ПРОДАЖИ',upsellHint:'рейтинг по количеству оплаченных пакетов действующих учеников',upsellRating:'РЕЙТИНГ КУРАТОРОВ // UPSELL',upsellOrder:'сначала количество продаж, затем сумма',salesTrack:'Трасса продаж',months:'3 / 6 / 12 месяцев',sales:'Продажи',amount:'Сумма',showAll:'Показать все',student:'Ученик',tariff:'Тариф',paymentDate:'Дата оплаты',students:'Ученики',searchName:'Поиск по имени',from:'От',to:'До',statuses:'Статусы',latePaid:'Оплатили с опозданием',overdue:'Просрочили',notDue:'Срок не наступил',groups:'Группы',reset:'Сбросить',cycle:'ЦИКЛ',debtCollection:'СБОР ДОЛГОВ',plan:'План',fact:'Факт',percent:'Процент',owe:'Должны',monthsWord:'месяцев',saleWord:'продаж',all:'ВСЕ',noPackages:'Оплаченные пакетные продажи не найдены',noData:'Информация не найдена',paymentDateShort:'Дата оплаты'},uz:{brandDebt:'⚡ QARZLAR',brandCurators:'KURATORLAR',updated:'yangilandi',curators:'Kuratorlar',weeks:'Haftalar',cycleOption:'📅 Sikl 24.09–24.10',week1:'Hafta 24.09–30.09',week2:'Hafta 01.10–07.10',week3:'Hafta 08.10–14.10',week4:'Hafta 15.10–24.10',of:'/',debtorsPaid:'o‘quvchi to‘lov qildi',needCollect:'Yig‘ish kerak',collected:'Yig‘ildi',paid:'To‘lagan',stillOwe:'Hali to‘lashi kerak',allStatuses:'STATUSLAR // BARCHA KURATORLAR',ratingTitle:'KURATORLAR REYTINGI // REJA BAJARILISHI',ratingHint:'oq belgi = to‘lov sanasi kelganlar · farq = bugungacha to‘lamaganlar',position:'O‘rin',curator:'Kurator',planTrack:'Rejaga yo‘l',planFact:'Reja / fakt · yig‘im',gap:'Farq',weeksTitle:'HAFTALAR // YOPILISH DINAMIKASI',weeksHint:'har hafta bo‘yicha reja, fakt, foiz, farq va yig‘im',upsellTitle:'UPSELL // PAKETLI SOTUVLAR',upsellHint:'amaldagi o‘quvchilarning to‘langan paketlari bo‘yicha reyting',upsellRating:'KURATORLAR REYTINGI // UPSELL',upsellOrder:'avval sotuvlar soni, keyin summa',salesTrack:'Sotuvlar yo‘li',months:'3 / 6 / 12 oy',sales:'Sotuvlar',amount:'Summa',showAll:'Barchasini ko‘rsatish',student:'O‘quvchi',tariff:'Tarif',paymentDate:'To‘lov sanasi',students:'O‘quvchilar',searchName:'Ism bo‘yicha qidirish',from:'Dan',to:'Gacha',statuses:'Statuslar',latePaid:'Kechikib to‘lagan',overdue:'Qarzdor',notDue:'Muddati kelmagan',groups:'Guruhlar',reset:'Tozalash',cycle:'SIKL',debtCollection:'QARZ YIG‘IMI',plan:'Reja',fact:'Fakt',percent:'Foiz',owe:'Qarzdor',monthsWord:'oy',saleWord:'sotuv',all:'BARCHA',noPackages:'To‘langan paketli sotuvlar topilmadi',noData:'Ma’lumot topilmadi',paymentDateShort:'To‘lov sanasi'}};
 let LANG=localStorage.getItem('dashboardLang')||'ru';const t=k=>I18N[LANG][k]||I18N.ru[k]||k;
 const periods={all:['2026-09-24','2026-10-24','24.09–24.10'],w1:['2026-09-24','2026-09-30','24.09–30.09'],w2:['2026-10-01','2026-10-07','01.10–07.10'],w3:['2026-10-08','2026-10-14','08.10–14.10'],w4:['2026-10-15','2026-10-24','15.10–24.10']};
-const $=id=>document.getElementById(id),money=n=>Number(n||0).toLocaleString(LANG==='uz'?'uz-UZ':'ru-RU'),compact=n=>(n/1e6).toFixed(1)+' mln',payDate=x=>x.last_paid?x.last_paid.slice(0,10).split('-').reverse().join('.'):"",upsellLabel=x=>{const m=String(x.upsell||'').match(/upsell\s*(3|6|12)/i);return m?'Upsell '+m[1]+' '+(LANG==='uz'?'oy':'мес'):''},rowDate=x=>x.delayed&&x.last_paid?x.last_paid.slice(0,10):x.due,status=x=>x.delayed?'delayed':(x.paid?'paid':(x.due<=TODAY?'overdue':'future'));let current=[],modalBase=[];
+const $=id=>document.getElementById(id),money=n=>Number(n||0).toLocaleString(LANG==='uz'?'uz-UZ':'ru-RU'),compact=n=>(n/1e6).toFixed(1)+' mln',payDate=x=>x.last_paid?x.last_paid.slice(0,10).split('-').reverse().join('.'):"",upsellLabel=x=>{const m=String(x.upsell||'').match(/upsell\s*(3|6|12)/i);return m?'Upsell '+m[1]+' '+(LANG==='uz'?'oy':'мес'):''},rowDate=x=>x.delayed&&x.last_paid?x.last_paid.slice(0,10):x.due,status=x=>x.delayed?'delayed':(x.paid?'paid':((Number(x.balance||0)<0||x.due<=TODAY)?'overdue':'future'));let current=[],modalBase=[];
 const collectionAmount=(a,b)=>COLLECTION_DATA.filter(x=>x.date>=a&&x.date<=b).reduce((s,x)=>s+x.amount,0);
 function pageRows(){const [a,b]=periods[$('period').value];return DATA.filter(x=>rowDate(x)>=a&&rowDate(x)<=b&&x.curator!=='Biriktirilmagan')}
 const debtEligible=x=>x.subscription_status==='active';
+const isOverdue=x=>Number(x.balance||0)<0||x.due<=TODAY;
 const businessStatus=x=>{const a=String(x.analytics_bucket||'').toLowerCase();if(a==='bit')return'finished';if(a==='referral'||x.is_referral||String(x.tariff||'').trim().toUpperCase()==='SARAFAN RADIO')return'referral';if(a==='frozen'||x.subscription_status==='freezed')return'frozen';if(a==='deleted')return'archive';if(x.is_package||x.paid)return'paid';if(x.subscription_status==='archive'||x.subscription_status!=='active')return'archive';return'debt'};
 const isFact=x=>['paid','finished','referral'].includes(businessStatus(x));
-const displayStatus=x=>{const s=businessStatus(x);if(LANG==='uz')return s==='finished'?'Bitirdi':s==='referral'?'Referal':s==='frozen'?'Muzlagan':s==='archive'?'Arxiv':s==='paid'?"To‘lagan":(x.due<=TODAY?'Qarzdor':'Kutilmoqda');return s==='finished'?'Завершил':s==='referral'?'Реферал':s==='frozen'?'Заморожен':s==='archive'?'Архив':s==='paid'?'Оплатил':(x.due<=TODAY?'Должник':'Ожидается')};
-const displayClass=x=>{const s=businessStatus(x);return s==='paid'?'paid':s==='finished'?'delayed':s==='referral'?'future':s==='debt'?(x.due<=TODAY?'overdue':'future'):'archive'};
+const displayStatus=x=>{const s=businessStatus(x);if(LANG==='uz')return s==='finished'?'Bitirdi':s==='referral'?'Referal':s==='frozen'?'Muzlagan':s==='archive'?'Arxiv':s==='paid'?"To‘lagan":(isOverdue(x)?'Qarzdor':'Kutilmoqda');return s==='finished'?'Завершил':s==='referral'?'Реферал':s==='frozen'?'Заморожен':s==='archive'?'Архив':s==='paid'?'Оплатил':(isOverdue(x)?'Должник':'Ожидается')};
+const displayClass=x=>{const s=businessStatus(x);return s==='paid'?'paid':s==='finished'?'delayed':s==='referral'?'future':s==='debt'?(isOverdue(x)?'overdue':'future'):'archive'};
 const displayAmount=x=>businessStatus(x)==='paid'?x.amount:(businessStatus(x)==='debt'?x.debt_amount:0);
 function button(value,type,extra=''){return `<button class="click" data-list="${type}" ${extra}>${value}</button>`}
 function openRows(type,curator='',team='',limit=0){let rows=current.filter(x=>(!curator||x.curator===curator)&&(!team||x.team===team));if(type==='fact')rows=rows.filter(isFact);if(['paid','finished','referral','frozen','archive'].includes(type))rows=rows.filter(x=>businessStatus(x)===type);if(type==='debt')rows=rows.filter(x=>businessStatus(x)==='debt');if(type==='overdue'||type==='gap')rows=rows.filter(x=>businessStatus(x)==='debt'&&x.due<=TODAY);if(type==='future')rows=rows.filter(x=>businessStatus(x)==='debt'&&x.due>TODAY);rows.sort((a,b)=>rowDate(a).localeCompare(rowDate(b))||a.name.localeCompare(b.name));if(limit)rows=rows.slice(0,limit);modalBase=rows;const titles=LANG==='uz'?{all:'REJA tarkibi',fact:'Fakt: To‘lagan + Bitirdi + Referal',paid:'To‘lagan',finished:'Bitirdi',referral:'Referal',frozen:'Muzlagan',archive:'Arxiv',debt:'Barcha to‘lamaganlar',overdue:'Qarzdor',future:'Kutilmoqda',gap:'Farq'}:{all:'Состав плана',fact:'Факт: оплатили + завершили + реферал',paid:'Оплатили',finished:'Завершили',referral:'Реферал',frozen:'Заморожены',archive:'Архив',debt:'Все неоплатившие',overdue:'Должники',future:'Ожидается',gap:'Отрыв'};$('modalTitle').textContent=(curator?curator+' · ':'')+(titles[type]||t('students'));$('from').value=periods[$('period').value][0];$('to').value=periods[$('period').value][1];$('search').value='';document.querySelectorAll('[name=st]').forEach(x=>x.checked=true);const groups=[...new Set(rows.map(x=>x.group))].sort((a,b)=>a.localeCompare(b));$('groupChecks').innerHTML=groups.map(g=>`<label><input type="checkbox" name="grp" value="${g.replaceAll('&','&amp;').replaceAll('"','&quot;')}" checked> ${g}</label>`).join('');document.querySelectorAll('[name=grp]').forEach(x=>x.onchange=drawModal);$('modal').hidden=false;drawModal()}
