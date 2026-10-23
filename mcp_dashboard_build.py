@@ -282,18 +282,15 @@ def load_data():
         is_package = bool(months and package_start and package_start <= CYCLE_END and
                           package_until > CYCLE_START)
         required = max(0, round(price / months)) if is_package and months else price
-        waiting_payment = "kutil" in str(sub.get("payment_status") or "").lower()
-        # A negative balance is debt. A non-negative balance with the CRM
-        # payment state "kutilyabdi" is still expected until enough money is
-        # available to cover the full cycle charge.
+        # Only students whose debit date is still ahead in the selected cycle
+        # are "Kutilmoqda".  The CRM's historical "kutilyabdi" flag is not a
+        # source of truth here because it can remain after the due date.
         if is_package:
             debt_amount = 0
-        elif balance < 0:
-            debt_amount = -balance
-        elif waiting_payment or due > today:
+        elif due > today:
             debt_amount = max(0, required - max(0, balance))
         else:
-            debt_amount = 0
+            debt_amount = max(0, -balance)
         amount = required if debt_amount == 0 else max(0, required - debt_amount)
         fully_paid = is_package or debt_amount == 0
         common = {
