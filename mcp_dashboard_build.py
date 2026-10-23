@@ -464,6 +464,13 @@ function applyLanguage(){document.documentElement.lang=LANG;document.querySelect
 document.addEventListener('click',e=>{const l=e.target.closest('[data-lang]');if(l){LANG=l.dataset.lang;localStorage.setItem('dashboardLang',LANG);applyLanguage();return}const p=e.target.closest('[data-page]');if(p){showPage(p.dataset.page);return}const uc=e.target.closest('[data-upsell-curator]');if(uc){showUpsellDetails(uc.dataset.upsellCurator);return}const um=e.target.closest('[data-upsell-month]');if(um){showUpsellDetails('',um.dataset.upsellMonth);return}if(e.target.closest('[data-upsell-reset]')){showUpsellDetails();return}const b=e.target.closest('[data-list]');if(b){if(b.dataset.week){$('period').value=b.dataset.week;render()}openRows(b.dataset.list,b.dataset.curator||'',b.dataset.team||'',Number(b.dataset.limit||0))}});$('period').onchange=render;$('close').onclick=()=>$('modal').hidden=true;$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').hidden=true};['search','from','to'].forEach(id=>$(id).oninput=drawModal);document.querySelectorAll('[name=st]').forEach(x=>x.onchange=drawModal);$('reset').onclick=()=>{$('from').value='';$('to').value='';$('search').value='';document.querySelectorAll('[name=st],[name=grp]').forEach(x=>x.checked=true);drawModal()};applyLanguage();
 const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=await fetch(location.pathname+'?refresh='+Date.now(),{cache:'no-store'}).then(r=>r.text());const doc=new DOMParser().parseFromString(text,'text/html');const stamp=(doc.querySelector('.updated')||{}).textContent||'';if(stamp&&!stamp.includes(PAGE_BUILD))location.reload()}catch(_){}}setInterval(checkForUpdate,5*60*1000);
 </script></body></html>'''
+    document = document.replace('data-i18n="needCollect">Нужно собрать',
+                                'data-i18n="plan">План')
+    document = document.replace('data-i18n="collected">Собрано',
+                                'data-i18n="fact">Факт')
+    document = document.replace(
+        "need=current.filter(x=>isFact(x)||businessStatus(x)==='debt').reduce((s,x)=>s+x.required,0)",
+        "need=current.reduce((s,x)=>s+x.required,0)")
     archive_previous_dashboard(OUT)
     cycle_label = f"{short_date(CYCLE_START)}–{short_date(CYCLE_END)}"
     week_labels = [f"{short_date(start)}–{short_date(end)}" for start, end in CYCLE_WEEKS]
