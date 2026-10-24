@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import time
 import urllib.request
 from zoneinfo import ZoneInfo
@@ -58,6 +59,14 @@ CURRENT_ADMINS = {13799, 14974, 14241, 14451, 16386, 16005, 21463}
 OUT = os.environ.get("MCP_TEST_OUT", os.path.join(os.path.dirname(__file__), "index.html"))
 SITE_LABEL = os.environ.get("DASHBOARD_LABEL", "MCP TEST")
 ANALYTICS_URL = "https://umarovahmadjon.github.io/junior-dashboard/index.html"
+SNAPSHOT_DIR = os.path.join(os.path.dirname(__file__), "cycle-snapshots")
+PLAN_FIELDS = (
+    "id", "name", "admin_id", "curator", "admin_full", "team", "group", "upsell",
+    "due", "required", "price", "tariff", "is_package", "package_months", "package_until",
+)
+# The current cycle started before immutable snapshots were introduced. Seed it
+# from the last accepted 1,384-student plan; subsequent cycles seed themselves.
+LEGACY_SNAPSHOT_COMMITS = {"2026-09-24": "fa69f142"}
 
 
 def query(sql):
@@ -86,6 +95,52 @@ def chunks(values, size=300):
     values = list(values)
     for pos in range(0, len(values), size):
         yield values[pos:pos + size]
+
+
+def freeze_cycle_plan(live_records):
+    """Keep cycle membership and plan fields fixed; refresh only live results."""
+    os.makedirs(SNAPSHOT_DIR, exist_ok=True)
+    snapshot_path = os.path.join(
+        SNAPSHOT_DIR, f"{CYCLE_START.isoformat()}_{CYCLE_END.isoformat()}.json")
+    created = False
+    if os.path.isfile(snapshot_path):
+        with open(snapshot_path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+        baseline = payload["records"]
+    else:
+        baseline = live_records
+        seed_commit = LEGACY_SNAPSHOT_COMMITS.get(CYCLE_START.isoformat())
+        if seed_commit:
+            try:
+                old_html = subprocess.check_output(
+                    ["git", "show", f"{seed_commit}:index.html"], text=True)
+                match = re.search(
+                    r'<script id="data" type="application/json">(.*?)</script>',
+                    old_html, re.S)
+                if match:
+                    baseline = json.loads(match.group(1))
+            except (OSError, subprocess.CalledProcessError, json.JSONDecodeError):
+                pass
+        payload = {
+            "cycle_start": CYCLE_START.isoformat(),
+            "cycle_end": CYCLE_END.isoformat(),
+            "created_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+            "records": baseline,
+        }
+        with open(snapshot_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
+            handle.write("\n")
+        created = True
+
+    live_by_id = {int(row["id"]): row for row in live_records}
+    frozen = []
+    for base in baseline:
+        row = dict(live_by_id.get(int(base["id"]), base))
+        for field in PLAN_FIELDS:
+            if field in base:
+                row[field] = base[field]
+        frozen.append(row)
+    return frozen, snapshot_path, created
 
 
 def sql_ids(values):
@@ -331,6 +386,7 @@ def load_data():
             "balance": balance,
         })
 
+    records, snapshot_path, snapshot_created = freeze_cycle_plan(records)
     generated_at = dt.datetime.now(dt.timezone.utc)
     audit = {
         "plan_id": int(plan["ID"]),
@@ -347,6 +403,9 @@ def load_data():
         "other_admin_excluded": other_admin_excluded,
         "first_month_excluded": first_month_excluded,
         "expired_package_excluded": expired_package_excluded,
+        "plan_snapshot": os.path.basename(snapshot_path),
+        "plan_snapshot_created": snapshot_created,
+        "plan_locked_students": len(records),
         "generated": generated_at.strftime("%d.%m.%Y %H:%M UTC"),
         "generated_iso": generated_at.isoformat(timespec="seconds"),
         "today": today.isoformat(),
