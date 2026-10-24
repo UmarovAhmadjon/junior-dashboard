@@ -140,7 +140,26 @@ def freeze_cycle_plan(live_records):
             if field in base:
                 row[field] = base[field]
         frozen.append(row)
-    return frozen, snapshot_path, created
+    # An inactive student without a charge in this cycle belongs to an older
+    # cycle even if an old negative balance is still present.  Keep explicit
+    # Bitirdi/Referral cases because business rules count them in plan+fact.
+    def belongs_to_cycle(row):
+        bucket = str(row.get("analytics_bucket") or "").lower()
+        special = (bucket in {"bit", "referral"} or row.get("is_referral") or
+                   str(row.get("tariff") or "").strip().upper() == "SARAFAN RADIO")
+        return special or bool(row.get("student_active", True)) or bool(row.get("current_cycle_taken"))
+
+    corrected = [row for row in frozen if belongs_to_cycle(row)]
+    excluded = len(frozen) - len(corrected)
+    if excluded:
+        kept_ids = {int(row["id"]) for row in corrected}
+        payload["records"] = [row for row in baseline if int(row["id"]) in kept_ids]
+        payload["corrected_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        payload["excluded_previous_cycle"] = excluded
+        with open(snapshot_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
+            handle.write("\n")
+    return corrected, snapshot_path, created, excluded
 
 
 def sql_ids(values):
@@ -267,10 +286,11 @@ def load_data():
     students = {}
     subscriptions = {}
     payments = {}
+    charges = {}
     for part in chunks(ids):
         joined = sql_ids(part)
         for row in query(
-            "SELECT s.ID sid,s.NAME student_name,s.CURRENT_BALANCE balance,sub.ID sub_id,"
+            "SELECT s.ID sid,s.NAME student_name,s.ACTIVE student_active,s.CURRENT_BALANCE balance,sub.ID sub_id,"
             "sub.ACTIVE sub_active,sub.STATUS sub_status,sub.PAYMENT_STATUS payment_status,sub.START_DATE sub_start_date,"
             "(SELECT MIN(s0.START_DATE) FROM subscribe_list s0 WHERE s0.ORG_ID=6 AND s0.STUDENT_ID=s.ID) first_sub_start,"
             "sub.DAY pay_day,COALESCE(NULLIF(sub.SPECIAL_PRICE,0),NULLIF(sub.STANDARD_PRICE_SNAPSHOT,0),0) price,sub.PRICE_TYPE price_type,sub.GROUP_ID group_id,"
@@ -289,6 +309,12 @@ def load_data():
             f"AND TRANSACTION_DATE>='{CYCLE_START}' AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
             f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
             payments[int(row["sid"])] = row
+        for row in query(
+            "SELECT STUDENT_ID sid,MAX(TRANSACTION_DATE) last_taken "
+            "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE='taken' "
+            f"AND TRANSACTION_DATE>='{CYCLE_START}' AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
+            f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
+            charges[int(row["sid"])] = str(row.get("last_taken") or "")
 
     today = min(CYCLE_END, dt.datetime.now(BUSINESS_TZ).date())
     records = []
@@ -360,6 +386,8 @@ def load_data():
                        if str(sub.get("price_type") or "").lower().startswith("upsell") else ""),
             "subscription_status": sub.get("sub_status") or "missing",
             "payment_status": sub.get("payment_status") or "—",
+            "student_active": bool(int(base.get("student_active") or 0)),
+            "current_cycle_taken": charges.get(sid, ""),
             "has_subscription": bool(sub),
             "subscription_start": str(sub.get("sub_start_date") or "")[:10],
             "first_subscription_start": sub_start_raw,
@@ -386,7 +414,7 @@ def load_data():
             "balance": balance,
         })
 
-    records, snapshot_path, snapshot_created = freeze_cycle_plan(records)
+    records, snapshot_path, snapshot_created, previous_cycle_excluded = freeze_cycle_plan(records)
     generated_at = dt.datetime.now(dt.timezone.utc)
     audit = {
         "plan_id": int(plan["ID"]),
@@ -406,6 +434,7 @@ def load_data():
         "plan_snapshot": os.path.basename(snapshot_path),
         "plan_snapshot_created": snapshot_created,
         "plan_locked_students": len(records),
+        "previous_cycle_excluded": previous_cycle_excluded,
         "generated": generated_at.strftime("%d.%m.%Y %H:%M UTC"),
         "generated_iso": generated_at.isoformat(timespec="seconds"),
         "today": today.isoformat(),
