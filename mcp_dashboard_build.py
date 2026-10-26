@@ -73,6 +73,7 @@ PLAN_FIELDS = (
 # from the last accepted 1,384-student plan; subsequent cycles seed themselves.
 LEGACY_SNAPSHOT_COMMITS = {"2026-09-24": "fa69f142"}
 LEGACY_ARCHIVE_COMMITS = {"2026-09-24": "b6ef9031"}
+LEGACY_CLOSING_COMMITS = {"2026-09-24": "fa85707d"}
 
 
 def query(sql):
@@ -188,8 +189,45 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
     """Apply post-cycle receipts to the cycle's frozen outstanding debt."""
     if not REQUESTED_CYCLE or CYCLE_END >= dt.datetime.now(BUSINESS_TZ).date():
         return records, 0
-    with open(snapshot_path, encoding="utf-8") as handle:
-        baseline = json.load(handle).get("records", [])
+    closing_path = snapshot_path.replace(".json", "-closing.json")
+    if os.path.isfile(closing_path):
+        with open(closing_path, encoding="utf-8") as handle:
+            baseline = json.load(handle).get("records", [])
+    else:
+        baseline = []
+        seed_commit = LEGACY_CLOSING_COMMITS.get(CYCLE_START.isoformat())
+        if seed_commit:
+            try:
+                closing_html = subprocess.check_output(
+                    ["git", "show", f"{seed_commit}:index.html"], text=True)
+                match = re.search(
+                    r'<script id="data" type="application/json">(.*?)</script>',
+                    closing_html, re.S)
+                if match:
+                    baseline = json.loads(match.group(1))
+            except (OSError, subprocess.CalledProcessError, json.JSONDecodeError):
+                pass
+        if not baseline:
+            archive_path = os.path.join(
+                os.path.dirname(__file__), f"index-cycle-{CYCLE_START.isoformat()}.html")
+            if os.path.isfile(archive_path):
+                with open(archive_path, encoding="utf-8") as handle:
+                    match = re.search(
+                        r'<script id="data" type="application/json">(.*?)</script>',
+                        handle.read(), re.S)
+                if match:
+                    baseline = json.loads(match.group(1))
+        if not baseline:
+            with open(snapshot_path, encoding="utf-8") as handle:
+                baseline = json.load(handle).get("records", [])
+        with open(closing_path, "w", encoding="utf-8") as handle:
+            json.dump({
+                "cycle_start": CYCLE_START.isoformat(),
+                "cycle_end": CYCLE_END.isoformat(),
+                "closed_at": (CYCLE_END + dt.timedelta(days=1)).isoformat(),
+                "records": baseline,
+            }, handle, ensure_ascii=False, separators=(",", ":"))
+            handle.write("\n")
     baseline_by_id = {int(row["id"]): row for row in baseline}
     debt_ids = [sid for sid, row in baseline_by_id.items()
                 if int(row.get("debt_amount") or 0) > 0]

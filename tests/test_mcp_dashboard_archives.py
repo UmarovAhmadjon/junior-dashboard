@@ -24,6 +24,7 @@ class ArchivedCyclePaymentTests(unittest.TestCase):
                      "last_paid": "2026-10-25 09:00:00"}]
             with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
                   mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "LEGACY_CLOSING_COMMITS", {}),
                   mock.patch.object(dashboard, "query", return_value=late)):
                 rows, applied = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
         self.assertEqual(applied, 400000)
