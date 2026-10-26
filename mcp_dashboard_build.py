@@ -243,12 +243,18 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             late_by_id[int(item["sid"])] = item
     applied_total = 0
     for row in records:
+        live_bucket = str(row.get("analytics_bucket") or "").lower()
         base = baseline_by_id.get(int(row["id"]), {})
         # An archive is derived from its end-of-cycle snapshot, not from the
         # student's newer subscription/balance/status. Only a later receipt
         # is allowed to change the archived result.
         row.clear()
         row.update(base)
+        # A curator can confirm completion/referral after the cycle closes.
+        # Preserve the closing snapshot for every other status, but allow
+        # these two fact-producing CRM corrections to flow into the archive.
+        if live_bucket in {"bit", "referral"}:
+            row["analytics_bucket"] = live_bucket
         old_debt = max(0, int(base.get("debt_amount") or 0))
         late = late_by_id.get(int(row["id"]), {})
         applied = min(old_debt, max(0, int(late.get("amount") or 0)))

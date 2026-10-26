@@ -33,6 +33,26 @@ class ArchivedCyclePaymentTests(unittest.TestCase):
         self.assertTrue(rows[0]["paid"])
         self.assertEqual(rows[0]["analytics_bucket"], "paid")
 
+    def test_confirmed_bitirdi_correction_updates_archive_fact(self):
+        baseline = [{
+            "id": 8, "required": 390000, "amount": 0,
+            "debt_amount": 390000, "paid": False, "partial": False,
+            "payments": 0, "analytics_bucket": "frozen",
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "analytics_bucket": "bit"}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, applied = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertEqual(applied, 0)
+        self.assertEqual(rows[0]["analytics_bucket"], "bit")
+
 
 if __name__ == "__main__":
     unittest.main()
