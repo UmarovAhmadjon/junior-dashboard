@@ -630,11 +630,13 @@ def ensure_legacy_cycle_archives(path):
 
 
 def cycle_archive_options(path):
-    if os.path.basename(path) != "index.html" or os.path.basename(os.path.dirname(path)) == "mcp-test":
+    if os.path.basename(os.path.dirname(path)) == "mcp-test":
         return ""
     base = os.path.dirname(path) or "."
-    current_label = f"{short_date(CYCLE_START)}–{short_date(CYCLE_END)}"
-    options = [f'<option value="index.html" selected>{current_label} · текущий</option>']
+    viewing_archive = bool(REQUESTED_CYCLE)
+    live_start, live_end = current_cycle()
+    live_label = f"{short_date(live_start)}–{short_date(live_end)}"
+    options = [f'<option value="index.html"{"" if viewing_archive else " selected"}>📅 Цикл {live_label} · текущий</option>']
     prefix = "index-cycle-"
     for name in sorted(os.listdir(base), reverse=True):
         if not (name.startswith(prefix) and name.endswith(".html")):
@@ -645,8 +647,9 @@ def cycle_archive_options(path):
         except ValueError:
             continue
         end = cycle_end_for_start(start)
-        options.append(f'<option value="{html.escape(name)}">{short_date(start)}–{short_date(end)} · архив</option>')
-    return '<select id="cycleHistory" aria-label="История циклов" onchange="location.href=this.value">' + "".join(options) + '</select>'
+        selected = " selected" if viewing_archive and start == CYCLE_START else ""
+        options.append(f'<option value="{html.escape(name)}"{selected}>📅 Цикл {short_date(start)}–{short_date(end)} · архив</option>')
+    return '<select id="cycleHistory" aria-label="Выберите цикл" onchange="location.href=this.value">' + "".join(options) + '</select>'
 
 
 def render(records, audit, upsells, collections):
