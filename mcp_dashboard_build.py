@@ -52,7 +52,12 @@ def cycle_periods(start, end):
     return cuts
 
 
-CYCLE_START, CYCLE_END = current_cycle()
+REQUESTED_CYCLE = os.environ.get("DASHBOARD_CYCLE_START", "").strip()
+if REQUESTED_CYCLE:
+    CYCLE_START = dt.date.fromisoformat(REQUESTED_CYCLE)
+    CYCLE_END = cycle_end_for_start(CYCLE_START)
+else:
+    CYCLE_START, CYCLE_END = current_cycle()
 CYCLE_WEEKS = cycle_periods(CYCLE_START, CYCLE_END)
 TEST_ADMINS = {21453}
 CURRENT_ADMINS = {13799, 14974, 14241, 14451, 16386, 16005, 21463}
@@ -179,6 +184,50 @@ def freeze_cycle_plan(live_records):
     return corrected, snapshot_path, created, excluded, due_dates_corrected
 
 
+def apply_late_payments_to_archived_cycle(records, snapshot_path):
+    """Apply post-cycle receipts to the cycle's frozen outstanding debt."""
+    if not REQUESTED_CYCLE or CYCLE_END >= dt.datetime.now(BUSINESS_TZ).date():
+        return records, 0
+    with open(snapshot_path, encoding="utf-8") as handle:
+        baseline = json.load(handle).get("records", [])
+    baseline_by_id = {int(row["id"]): row for row in baseline}
+    debt_ids = [sid for sid, row in baseline_by_id.items()
+                if int(row.get("debt_amount") or 0) > 0]
+    late_by_id = {}
+    for part in chunks(debt_ids):
+        joined = sql_ids(part)
+        for item in query(
+            "SELECT STUDENT_ID sid,SUM(AMOUNT) amount,COUNT(*) payment_count,"
+            "MAX(TRANSACTION_DATE) last_paid FROM transaction_list "
+            "WHERE ORG_ID=6 AND ACTION_TYPE='add' AND STUDENT_TYPE='student' "
+            f"AND TRANSACTION_DATE>='{CYCLE_END + dt.timedelta(days=1)}' "
+            f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
+            late_by_id[int(item["sid"])] = item
+    applied_total = 0
+    for row in records:
+        base = baseline_by_id.get(int(row["id"]), {})
+        # An archive is derived from its end-of-cycle snapshot, not from the
+        # student's newer subscription/balance/status. Only a later receipt
+        # is allowed to change the archived result.
+        row.clear()
+        row.update(base)
+        old_debt = max(0, int(base.get("debt_amount") or 0))
+        late = late_by_id.get(int(row["id"]), {})
+        applied = min(old_debt, max(0, int(late.get("amount") or 0)))
+        row["debt_amount"] = old_debt - applied
+        row["amount"] = min(int(row.get("required") or 0),
+                            max(0, int(base.get("amount") or 0)) + applied)
+        row["partial"] = 0 < row["amount"] < int(row.get("required") or 0)
+        if old_debt and row["debt_amount"] == 0:
+            row["paid"] = True
+            row["analytics_bucket"] = "paid"
+        if applied:
+            row["payments"] = int(base.get("payments") or 0) + int(late.get("payment_count") or 0)
+            row["last_paid"] = str(late.get("last_paid") or row.get("last_paid") or "")
+        applied_total += applied
+    return records, applied_total
+
+
 def sql_ids(values):
     return ",".join(str(int(v)) for v in values) or "0"
 
@@ -281,6 +330,11 @@ def load_data():
     plan = query("SELECT ID,START_DATE,END_DATE,DATA FROM debtors_plan "
                  "WHERE ORG_ID=6 ORDER BY ID DESC LIMIT 1")[0]
     raw_ids = [int(x) for x in json.loads(plan["DATA"])]
+    requested_snapshot = os.path.join(
+        SNAPSHOT_DIR, f"{CYCLE_START.isoformat()}_{CYCLE_END.isoformat()}.json")
+    if REQUESTED_CYCLE and os.path.isfile(requested_snapshot):
+        with open(requested_snapshot, encoding="utf-8") as handle:
+            raw_ids = [int(row["id"]) for row in json.load(handle).get("records", [])]
     # Safety net for omissions in debtors_plan: an active repeat student with
     # a negative authoritative balance must still appear as a debtor.
     admin_ids = ",".join(str(x) for x in sorted(CURRENT_ADMINS))
@@ -441,6 +495,7 @@ def load_data():
         })
 
     records, snapshot_path, snapshot_created, previous_cycle_excluded, due_dates_corrected = freeze_cycle_plan(records)
+    records, archived_late_collected = apply_late_payments_to_archived_cycle(records, snapshot_path)
     generated_at = dt.datetime.now(dt.timezone.utc)
     audit = {
         "plan_id": int(plan["ID"]),
@@ -463,6 +518,7 @@ def load_data():
         "plan_locked_students": len(records),
         "previous_cycle_excluded": previous_cycle_excluded,
         "due_dates_corrected": due_dates_corrected,
+        "archived_late_collected": archived_late_collected,
         "generated": generated_at.strftime("%d.%m.%Y %H:%M UTC"),
         "generated_iso": generated_at.isoformat(timespec="seconds"),
         "today": today.isoformat(),
@@ -491,6 +547,8 @@ def load_data():
         "GROUP BY DATE(TRANSACTION_DATE) ORDER BY paid_date")
     collections = [{"date": str(row["paid_date"])[:10], "amount": int(row["amount"] or 0)}
                    for row in collection_rows]
+    if archived_late_collected:
+        collections.append({"date": CYCLE_END.isoformat(), "amount": archived_late_collected})
     audit["collected_total"] = sum(row["amount"] for row in collections)
     audit["upsell_sales"] = len(upsells)
     return records, audit, upsells, collections
