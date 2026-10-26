@@ -67,6 +67,7 @@ PLAN_FIELDS = (
 # The current cycle started before immutable snapshots were introduced. Seed it
 # from the last accepted 1,384-student plan; subsequent cycles seed themselves.
 LEGACY_SNAPSHOT_COMMITS = {"2026-09-24": "fa69f142"}
+LEGACY_ARCHIVE_COMMITS = {"2026-09-24": "b6ef9031"}
 
 
 def query(sql):
@@ -132,6 +133,18 @@ def freeze_cycle_plan(live_records):
             handle.write("\n")
         created = True
 
+    due_dates_corrected = 0
+    for base in baseline:
+        raw_due = str(base.get("due") or "")[:10]
+        try:
+            payment_day = dt.date.fromisoformat(raw_due).day
+        except ValueError:
+            continue
+        corrected_due = due_date(payment_day).isoformat()
+        if raw_due != corrected_due:
+            base["due"] = corrected_due
+            due_dates_corrected += 1
+
     live_by_id = {int(row["id"]): row for row in live_records}
     frozen = []
     for base in baseline:
@@ -147,19 +160,23 @@ def freeze_cycle_plan(live_records):
         bucket = str(row.get("analytics_bucket") or "").lower()
         special = (bucket in {"bit", "referral"} or row.get("is_referral") or
                    str(row.get("tariff") or "").strip().upper() == "SARAFAN RADIO")
-        return special or bool(row.get("student_active", True)) or bool(row.get("current_cycle_taken"))
+        due = str(row.get("due") or "")[:10]
+        in_cycle = CYCLE_START.isoformat() <= due <= CYCLE_END.isoformat()
+        return in_cycle and (special or bool(row.get("student_active", True)) or
+                             bool(row.get("current_cycle_taken")))
 
     corrected = [row for row in frozen if belongs_to_cycle(row)]
     excluded = len(frozen) - len(corrected)
-    if excluded:
+    if excluded or due_dates_corrected:
         kept_ids = {int(row["id"]) for row in corrected}
         payload["records"] = [row for row in baseline if int(row["id"]) in kept_ids]
         payload["corrected_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
         payload["excluded_previous_cycle"] = excluded
+        payload["due_dates_corrected"] = due_dates_corrected
         with open(snapshot_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
             handle.write("\n")
-    return corrected, snapshot_path, created, excluded
+    return corrected, snapshot_path, created, excluded, due_dates_corrected
 
 
 def sql_ids(values):
@@ -202,9 +219,13 @@ def due_date(day):
         day = int(float(day or 0))
     except (TypeError, ValueError):
         return CYCLE_START
-    if day >= 24:
-        return dt.date(2026, 9, min(day, 30))
-    return dt.date(2026, 10, max(1, min(day, 24)))
+    # A cycle spans the tail of one month and the beginning of the next.
+    # Payment days at/after the cycle's start day belong to the first month;
+    # lower days belong to the second month.  A day beyond CYCLE_END remains
+    # outside this cycle and is filtered from its plan view.
+    target = CYCLE_START if day >= CYCLE_START.day else CYCLE_END
+    safe_day = max(1, min(day, calendar.monthrange(target.year, target.month)[1]))
+    return dt.date(target.year, target.month, safe_day)
 
 
 def add_months(value, months):
@@ -226,8 +247,8 @@ def load_data():
     analytics_rows = load_analytics_rows()
     analytics_buckets = {int(row["id"]): str(row.get("bucket") or "") for row in analytics_rows}
     upsells = []
-    # Upsell means a package bought by an existing student in the current
-    # calendar month. New-student and mixed payments are not Upsell.
+    # Upsell means a package bought by an existing student in this cycle.
+    # New-student and mixed payments are not Upsell.
     for row in query(
         "SELECT sub.STUDENT_ID sid,s.NAME student_name,sub.PRICE_TYPE tariff,"
         "sub.SPECIAL_PRICE package_price,u.NAME admin_name,u.SURNAME admin_surname,"
@@ -237,7 +258,7 @@ def load_data():
         "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
         "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID LEFT JOIN gl_sys_users u ON u.ID=g.ADMIN_ID "
         "JOIN transaction_list t ON t.STUDENT_ID=sub.STUDENT_ID AND t.ORG_ID=6 AND t.ACTION_TYPE='add' "
-        "AND t.TRANSACTION_DATE>='2026-10-01' AND t.TRANSACTION_DATE<'2026-10-25' "
+        f"AND t.TRANSACTION_DATE>='{CYCLE_START}' AND t.TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
         "WHERE sub.ORG_ID=6 AND sub.ACTIVE=1 AND sub.STATUS='active' AND sub.SPECIAL_PRICE>=900000 "
         f"AND sub.START_DATE>='{CYCLE_START}' AND sub.START_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
         "GROUP BY sub.ID HAVING paid_amount>0 AND new_amount=0"):
@@ -277,10 +298,15 @@ def load_data():
     balance_added_ids = balance_candidate_ids - plan_id_set
     ids = sorted(plan_id_set | balance_candidate_ids)
 
+    requested_month_key = CYCLE_END.strftime("%Y-%m")
+    month_key_row = query(
+        "SELECT MAX(MONTH_KEY) month_key FROM debtors_plan_members "
+        f"WHERE ORG_ID=6 AND MONTH_KEY<='{requested_month_key}'")[0]
+    month_key = str(month_key_row.get("month_key") or requested_month_key)
     member = query("SELECT COUNT(*) cnt,COUNT(DISTINCT STUDENT_ID) unique_cnt "
-                   "FROM debtors_plan_members WHERE ORG_ID=6 AND MONTH_KEY='2026-10'")[0]
+                   f"FROM debtors_plan_members WHERE ORG_ID=6 AND MONTH_KEY='{month_key}'")[0]
     member_rows = query("SELECT STUDENT_ID sid,IS_REFERRAL_PLAN is_referral,PRICE_TYPE member_tariff "
-                        "FROM debtors_plan_members WHERE ORG_ID=6 AND MONTH_KEY='2026-10'")
+                        f"FROM debtors_plan_members WHERE ORG_ID=6 AND MONTH_KEY='{month_key}'")
     member_flags = {int(row["sid"]): row for row in member_rows}
 
     students = {}
@@ -414,7 +440,7 @@ def load_data():
             "balance": balance,
         })
 
-    records, snapshot_path, snapshot_created, previous_cycle_excluded = freeze_cycle_plan(records)
+    records, snapshot_path, snapshot_created, previous_cycle_excluded, due_dates_corrected = freeze_cycle_plan(records)
     generated_at = dt.datetime.now(dt.timezone.utc)
     audit = {
         "plan_id": int(plan["ID"]),
@@ -425,6 +451,7 @@ def load_data():
         "balance_debtors_added": len(balance_added_ids),
         "member_rows": int(member["cnt"]),
         "member_unique": int(member["unique_cnt"]),
+        "member_month_key": month_key,
         "missing_subscription": sum(not r["has_subscription"] for r in records),
         "unassigned": sum(not r["admin_id"] for r in records),
         "test_excluded": test_excluded,
@@ -435,6 +462,7 @@ def load_data():
         "plan_snapshot_created": snapshot_created,
         "plan_locked_students": len(records),
         "previous_cycle_excluded": previous_cycle_excluded,
+        "due_dates_corrected": due_dates_corrected,
         "generated": generated_at.strftime("%d.%m.%Y %H:%M UTC"),
         "generated_iso": generated_at.isoformat(timespec="seconds"),
         "today": today.isoformat(),
@@ -477,13 +505,32 @@ def archive_previous_dashboard(path):
         return
     with open(path, encoding="utf-8") as handle:
         previous = handle.read()
-    match = re.search(r"const periods=\{all:\['(\d{4}-\d{2}-\d{2})'", previous)
+    match = re.search(r"const periods=.*?all.*?[\"'](\d{4}-\d{2}-\d{2})[\"']", previous)
     if not match or match.group(1) == CYCLE_START.isoformat():
         return
     target = os.path.join(os.path.dirname(path), f"index-cycle-{match.group(1)}.html")
     if not os.path.exists(target):
         shutil.copyfile(path, target)
         print(f"ARCHIVED dashboard cycle {match.group(1)} -> {target}")
+
+
+def ensure_legacy_cycle_archives(path):
+    if (os.path.basename(path) != "index.html" or
+            os.path.basename(os.path.dirname(path)) == "mcp-test"):
+        return
+    base = os.path.dirname(path) or "."
+    for cycle_start, commit in LEGACY_ARCHIVE_COMMITS.items():
+        target = os.path.join(base, f"index-cycle-{cycle_start}.html")
+        if os.path.exists(target):
+            continue
+        try:
+            previous = subprocess.check_output(
+                ["git", "show", f"{commit}:index.html"], text=True)
+        except (OSError, subprocess.CalledProcessError):
+            continue
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(previous)
+        print(f"RESTORED dashboard cycle {cycle_start} -> {target}")
 
 
 def cycle_archive_options(path):
@@ -570,6 +617,7 @@ const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=
         "g.rows.filter(x=>isFact(x)||(businessStatus(x)==='debt'&&isOverdue(x)))")
     document = document.replace("d.filter(x=>x.due<=TODAY)", "d.filter(isOverdue)")
     archive_previous_dashboard(OUT)
+    ensure_legacy_cycle_archives(OUT)
     cycle_label = f"{short_date(CYCLE_START)}–{short_date(CYCLE_END)}"
     week_labels = [f"{short_date(start)}–{short_date(end)}" for start, end in CYCLE_WEEKS]
     old_labels = ["24.09–24.10", "24.09–30.09", "01.10–07.10", "08.10–14.10", "15.10–24.10"]
