@@ -147,6 +147,27 @@ class ArchivedCyclePaymentTests(unittest.TestCase):
         self.assertTrue(rows[0]["paid"])
         self.assertEqual(rows[0]["analytics_bucket"], "bit")
 
+    def test_any_closing_bitirdi_cannot_be_downgraded_to_archive(self):
+        baseline = [{
+            "id": 15245, "required": 420000, "amount": 0,
+            "debt_amount": 420000, "paid": False, "partial": False,
+            "payments": 0, "analytics_bucket": "bit",
+            "subscription_status": "archive",
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "analytics_bucket": "deleted"}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_START", dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, _ = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertEqual(rows[0]["analytics_bucket"], "bit")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -74,5 +74,17 @@ if os.path.isfile(closing_path):
     archive_fact = sum(status(row) in {"paid", "bit", "referral"} for row in archive.values())
     if archive_fact < closing_fact:
         raise RuntimeError(f"Archive fact decreased: {archive_fact} < {closing_fact}")
+    archive_by_id = archive
+    for row in closing:
+        closing_status = status(row)
+        if closing_status not in {"bit", "referral"}:
+            continue
+        student_id = int(row["id"])
+        archived = archive_by_id.get(student_id)
+        if not archived or status(archived) != closing_status:
+            actual = "missing" if not archived else status(archived)
+            raise RuntimeError(
+                f"Final cycle status regressed: id={student_id}, "
+                f"{closing_status} -> {actual}")
 
 print(f"Validated current={len(current)}, archive={len(archive)}")
