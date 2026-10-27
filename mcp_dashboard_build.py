@@ -231,16 +231,15 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
     baseline_by_id = {int(row["id"]): row for row in baseline}
     debt_ids = [sid for sid, row in baseline_by_id.items()
                 if int(row.get("debt_amount") or 0) > 0]
-    late_by_id = {}
+    payments_by_id = {}
     for part in chunks(debt_ids):
         joined = sql_ids(part)
         for item in query(
-            "SELECT STUDENT_ID sid,SUM(AMOUNT) amount,COUNT(*) payment_count,"
-            "MAX(TRANSACTION_DATE) last_paid FROM transaction_list "
-            "WHERE ORG_ID=6 AND ACTION_TYPE='add' AND STUDENT_TYPE='student' "
-            f"AND TRANSACTION_DATE>='{CYCLE_END + dt.timedelta(days=1)}' "
-            f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
-            late_by_id[int(item["sid"])] = item
+            "SELECT ID,STUDENT_ID sid,STUDENT_TYPE,AMOUNT,TRANSACTION_DATE "
+            "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE='add' "
+            f"AND TRANSACTION_DATE>='{CYCLE_START}' AND STUDENT_ID IN ({joined}) "
+            "ORDER BY STUDENT_ID,ID"):
+            payments_by_id.setdefault(int(item["sid"]), []).append(item)
     applied_total = 0
     for row in records:
         live_bucket = str(row.get("analytics_bucket") or "").lower()
@@ -256,8 +255,16 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         if live_bucket in {"bit", "referral"}:
             row["analytics_bucket"] = live_bucket
         old_debt = max(0, int(base.get("debt_amount") or 0))
-        late = late_by_id.get(int(row["id"]), {})
-        applied = min(old_debt, max(0, int(late.get("amount") or 0)))
+        all_payments = payments_by_id.get(int(row["id"]), [])
+        # payment_count is frozen at cycle close. Taking only newly appended
+        # transaction rows also catches payments entered later with a
+        # backdated transaction date inside the old cycle.
+        new_count = max(0, len(all_payments) - int(base.get("payments") or 0))
+        new_payments = all_payments[-new_count:] if new_count else []
+        debt_payments = [item for item in new_payments
+                         if str(item.get("STUDENT_TYPE") or "") == "student"]
+        new_amount = sum(max(0, int(item.get("AMOUNT") or 0)) for item in debt_payments)
+        applied = min(old_debt, new_amount)
         row["debt_amount"] = old_debt - applied
         row["amount"] = min(int(row.get("required") or 0),
                             max(0, int(base.get("amount") or 0)) + applied)
@@ -266,8 +273,10 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             row["paid"] = True
             row["analytics_bucket"] = "paid"
         if applied:
-            row["payments"] = int(base.get("payments") or 0) + int(late.get("payment_count") or 0)
-            row["last_paid"] = str(late.get("last_paid") or row.get("last_paid") or "")
+            row["payments"] = int(base.get("payments") or 0) + len(new_payments)
+            row["last_paid"] = str(max(
+                (item.get("TRANSACTION_DATE") or "" for item in debt_payments),
+                default=row.get("last_paid") or ""))
         applied_total += applied
     return records, applied_total
 
