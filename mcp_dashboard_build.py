@@ -185,7 +185,10 @@ def freeze_cycle_plan(live_records):
         return in_cycle and (special or bool(row.get("student_active", True)) or
                              bool(row.get("current_cycle_taken")))
 
-    corrected = [row for row in frozen if belongs_to_cycle(row)]
+    # Once a cycle is archived its membership is immutable. Later CRM
+    # deactivation/archive changes only the status, never the frozen plan.
+    corrected = (frozen if REQUESTED_CYCLE else
+                 [row for row in frozen if belongs_to_cycle(row)])
     excluded = len(frozen) - len(corrected)
     if excluded or due_dates_corrected:
         kept_ids = {int(row["id"]) for row in corrected}
