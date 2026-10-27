@@ -271,11 +271,15 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         # The transaction charge is the authoritative obligation for this
         # cycle. A later tariff/subscription price can differ and must not
         # leave a false remainder in an archived cycle.
-        if live_cycle_charge:
+        if (live_cycle_charge and not bool(base.get("paid")) and
+                base_bucket not in {"bit", "referral"}):
             base_amount = max(0, int(base.get("amount") or 0))
             row["cycle_charge_amount"] = live_cycle_charge
             row["required"] = live_cycle_charge
             row["debt_amount"] = max(0, live_cycle_charge - base_amount)
+            if row["debt_amount"] == 0:
+                row["paid"] = True
+                row["analytics_bucket"] = "paid"
         # A curator can confirm completion/referral after the cycle closes.
         # Preserve the closing snapshot for every other status, but allow
         # these two fact-producing CRM corrections to flow into the archive.
