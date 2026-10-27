@@ -126,6 +126,27 @@ class ArchivedCyclePaymentTests(unittest.TestCase):
         self.assertTrue(rows[0]["paid"])
         self.assertEqual(rows[0]["analytics_bucket"], "bit")
 
+    def test_confirmed_archive_bucket_overrides_later_generic_paid_status(self):
+        baseline = [{
+            "id": 9660, "required": 390000, "amount": 390000,
+            "debt_amount": 0, "paid": True, "partial": False,
+            "payments": 1, "analytics_bucket": "paid",
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "analytics_bucket": "paid"}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_START", dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, _ = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertTrue(rows[0]["paid"])
+        self.assertEqual(rows[0]["analytics_bucket"], "bit")
+
 
 if __name__ == "__main__":
     unittest.main()

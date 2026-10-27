@@ -55,7 +55,8 @@ if len(archive) != 1359:
 expected = {
     12180: {"paid", "bit", "referral"},       # Boboxonova Rayxona
     19029: {"paid", "bit", "referral"},       # Shahobiddinov Muhammadqodir
-    8893: {"bit"}, 9660: {"bit"}, 11198: {"bit"}, 13818: {"bit"},
+    7201: {"bit"}, 7363: {"bit"}, 8880: {"bit"}, 8893: {"bit"},
+    9660: {"bit"}, 11198: {"bit"}, 13818: {"bit"},
     17716: {"frozen", "paid", "bit", "referral"},  # Erkinov Ikromjon
 }
 for student_id, allowed in expected.items():

@@ -74,6 +74,20 @@ PLAN_FIELDS = (
 LEGACY_SNAPSHOT_COMMITS = {"2026-09-24": "fa69f142"}
 LEGACY_ARCHIVE_COMMITS = {"2026-09-24": "b6ef9031"}
 LEGACY_CLOSING_COMMITS = {"2026-09-24": "fa85707d"}
+# User-confirmed cycle results are durable checkpoints. CRM can later expose a
+# generic paid/frozen state after a receipt or subscription change; that must
+# not rewrite an already confirmed Bitirdi/Referral result in an old cycle.
+CONFIRMED_ARCHIVE_BUCKETS = {
+    "2026-09-24": {
+        7201: "bit",   # Shadimuratov Nurlibek
+        7363: "bit",   # Ismoilov Ismoiljon
+        8880: "bit",   # Botirov Boburjon
+        8893: "bit",   # Xayrullayeva Parizoda
+        9660: "bit",   # Soatmo'minov Asliddin
+        11198: "bit",  # Rahmataliyev Muhammadrizo
+        13818: "bit",  # Ma'ribjonova Oydinoy
+    },
+}
 
 
 def query(sql):
@@ -241,10 +255,12 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             "ORDER BY STUDENT_ID,ID"):
             payments_by_id.setdefault(int(item["sid"]), []).append(item)
     applied_total = 0
+    confirmed_buckets = CONFIRMED_ARCHIVE_BUCKETS.get(CYCLE_START.isoformat(), {})
     for row in records:
+        student_id = int(row["id"])
         live_bucket = str(row.get("analytics_bucket") or "").lower()
         live_subscription_status = str(row.get("subscription_status") or "").lower()
-        base = baseline_by_id.get(int(row["id"]), {})
+        base = baseline_by_id.get(student_id, {})
         # An archive is derived from its end-of-cycle snapshot, not from the
         # student's newer subscription/balance/status. Only a later receipt
         # is allowed to change the archived result.
@@ -253,7 +269,10 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         # A curator can confirm completion/referral after the cycle closes.
         # Preserve the closing snapshot for every other status, but allow
         # these two fact-producing CRM corrections to flow into the archive.
-        if live_bucket in {"bit", "referral"}:
+        confirmed_bucket = confirmed_buckets.get(student_id)
+        if confirmed_bucket:
+            row["analytics_bucket"] = confirmed_bucket
+        elif live_bucket in {"bit", "referral"}:
             row["analytics_bucket"] = live_bucket
         elif not bool(base.get("paid")):
             if live_bucket in {"frozen", "deleted", "debt"}:
@@ -263,7 +282,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             if live_subscription_status == "freezed":
                 row["subscription_status"] = "freezed"
         old_debt = max(0, int(base.get("debt_amount") or 0))
-        all_payments = payments_by_id.get(int(row["id"]), [])
+        all_payments = payments_by_id.get(student_id, [])
         # payment_count is frozen at cycle close. Taking only newly appended
         # transaction rows also catches payments entered later with a
         # backdated transaction date inside the old cycle.
