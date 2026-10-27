@@ -33,6 +33,32 @@ class ArchivedCyclePaymentTests(unittest.TestCase):
         self.assertTrue(rows[0]["paid"])
         self.assertEqual(rows[0]["analytics_bucket"], "paid")
 
+    def test_cycle_charge_corrects_stale_tariff_before_late_payment(self):
+        baseline = [{
+            "id": 14479, "required": 420000, "amount": 0,
+            "debt_amount": 420000, "paid": False, "partial": False,
+            "payments": 0, "analytics_bucket": "debt",
+        }]
+        payment = [{"ID": 20, "sid": 14479, "STUDENT_TYPE": "student",
+                    "AMOUNT": 350000, "TRANSACTION_DATE": "2026-10-26 00:00:00"}]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "cycle_charge_amount": 350000}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_START", dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=payment)):
+                rows, applied = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertEqual(applied, 350000)
+        self.assertEqual(rows[0]["required"], 350000)
+        self.assertEqual(rows[0]["amount"], 350000)
+        self.assertEqual(rows[0]["debt_amount"], 0)
+        self.assertTrue(rows[0]["paid"])
+
     def test_backdated_payment_entered_after_close_is_applied(self):
         baseline = [{
             "id": 9, "required": 420000, "amount": 0,

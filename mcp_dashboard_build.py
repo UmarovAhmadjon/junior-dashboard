@@ -258,6 +258,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
     confirmed_buckets = CONFIRMED_ARCHIVE_BUCKETS.get(CYCLE_START.isoformat(), {})
     for row in records:
         student_id = int(row["id"])
+        live_cycle_charge = max(0, int(row.get("cycle_charge_amount") or 0))
         live_bucket = str(row.get("analytics_bucket") or "").lower()
         live_subscription_status = str(row.get("subscription_status") or "").lower()
         base = baseline_by_id.get(student_id, {})
@@ -267,6 +268,14 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         # is allowed to change the archived result.
         row.clear()
         row.update(base)
+        # The transaction charge is the authoritative obligation for this
+        # cycle. A later tariff/subscription price can differ and must not
+        # leave a false remainder in an archived cycle.
+        if live_cycle_charge:
+            base_amount = max(0, int(base.get("amount") or 0))
+            row["cycle_charge_amount"] = live_cycle_charge
+            row["required"] = live_cycle_charge
+            row["debt_amount"] = max(0, live_cycle_charge - base_amount)
         # A curator can confirm completion/referral after the cycle closes.
         # Preserve the closing snapshot for every other status, but allow
         # these two fact-producing CRM corrections to flow into the archive.
@@ -286,7 +295,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
                 row["analytics_bucket"] = "frozen"
             if live_subscription_status == "freezed":
                 row["subscription_status"] = "freezed"
-        old_debt = max(0, int(base.get("debt_amount") or 0))
+        old_debt = max(0, int(row.get("debt_amount") or 0))
         all_payments = payments_by_id.get(student_id, [])
         # payment_count is frozen at cycle close. Taking only newly appended
         # transaction rows also catches payments entered later with a
@@ -476,11 +485,11 @@ def load_data():
             f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
             payments[int(row["sid"])] = row
         for row in query(
-            "SELECT STUDENT_ID sid,MAX(TRANSACTION_DATE) last_taken "
+            "SELECT STUDENT_ID sid,MAX(TRANSACTION_DATE) last_taken,SUM(AMOUNT) charge_amount "
             "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE='taken' "
             f"AND TRANSACTION_DATE>='{CYCLE_START}' AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
             f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
-            charges[int(row["sid"])] = str(row.get("last_taken") or "")
+            charges[int(row["sid"])] = row
 
     today = min(CYCLE_END, dt.datetime.now(BUSINESS_TZ).date())
     records = []
@@ -553,7 +562,8 @@ def load_data():
             "subscription_status": sub.get("sub_status") or "missing",
             "payment_status": sub.get("payment_status") or "—",
             "student_active": bool(int(base.get("student_active") or 0)),
-            "current_cycle_taken": charges.get(sid, ""),
+            "current_cycle_taken": str(charges.get(sid, {}).get("last_taken") or ""),
+            "cycle_charge_amount": max(0, int(charges.get(sid, {}).get("charge_amount") or 0)),
             "has_subscription": bool(sub),
             "subscription_start": str(sub.get("sub_start_date") or "")[:10],
             "first_subscription_start": sub_start_raw,
