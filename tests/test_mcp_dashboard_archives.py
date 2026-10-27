@@ -82,6 +82,28 @@ class ArchivedCyclePaymentTests(unittest.TestCase):
         self.assertEqual(applied, 0)
         self.assertEqual(rows[0]["analytics_bucket"], "bit")
 
+    def test_later_freeze_removes_unpaid_student_from_debt(self):
+        baseline = [{
+            "id": 10, "required": 420000, "amount": 0,
+            "debt_amount": 420000, "paid": False, "partial": False,
+            "payments": 0, "analytics_bucket": "debt",
+            "subscription_status": "active",
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "analytics_bucket": "frozen",
+                     "subscription_status": "freezed"}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, _ = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertEqual(rows[0]["analytics_bucket"], "frozen")
+        self.assertEqual(rows[0]["subscription_status"], "freezed")
+
 
 if __name__ == "__main__":
     unittest.main()

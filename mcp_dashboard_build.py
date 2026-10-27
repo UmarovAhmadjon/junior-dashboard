@@ -243,6 +243,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
     applied_total = 0
     for row in records:
         live_bucket = str(row.get("analytics_bucket") or "").lower()
+        live_subscription_status = str(row.get("subscription_status") or "").lower()
         base = baseline_by_id.get(int(row["id"]), {})
         # An archive is derived from its end-of-cycle snapshot, not from the
         # student's newer subscription/balance/status. Only a later receipt
@@ -254,6 +255,13 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         # these two fact-producing CRM corrections to flow into the archive.
         if live_bucket in {"bit", "referral"}:
             row["analytics_bucket"] = live_bucket
+        elif not bool(base.get("paid")):
+            if live_bucket in {"frozen", "deleted", "debt"}:
+                row["analytics_bucket"] = live_bucket
+            elif live_subscription_status == "freezed":
+                row["analytics_bucket"] = "frozen"
+            if live_subscription_status == "freezed":
+                row["subscription_status"] = "freezed"
         old_debt = max(0, int(base.get("debt_amount") or 0))
         all_payments = payments_by_id.get(int(row["id"]), [])
         # payment_count is frozen at cycle close. Taking only newly appended
