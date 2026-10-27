@@ -279,7 +279,8 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         row["partial"] = 0 < row["amount"] < int(row.get("required") or 0)
         if old_debt and row["debt_amount"] == 0:
             row["paid"] = True
-            row["analytics_bucket"] = "paid"
+            if str(row.get("analytics_bucket") or "").lower() not in {"bit", "referral"}:
+                row["analytics_bucket"] = "paid"
         if applied:
             row["payments"] = int(base.get("payments") or 0) + len(new_payments)
             row["last_paid"] = str(max(
