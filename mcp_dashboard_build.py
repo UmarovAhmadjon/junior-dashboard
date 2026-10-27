@@ -271,7 +271,8 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         # The transaction charge is the authoritative obligation for this
         # cycle. A later tariff/subscription price can differ and must not
         # leave a false remainder in an archived cycle.
-        if (live_cycle_charge and not bool(base.get("paid")) and
+        if (live_cycle_charge and int(base.get("debt_amount") or 0) > 0 and
+                not bool(base.get("paid")) and
                 base_bucket not in {"bit", "referral"}):
             base_amount = max(0, int(base.get("amount") or 0))
             row["cycle_charge_amount"] = live_cycle_charge
@@ -489,11 +490,11 @@ def load_data():
             f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
             payments[int(row["sid"])] = row
         for row in query(
-            "SELECT STUDENT_ID sid,MAX(TRANSACTION_DATE) last_taken,SUM(AMOUNT) charge_amount "
+            "SELECT ID,STUDENT_ID sid,TRANSACTION_DATE taken_at,AMOUNT charge_amount "
             "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE='taken' "
             f"AND TRANSACTION_DATE>='{CYCLE_START}' AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
-            f"AND STUDENT_ID IN ({joined}) GROUP BY STUDENT_ID"):
-            charges[int(row["sid"])] = row
+            f"AND STUDENT_ID IN ({joined}) ORDER BY STUDENT_ID,ID"):
+            charges.setdefault(int(row["sid"]), []).append(row)
 
     today = min(CYCLE_END, dt.datetime.now(BUSINESS_TZ).date())
     records = []
@@ -528,6 +529,12 @@ def load_data():
         price = max(0, int(sub.get("price") or 0))
         balance = int(base.get("balance") or 0)
         due = due_date(sub.get("pay_day"))
+        due_charges = [item for item in charges.get(sid, [])
+                       if str(item.get("taken_at") or "")[:10] == due.isoformat()]
+        cycle_charge_amount = sum(max(0, int(item.get("charge_amount") or 0))
+                                  for item in due_charges)
+        cycle_charge_date = str(max(
+            (item.get("taken_at") or "" for item in due_charges), default=""))
         tariff_text = str(sub.get("price_type") or "").strip().lower()
         months = package_months(tariff_text, price)
         package_start_raw = str(sub.get("sub_start_date") or "")[:10]
@@ -566,8 +573,8 @@ def load_data():
             "subscription_status": sub.get("sub_status") or "missing",
             "payment_status": sub.get("payment_status") or "—",
             "student_active": bool(int(base.get("student_active") or 0)),
-            "current_cycle_taken": str(charges.get(sid, {}).get("last_taken") or ""),
-            "cycle_charge_amount": max(0, int(charges.get(sid, {}).get("charge_amount") or 0)),
+            "current_cycle_taken": cycle_charge_date,
+            "cycle_charge_amount": cycle_charge_amount,
             "has_subscription": bool(sub),
             "subscription_start": str(sub.get("sub_start_date") or "")[:10],
             "first_subscription_start": sub_start_raw,
