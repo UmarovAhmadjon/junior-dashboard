@@ -88,6 +88,11 @@ CONFIRMED_ARCHIVE_BUCKETS = {
         13818: "bit",  # Ma'ribjonova Oydinoy
     },
 }
+# Students confirmed as members of an open cycle remain in its frozen plan
+# even if CRM later removes/freezes/archives them.
+CONFIRMED_CYCLE_MEMBER_IDS = {
+    "2026-10-25": {14857},  # Ibragimov Behzodbek
+}
 
 
 def query(sql):
@@ -166,6 +171,13 @@ def freeze_cycle_plan(live_records):
             due_dates_corrected += 1
 
     live_by_id = {int(row["id"]): row for row in live_records}
+    baseline_ids = {int(row["id"]) for row in baseline}
+    confirmed_restored = 0
+    for student_id in CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()):
+        if student_id not in baseline_ids and student_id in live_by_id:
+            baseline.append(dict(live_by_id[student_id]))
+            baseline_ids.add(student_id)
+            confirmed_restored += 1
     frozen = []
     for base in baseline:
         row = dict(live_by_id.get(int(base["id"]), base))
@@ -187,15 +199,16 @@ def freeze_cycle_plan(live_records):
 
     # Once a cycle is archived its membership is immutable. Later CRM
     # deactivation/archive changes only the status, never the frozen plan.
-    corrected = (frozen if REQUESTED_CYCLE else
-                 [row for row in frozen if belongs_to_cycle(row)])
+    corrected = ([row for row in frozen if belongs_to_cycle(row)]
+                 if created else frozen)
     excluded = len(frozen) - len(corrected)
-    if excluded or due_dates_corrected:
+    if excluded or due_dates_corrected or confirmed_restored:
         kept_ids = {int(row["id"]) for row in corrected}
         payload["records"] = [row for row in baseline if int(row["id"]) in kept_ids]
         payload["corrected_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
         payload["excluded_previous_cycle"] = excluded
         payload["due_dates_corrected"] = due_dates_corrected
+        payload["confirmed_members_restored"] = confirmed_restored
         with open(snapshot_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
             handle.write("\n")
@@ -433,6 +446,8 @@ def load_data():
     plan = query("SELECT ID,START_DATE,END_DATE,DATA FROM debtors_plan "
                  "WHERE ORG_ID=6 ORDER BY ID DESC LIMIT 1")[0]
     raw_ids = [int(x) for x in json.loads(plan["DATA"])]
+    raw_ids = sorted(set(raw_ids) |
+                     CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()))
     requested_snapshot = os.path.join(
         SNAPSHOT_DIR, f"{CYCLE_START.isoformat()}_{CYCLE_END.isoformat()}.json")
     if REQUESTED_CYCLE and os.path.isfile(requested_snapshot):

@@ -45,6 +45,11 @@ def validate(path):
 
 
 current = validate("index.html")
+current_confirmed = current.get(14857)
+if not current_confirmed or status(current_confirmed) != "archive":
+    actual = "missing" if not current_confirmed else status(current_confirmed)
+    raise RuntimeError(
+        f"Confirmed current-cycle archive regressed: id=14857, status={actual}")
 archive_path = "index-cycle-2026-09-24.html"
 archive = validate(archive_path)
 if len(archive) != 1359:
