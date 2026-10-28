@@ -86,6 +86,7 @@ CONFIRMED_ARCHIVE_BUCKETS = {
         9660: "bit",   # Soatmo'minov Asliddin
         11198: "bit",  # Rahmataliyev Muhammadrizo
         13818: "bit",  # Ma'ribjonova Oydinoy
+        17716: "frozen",  # Erkinov Ikromjon
     },
 }
 # Students confirmed as members of an open cycle remain in its frozen plan
@@ -275,6 +276,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
     for row in records:
         student_id = int(row["id"])
         live_cycle_charge = max(0, int(row.get("cycle_charge_amount") or 0))
+        live_balance = int(row.get("balance") or 0)
         live_bucket = str(row.get("analytics_bucket") or "").lower()
         live_subscription_status = str(row.get("subscription_status") or "").lower()
         base = baseline_by_id.get(student_id, {})
@@ -284,6 +286,22 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         # is allowed to change the archived result.
         row.clear()
         row.update(base)
+        # The CRM can void/delete a previously created cycle charge (for
+        # example after replacing a subscription).  When the exact charge no
+        # longer exists and the authoritative balance is non-negative, the
+        # frozen debt is no longer real and must not remain on the archive.
+        charge_voided = (int(base.get("debt_amount") or 0) > 0 and
+                bool(base.get("current_cycle_taken")) and
+                not live_cycle_charge and live_balance >= 0 and
+                base_bucket not in {"bit", "referral"})
+        if charge_voided:
+            row["balance"] = live_balance
+            row["cycle_charge_amount"] = 0
+            row["debt_amount"] = 0
+            row["amount"] = int(row.get("required") or 0)
+            row["partial"] = False
+            row["paid"] = True
+            row["analytics_bucket"] = "paid"
         # The transaction charge is the authoritative obligation for this
         # cycle. A later tariff/subscription price can differ and must not
         # leave a false remainder in an archived cycle.
@@ -309,13 +327,15 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             row["analytics_bucket"] = base_bucket
         elif live_bucket in {"bit", "referral"}:
             row["analytics_bucket"] = live_bucket
-        elif not bool(base.get("paid")):
-            if live_bucket in {"frozen", "deleted", "debt"}:
-                row["analytics_bucket"] = live_bucket
-            elif live_subscription_status == "freezed":
+        elif not bool(row.get("paid")):
+            # Generic live archive/freeze changes after cycle close must not
+            # rewrite that cycle's final classification.  Only a later
+            # Bitirdi/Referral confirmation or a real receipt can change it.
+            if live_bucket == "frozen" or live_subscription_status == "freezed":
                 row["analytics_bucket"] = "frozen"
-            if live_subscription_status == "freezed":
                 row["subscription_status"] = "freezed"
+            else:
+                row["analytics_bucket"] = base_bucket
         old_debt = max(0, int(row.get("debt_amount") or 0))
         all_payments = payments_by_id.get(student_id, [])
         # payment_count is frozen at cycle close. Taking only newly appended
@@ -328,8 +348,9 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         new_amount = sum(max(0, int(item.get("AMOUNT") or 0)) for item in debt_payments)
         applied = min(old_debt, new_amount)
         row["debt_amount"] = old_debt - applied
-        row["amount"] = min(int(row.get("required") or 0),
-                            max(0, int(base.get("amount") or 0)) + applied)
+        if not charge_voided:
+            row["amount"] = min(int(row.get("required") or 0),
+                                max(0, int(base.get("amount") or 0)) + applied)
         row["partial"] = 0 < row["amount"] < int(row.get("required") or 0)
         if old_debt and row["debt_amount"] == 0:
             row["paid"] = True
