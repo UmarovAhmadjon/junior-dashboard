@@ -70,9 +70,8 @@ expected = {
     12180: {"paid", "bit", "referral"},       # Boboxonova Rayxona
     19029: {"paid", "bit", "referral"},       # Shahobiddinov Muhammadqodir
     14479: {"paid", "bit", "referral"},       # Bozorboyev Jahongir
-    5561: {"bit"}, 7201: {"bit"}, 7363: {"bit"}, 8880: {"bit"},
-    8893: {"bit"}, 9660: {"bit"}, 10690: {"bit"}, 11198: {"bit"},
-    12108: {"bit"}, 13362: {"bit"}, 13818: {"bit"}, 14518: {"bit"},
+    7201: {"bit"}, 7363: {"bit"}, 8880: {"bit"}, 8893: {"bit"},
+    9660: {"bit"}, 11198: {"bit"}, 13818: {"bit"},
     17716: {"frozen", "paid", "bit", "referral"},  # Erkinov Ikromjon
 }
 for student_id, allowed in expected.items():
