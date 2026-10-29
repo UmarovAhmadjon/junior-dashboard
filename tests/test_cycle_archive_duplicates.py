@@ -56,6 +56,25 @@ class CurrentCycleArchiveDuplicateTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in rows], [14857])
         self.assertEqual(removed, 0)
 
+    def test_second_charge_student_is_added_to_frozen_cycle_plan(self):
+        baseline = [{"id": 1, "name": "Existing", "due": "2026-10-10"}]
+        repeated = {"id": 19020, "name": "Repeat debit", "due": "2026-10-24",
+                    "student_active": True, "current_cycle_taken": "2026-10-24 05:00:02"}
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "2026-09-24_2026-10-24.json")
+            with open(snapshot, "w", encoding="utf-8") as handle:
+                json.dump({"records": baseline}, handle)
+            with (mock.patch.object(dashboard, "SNAPSHOT_DIR", directory),
+                  mock.patch.object(dashboard, "CYCLE_START", dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "CONFIRMED_CYCLE_MEMBER_IDS", {})):
+                rows, _, _, _, _ = dashboard.freeze_cycle_plan(
+                    [baseline[0], repeated], {19020})
+            with open(snapshot, encoding="utf-8") as handle:
+                saved_ids = {int(row["id"]) for row in json.load(handle)["records"]}
+        self.assertEqual({int(row["id"]) for row in rows}, {1, 19020})
+        self.assertEqual(saved_ids, {1, 19020})
+
 
 if __name__ == "__main__":
     unittest.main()

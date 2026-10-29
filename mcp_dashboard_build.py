@@ -125,8 +125,9 @@ def chunks(values, size=300):
         yield values[pos:pos + size]
 
 
-def freeze_cycle_plan(live_records):
+def freeze_cycle_plan(live_records, mandatory_cycle_ids=None):
     """Keep cycle membership and plan fields fixed; refresh only live results."""
+    mandatory_cycle_ids = set(mandatory_cycle_ids or ())
     os.makedirs(SNAPSHOT_DIR, exist_ok=True)
     snapshot_path = os.path.join(
         SNAPSHOT_DIR, f"{CYCLE_START.isoformat()}_{CYCLE_END.isoformat()}.json")
@@ -175,11 +176,21 @@ def freeze_cycle_plan(live_records):
     live_by_id = {int(row["id"]): row for row in live_records}
     baseline_ids = {int(row["id"]) for row in baseline}
     confirmed_restored = 0
-    for student_id in CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()):
+    required_ids = (CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()) |
+                    mandatory_cycle_ids)
+    mandatory_due_corrected = 0
+    for student_id in required_ids:
         if student_id not in baseline_ids and student_id in live_by_id:
             baseline.append(dict(live_by_id[student_id]))
             baseline_ids.add(student_id)
             confirmed_restored += 1
+        elif (student_id in mandatory_cycle_ids and student_id in live_by_id and
+              student_id in baseline_ids):
+            base = next(row for row in baseline if int(row["id"]) == student_id)
+            live_due = str(live_by_id[student_id].get("due") or "")[:10]
+            if live_due and str(base.get("due") or "")[:10] != live_due:
+                base["due"] = live_due
+                mandatory_due_corrected += 1
     frozen = []
     for base in baseline:
         row = dict(live_by_id.get(int(base["id"]), base))
@@ -204,13 +215,14 @@ def freeze_cycle_plan(live_records):
     corrected = ([row for row in frozen if belongs_to_cycle(row)]
                  if created else frozen)
     excluded = len(frozen) - len(corrected)
-    if excluded or due_dates_corrected or confirmed_restored:
+    if excluded or due_dates_corrected or confirmed_restored or mandatory_due_corrected:
         kept_ids = {int(row["id"]) for row in corrected}
         payload["records"] = [row for row in baseline if int(row["id"]) in kept_ids]
         payload["corrected_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
         payload["excluded_previous_cycle"] = excluded
         payload["due_dates_corrected"] = due_dates_corrected
         payload["confirmed_members_restored"] = confirmed_restored
+        payload["mandatory_due_corrected"] = mandatory_due_corrected
         with open(snapshot_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
             handle.write("\n")
@@ -310,6 +322,20 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
                 "records": baseline,
             }, handle, ensure_ascii=False, separators=(",", ":"))
             handle.write("\n")
+    baseline_ids = {int(row["id"]) for row in baseline}
+    added_at_rebuild = [dict(row) for row in records
+                        if int(row["id"]) not in baseline_ids]
+    if added_at_rebuild:
+        baseline.extend(added_at_rebuild)
+        with open(closing_path, "w", encoding="utf-8") as handle:
+            json.dump({
+                "cycle_start": CYCLE_START.isoformat(),
+                "cycle_end": CYCLE_END.isoformat(),
+                "closed_at": (CYCLE_END + dt.timedelta(days=1)).isoformat(),
+                "second_charge_students_added": len(added_at_rebuild),
+                "records": baseline,
+            }, handle, ensure_ascii=False, separators=(",", ":"))
+            handle.write("\n")
     baseline_by_id = {int(row["id"]): row for row in baseline}
     debt_ids = [sid for sid, row in baseline_by_id.items()
                 if int(row.get("debt_amount") or 0) > 0]
@@ -327,6 +353,8 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
     for row in records:
         student_id = int(row["id"])
         live_cycle_charge = max(0, int(row.get("cycle_charge_amount") or 0))
+        live_cycle_taken = str(row.get("current_cycle_taken") or "")
+        live_due = str(row.get("due") or "")[:10]
         live_balance = int(row.get("balance") or 0)
         live_bucket = str(row.get("analytics_bucket") or "").lower()
         live_subscription_status = str(row.get("subscription_status") or "").lower()
@@ -337,6 +365,11 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         # is allowed to change the archived result.
         row.clear()
         row.update(base)
+        if live_cycle_charge:
+            row["cycle_charge_amount"] = live_cycle_charge
+            row["current_cycle_taken"] = live_cycle_taken
+            if live_due:
+                row["due"] = live_due
         # The CRM can void/delete a previously created cycle charge (for
         # example after replacing a subscription).  When the exact charge no
         # longer exists and the authoritative balance is non-negative, the
@@ -525,6 +558,22 @@ def load_data():
     if REQUESTED_CYCLE and os.path.isfile(requested_snapshot):
         with open(requested_snapshot, encoding="utf-8") as handle:
             raw_ids = [int(row["id"]) for row in json.load(handle).get("records", [])]
+    # A repeat debit is an obligation even when the student's first
+    # subscription began inside this same cycle. This covers boundary cases
+    # such as a first payment on the opening day and a second debit on the
+    # closing day of the cycle.
+    second_charge_rows = query(
+        "SELECT DISTINCT t.STUDENT_ID sid FROM transaction_list t "
+        "WHERE t.ORG_ID=6 AND t.ACTION_TYPE='taken' "
+        f"AND t.TRANSACTION_DATE>='{CYCLE_START}' "
+        f"AND t.TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
+        "AND EXISTS (SELECT 1 FROM transaction_list p "
+        "WHERE p.ORG_ID=t.ORG_ID AND p.STUDENT_ID=t.STUDENT_ID "
+        "AND p.ACTION_TYPE='add' AND (p.TRANSACTION_DATE<t.TRANSACTION_DATE "
+        "OR (p.TRANSACTION_DATE=t.TRANSACTION_DATE AND p.ID<t.ID)))")
+    second_charge_ids = {int(row["sid"]) for row in second_charge_rows}
+    second_charge_added_ids = second_charge_ids - set(raw_ids)
+    raw_ids = sorted(set(raw_ids) | second_charge_ids)
     # Safety net for omissions in debtors_plan: an active repeat student with
     # a negative authoritative balance must still appear as a debtor.
     admin_ids = ",".join(str(x) for x in sorted(CURRENT_ADMINS))
@@ -610,7 +659,8 @@ def load_data():
             sub_start = dt.date.fromisoformat(sub_start_raw)
         except ValueError:
             sub_start = None
-        if sub_start and CYCLE_START <= sub_start <= CYCLE_END:
+        if (sub_start and CYCLE_START <= sub_start <= CYCLE_END and
+                sid not in second_charge_ids):
             first_month_excluded += 1
             continue
         full_admin = (str(sub.get("admin_name") or "").strip() + " " +
@@ -619,8 +669,14 @@ def load_data():
         price = max(0, int(sub.get("price") or 0))
         balance = int(base.get("balance") or 0)
         due = due_date(sub.get("pay_day"))
-        due_charges = [item for item in charges.get(sid, [])
-                       if str(item.get("taken_at") or "")[:10] == due.isoformat()]
+        all_cycle_charges = charges.get(sid, [])
+        if sid in second_charge_ids and all_cycle_charges:
+            due_charges = all_cycle_charges
+            due = dt.date.fromisoformat(str(max(
+                item.get("taken_at") or "" for item in due_charges))[:10])
+        else:
+            due_charges = [item for item in all_cycle_charges
+                           if str(item.get("taken_at") or "")[:10] == due.isoformat()]
         cycle_charge_amount = sum(max(0, int(item.get("charge_amount") or 0))
                                   for item in due_charges)
         cycle_charge_date = str(max(
@@ -691,7 +747,8 @@ def load_data():
             "balance": balance,
         })
 
-    records, snapshot_path, snapshot_created, previous_cycle_excluded, due_dates_corrected = freeze_cycle_plan(records)
+    records, snapshot_path, snapshot_created, previous_cycle_excluded, due_dates_corrected = freeze_cycle_plan(
+        records, second_charge_ids)
     records, archive_duplicates_removed = remove_previous_cycle_archive_duplicates(
         records, snapshot_path)
     records, archived_late_collected = apply_late_payments_to_archived_cycle(records, snapshot_path)
@@ -703,10 +760,12 @@ def load_data():
         "raw_ids": len(raw_ids),
         "unique_ids": len(ids),
         "balance_debtors_added": len(balance_added_ids),
+        "second_charge_students": len(second_charge_ids),
+        "second_charge_added": len(second_charge_added_ids),
         "member_rows": int(member["cnt"]),
         "member_unique": int(member["unique_cnt"]),
         "member_month_key": month_key,
-        "missing_subscription": sum(not r["has_subscription"] for r in records),
+        "missing_subscription": sum(not r.get("has_subscription", False) for r in records),
         "unassigned": sum(not r["admin_id"] for r in records),
         "test_excluded": test_excluded,
         "other_admin_excluded": other_admin_excluded,
