@@ -567,10 +567,9 @@ def load_data():
         "WHERE t.ORG_ID=6 AND t.ACTION_TYPE='taken' "
         f"AND t.TRANSACTION_DATE>='{CYCLE_START}' "
         f"AND t.TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
-        "AND EXISTS (SELECT 1 FROM transaction_list p "
-        "WHERE p.ORG_ID=t.ORG_ID AND p.STUDENT_ID=t.STUDENT_ID "
-        "AND p.ACTION_TYPE='add' AND (p.TRANSACTION_DATE<t.TRANSACTION_DATE "
-        "OR (p.TRANSACTION_DATE=t.TRANSACTION_DATE AND p.ID<t.ID)))")
+        "AND DATEDIFF(t.TRANSACTION_DATE,(SELECT MIN(p.TRANSACTION_DATE) "
+        "FROM transaction_list p WHERE p.ORG_ID=t.ORG_ID "
+        "AND p.STUDENT_ID=t.STUDENT_ID AND p.ACTION_TYPE='add'))>=20")
     second_charge_ids = {int(row["sid"]) for row in second_charge_rows}
     second_charge_added_ids = second_charge_ids - set(raw_ids)
     raw_ids = sorted(set(raw_ids) | second_charge_ids)

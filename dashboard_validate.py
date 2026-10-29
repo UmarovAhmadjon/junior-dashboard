@@ -52,8 +52,12 @@ if not current_confirmed or status(current_confirmed) != "archive":
         f"Confirmed current-cycle archive regressed: id=14857, status={actual}")
 archive_path = "index-cycle-2026-09-24.html"
 archive = validate(archive_path)
-if len(archive) != 1507:
-    raise RuntimeError(f"Confirmed archive plan changed: {len(archive)} != 1507")
+if len(archive) != 1426:
+    raise RuntimeError(f"Confirmed archive plan changed: {len(archive)} != 1426")
+if 19167 in archive:
+    raise RuntimeError("First-cycle debit incorrectly entered previous cycle: id=19167")
+if 19167 not in current:
+    raise RuntimeError("Repeat debit missing from current cycle: id=19167")
 for student_id in (19020, 19077):
     if student_id not in archive:
         raise RuntimeError(f"Confirmed second-charge student missing: id={student_id}")
