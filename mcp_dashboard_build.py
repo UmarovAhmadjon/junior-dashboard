@@ -80,13 +80,18 @@ LEGACY_CLOSING_COMMITS = {"2026-09-24": "fa85707d"}
 # not rewrite an already confirmed Bitirdi/Referral result in an old cycle.
 CONFIRMED_ARCHIVE_BUCKETS = {
     "2026-09-24": {
+        5561: "bit",   # Akbarov Davlatjon
         7201: "bit",   # Shadimuratov Nurlibek
         7363: "bit",   # Ismoilov Ismoiljon
         8880: "bit",   # Botirov Boburjon
         8893: "bit",   # Xayrullayeva Parizoda
         9660: "bit",   # Soatmo'minov Asliddin
+        10690: "bit",  # Rivojiddinova Ruhshona
         11198: "bit",  # Rahmataliyev Muhammadrizo
+        12108: "bit",  # Jalolitdinov Abduqaxxor
+        13362: "bit",  # Fazliddinov Azizbek
         13818: "bit",  # Ma'ribjonova Oydinoy
+        14518: "bit",  # Xalilova Ansora
         17716: "frozen",  # Erkinov Ikromjon
     },
 }
