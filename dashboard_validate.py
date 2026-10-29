@@ -55,6 +55,15 @@ archive = validate(archive_path)
 if len(archive) != 1359:
     raise RuntimeError(f"Confirmed archive plan changed: {len(archive)} != 1359")
 
+# These students froze/owed in the previous cycle and only became archived in
+# the current one. They must remain in the previous cycle without appearing in
+# both plans.
+for student_id in (18903, 18909):
+    if student_id not in archive:
+        raise RuntimeError(f"Previous-cycle student disappeared: id={student_id}")
+    if student_id in current:
+        raise RuntimeError(f"Cross-cycle archive duplicate returned: id={student_id}")
+
 # User-confirmed regression cases. These assertions intentionally block a bad
 # auto-update from publishing while still allowing debt to close as paid.
 expected = {

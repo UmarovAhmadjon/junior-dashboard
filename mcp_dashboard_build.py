@@ -3,6 +3,7 @@
 """Local-only MCP prototype. It never writes to the production dashboard."""
 import datetime as dt
 import calendar
+import glob
 import html
 import json
 import os
@@ -214,6 +215,56 @@ def freeze_cycle_plan(live_records):
             json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
             handle.write("\n")
     return corrected, snapshot_path, created, excluded, due_dates_corrected
+
+
+def remove_previous_cycle_archive_duplicates(records, snapshot_path):
+    """Keep an old obligation in its original cycle, not again as current archive."""
+    if REQUESTED_CYCLE:
+        return records, 0
+    previous_files = []
+    for path in glob.glob(os.path.join(SNAPSHOT_DIR, "*-closing.json")):
+        try:
+            with open(path, encoding="utf-8") as handle:
+                payload = json.load(handle)
+            end = dt.date.fromisoformat(str(payload.get("cycle_end") or ""))
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if end < CYCLE_START:
+            previous_files.append((end, path, payload.get("records", [])))
+    if not previous_files:
+        return records, 0
+    _, _, previous = max(previous_files, key=lambda item: item[0])
+    previous_by_id = {int(row["id"]): row for row in previous}
+    protected = CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set())
+
+    def is_duplicate(row):
+        student_id = int(row["id"])
+        old = previous_by_id.get(student_id)
+        if student_id in protected or not old:
+            return False
+        archived = (not bool(row.get("student_active", True)) or
+                    str(row.get("subscription_status") or "").lower() == "archive")
+        no_current_charge = not bool(row.get("current_cycle_taken"))
+        old_obligation = (bool(old.get("current_cycle_taken")) or
+                          int(old.get("debt_amount") or 0) > 0 or
+                          str(old.get("analytics_bucket") or "").lower() in
+                          {"debt", "frozen", "bit", "referral", "deleted"})
+        return archived and no_current_charge and old_obligation
+
+    corrected = [row for row in records if not is_duplicate(row)]
+    removed = len(records) - len(corrected)
+    if removed:
+        kept_ids = {int(row["id"]) for row in corrected}
+        with open(snapshot_path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+        payload["records"] = [row for row in payload.get("records", [])
+                              if int(row["id"]) in kept_ids]
+        payload["previous_cycle_archive_duplicates_removed"] = removed
+        payload["corrected_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        with open(snapshot_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
+            handle.write("\n")
+    return corrected, removed
 
 
 def apply_late_payments_to_archived_cycle(records, snapshot_path):
@@ -641,6 +692,8 @@ def load_data():
         })
 
     records, snapshot_path, snapshot_created, previous_cycle_excluded, due_dates_corrected = freeze_cycle_plan(records)
+    records, archive_duplicates_removed = remove_previous_cycle_archive_duplicates(
+        records, snapshot_path)
     records, archived_late_collected = apply_late_payments_to_archived_cycle(records, snapshot_path)
     generated_at = dt.datetime.now(dt.timezone.utc)
     audit = {
@@ -663,6 +716,7 @@ def load_data():
         "plan_snapshot_created": snapshot_created,
         "plan_locked_students": len(records),
         "previous_cycle_excluded": previous_cycle_excluded,
+        "previous_cycle_archive_duplicates_removed": archive_duplicates_removed,
         "due_dates_corrected": due_dates_corrected,
         "archived_late_collected": archived_late_collected,
         "generated": generated_at.strftime("%d.%m.%Y %H:%M UTC"),
