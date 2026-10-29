@@ -75,6 +75,15 @@ class CurrentCycleArchiveDuplicateTests(unittest.TestCase):
         self.assertEqual({int(row["id"]) for row in rows}, {1, 19020})
         self.assertEqual(saved_ids, {1, 19020})
 
+    def test_repeat_debit_counts_only_latest_obligation_date(self):
+        charges = [
+            {"taken_at": "2026-09-24 05:00:01", "charge_amount": 350000},
+            {"taken_at": "2026-10-24 05:00:02", "charge_amount": 350000},
+        ]
+        latest_date, due_charges = dashboard.latest_charge_rows(charges)
+        self.assertEqual(latest_date, "2026-10-24")
+        self.assertEqual(sum(row["charge_amount"] for row in due_charges), 350000)
+
 
 if __name__ == "__main__":
     unittest.main()

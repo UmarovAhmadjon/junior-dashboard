@@ -78,6 +78,15 @@ for student_id in (19020, 19077):
     if student_id not in archive:
         raise RuntimeError(f"Confirmed second-charge student missing: id={student_id}")
 
+# A cycle can contain both the previous debit and the next monthly debit.
+# Only the latest obligation date may be counted; otherwise one payment is
+# incorrectly shown as partial debt (the regression reported for this student).
+suxrob = archive.get(16746)
+if (not suxrob or status(suxrob) != "paid" or
+        int(suxrob.get("required") or 0) != 350000 or
+        int(suxrob.get("debt_amount") or 0) != 0):
+    raise RuntimeError(f"Latest-debit regression returned: id=16746, row={suxrob}")
+
 # These students froze/owed in the previous cycle and only became archived in
 # the current one. They must remain in the previous cycle without appearing in
 # both plans.

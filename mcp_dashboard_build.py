@@ -498,6 +498,18 @@ def due_date(day):
     return dt.date(target.year, target.month, safe_day)
 
 
+def latest_charge_rows(charge_rows):
+    """Return debit rows belonging only to the latest obligation date."""
+    if not charge_rows:
+        return "", []
+    latest_date = max(str(row.get("taken_at") or "")[:10]
+                      for row in charge_rows)
+    return latest_date, [
+        row for row in charge_rows
+        if str(row.get("taken_at") or "")[:10] == latest_date
+    ]
+
+
 def add_months(value, months):
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
@@ -674,9 +686,12 @@ def load_data():
         due = due_date(sub.get("pay_day"))
         all_cycle_charges = charges.get(sid, [])
         if sid in second_charge_ids and all_cycle_charges:
-            due_charges = all_cycle_charges
-            due = dt.date.fromisoformat(str(max(
-                item.get("taken_at") or "" for item in due_charges))[:10])
+            # A repeat payer can have both the opening-day debit and the next
+            # monthly debit inside one reporting cycle.  Only the latest due
+            # date is this cycle's obligation; summing every debit makes one
+            # monthly payment look like a partial payment.
+            latest_charge_date, due_charges = latest_charge_rows(all_cycle_charges)
+            due = dt.date.fromisoformat(latest_charge_date)
         else:
             due_charges = [item for item in all_cycle_charges
                            if str(item.get("taken_at") or "")[:10] == due.isoformat()]
