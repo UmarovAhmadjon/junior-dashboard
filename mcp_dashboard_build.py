@@ -517,23 +517,27 @@ def load_data():
     analytics_rows = load_analytics_rows()
     analytics_buckets = {int(row["id"]): str(row.get("bucket") or "") for row in analytics_rows}
     upsells = []
-    # Upsell means a package bought by an existing student in this cycle.
-    # New-student and mixed payments are not Upsell.
+    # Upsell means package-sized payments made by an existing student in the
+    # selected cycle. The payment is authoritative: CRM can keep the package
+    # subscription's old start date or replace it with a monthly subscription,
+    # which must not make a real sale disappear from this report.
     for row in query(
-        "SELECT sub.STUDENT_ID sid,s.NAME student_name,sub.PRICE_TYPE tariff,"
-        "sub.SPECIAL_PRICE package_price,u.NAME admin_name,u.SURNAME admin_surname,"
+        "SELECT s.ID sid,s.NAME student_name,sub.PRICE_TYPE tariff,"
+        "u.NAME admin_name,u.SURNAME admin_surname,"
         "SUM(CASE WHEN t.STUDENT_TYPE='student' THEN t.AMOUNT ELSE 0 END) paid_amount,"
         "SUM(CASE WHEN t.STUDENT_TYPE='new_student' THEN t.AMOUNT ELSE 0 END) new_amount,"
         "MAX(CASE WHEN t.STUDENT_TYPE='student' THEN t.TRANSACTION_DATE END) paid_date "
-        "FROM subscribe_list sub JOIN student_list s ON s.ID=sub.STUDENT_ID "
-        "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID LEFT JOIN gl_sys_users u ON u.ID=g.ADMIN_ID "
-        "JOIN transaction_list t ON t.STUDENT_ID=sub.STUDENT_ID AND t.ORG_ID=6 AND t.ACTION_TYPE='add' "
+        "FROM student_list s JOIN transaction_list t ON t.STUDENT_ID=s.ID "
+        "AND t.ORG_ID=6 AND t.ACTION_TYPE='add' "
         f"AND t.TRANSACTION_DATE>='{CYCLE_START}' AND t.TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
-        "WHERE sub.ORG_ID=6 AND sub.ACTIVE=1 AND sub.STATUS='active' AND sub.SPECIAL_PRICE>=900000 "
-        f"AND sub.START_DATE>='{CYCLE_START}' AND sub.START_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
-        "GROUP BY sub.ID HAVING paid_amount>0 AND new_amount=0"):
+        "LEFT JOIN subscribe_list sub ON sub.ID=(SELECT sub2.ID FROM subscribe_list sub2 "
+        "WHERE sub2.ORG_ID=6 AND sub2.STUDENT_ID=s.ID "
+        "ORDER BY sub2.ACTIVE DESC,sub2.ID DESC LIMIT 1) "
+        "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID LEFT JOIN gl_sys_users u ON u.ID=g.ADMIN_ID "
+        "WHERE s.ORG_ID=6 GROUP BY s.ID,s.NAME,sub.PRICE_TYPE,u.NAME,u.SURNAME "
+        "HAVING paid_amount>=900000 AND new_amount=0"):
         tariff = str(row.get("tariff") or "").strip()
-        package_price = int(row.get("package_price") or 0)
+        package_price = int(row.get("paid_amount") or 0)
         month_match = re.search(r"(?:upsell|nasiya)\s*(3|6|12)|(?:^|\D)(3|6|12)(?:\D|$)", tariff, re.I)
         explicit_months = int(next((value for value in month_match.groups() if value), 0)) if month_match else 0
         months = explicit_months or (12 if package_price >= 2500000 else (6 if package_price >= 1750000 else 3))

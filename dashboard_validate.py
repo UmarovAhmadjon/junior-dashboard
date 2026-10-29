@@ -15,6 +15,16 @@ def records(path):
     return json.loads(match.group(1))
 
 
+def embedded_rows(path, element_id):
+    with open(path, encoding="utf-8") as handle:
+        match = re.search(
+            rf'<script id="{element_id}" type="application/json">(.*?)</script>',
+            handle.read(), re.S)
+    if not match:
+        raise RuntimeError(f"Missing {element_id}: {path}")
+    return json.loads(match.group(1))
+
+
 def status(row):
     bucket = str(row.get("analytics_bucket") or "").lower()
     if bucket == "bit":
@@ -45,6 +55,12 @@ def validate(path):
 
 
 current = validate("index.html")
+upsell_ids = {int(row["id"]) for row in embedded_rows("index.html", "upsell-data")}
+for student_id in (11198, 11668):
+    if student_id not in upsell_ids:
+        raise RuntimeError(f"Confirmed Upsell sale missing: id={student_id}")
+if 16746 in upsell_ids:
+    raise RuntimeError("Ordinary monthly payment incorrectly shown as Upsell: id=16746")
 current_confirmed = current.get(14857)
 if not current_confirmed or status(current_confirmed) != "archive":
     actual = "missing" if not current_confirmed else status(current_confirmed)
