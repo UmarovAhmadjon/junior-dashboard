@@ -87,6 +87,13 @@ if (not suxrob or status(suxrob) != "paid" or
         int(suxrob.get("debt_amount") or 0) != 0):
     raise RuntimeError(f"Latest-debit regression returned: id=16746, row={suxrob}")
 
+for student_id in (14857, 16534, 18921):
+    row = archive.get(student_id)
+    if not row or status(row) != "archive":
+        actual = "missing" if not row else status(row)
+        raise RuntimeError(
+            f"Inactive archived student returned as debtor: id={student_id}, status={actual}")
+
 # These students froze/owed in the previous cycle and only became archived in
 # the current one. They must remain in the previous cycle without appearing in
 # both plans.

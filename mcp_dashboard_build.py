@@ -358,6 +358,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         live_balance = int(row.get("balance") or 0)
         live_bucket = str(row.get("analytics_bucket") or "").lower()
         live_subscription_status = str(row.get("subscription_status") or "").lower()
+        live_student_active = bool(row.get("student_active"))
         base = baseline_by_id.get(student_id, {})
         base_bucket = str(base.get("analytics_bucket") or "").lower()
         # An archive is derived from its end-of-cycle snapshot, not from the
@@ -412,12 +413,23 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         elif live_bucket in {"bit", "referral"}:
             row["analytics_bucket"] = live_bucket
         elif not bool(row.get("paid")):
-            # Generic live archive/freeze changes after cycle close must not
-            # rewrite that cycle's final classification.  Only a later
-            # Bitirdi/Referral confirmation or a real receipt can change it.
-            if live_bucket == "frozen" or live_subscription_status == "freezed":
+            # Preserve a freeze that was already the cycle's first terminal
+            # signal, even if the student is archived later. Otherwise allow
+            # the current CRM terminal state to remove an inactive student
+            # from the actionable debtor list while keeping the obligation in
+            # the original cycle plan.
+            if base_bucket == "frozen":
                 row["analytics_bucket"] = "frozen"
                 row["subscription_status"] = "freezed"
+            elif live_bucket == "frozen" or live_subscription_status == "freezed":
+                row["analytics_bucket"] = "frozen"
+                row["subscription_status"] = "freezed"
+            elif (live_bucket == "deleted" or
+                  live_subscription_status == "archive" or
+                  not live_student_active):
+                row["analytics_bucket"] = "deleted"
+                row["subscription_status"] = "archive"
+                row["student_active"] = False
             else:
                 row["analytics_bucket"] = base_bucket
         old_debt = max(0, int(row.get("debt_amount") or 0))

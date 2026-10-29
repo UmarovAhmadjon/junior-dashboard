@@ -130,6 +130,50 @@ class ArchivedCyclePaymentTests(unittest.TestCase):
         self.assertEqual(rows[0]["analytics_bucket"], "frozen")
         self.assertEqual(rows[0]["subscription_status"], "freezed")
 
+    def test_later_archive_removes_inactive_student_from_debt(self):
+        baseline = [{
+            "id": 14857, "required": 350000, "amount": 0,
+            "debt_amount": 350000, "paid": False, "partial": False,
+            "payments": 0, "analytics_bucket": "debt",
+            "subscription_status": "active", "student_active": True,
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "subscription_status": "archive",
+                     "student_active": False}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, _ = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertEqual(rows[0]["analytics_bucket"], "deleted")
+        self.assertEqual(rows[0]["subscription_status"], "archive")
+        self.assertFalse(rows[0]["student_active"])
+
+    def test_closing_freeze_stays_frozen_after_later_archive(self):
+        baseline = [{
+            "id": 18903, "required": 420000, "amount": 0,
+            "debt_amount": 420000, "paid": False, "partial": False,
+            "payments": 0, "analytics_bucket": "frozen",
+            "subscription_status": "freezed", "student_active": True,
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "subscription_status": "archive",
+                     "student_active": False}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, _ = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertEqual(rows[0]["analytics_bucket"], "frozen")
+
     def test_bitirdi_remains_bitirdi_after_late_payment(self):
         baseline = [{
             "id": 11, "required": 390000, "amount": 0,
