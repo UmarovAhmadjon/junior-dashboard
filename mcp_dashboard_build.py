@@ -87,6 +87,9 @@ CONFIRMED_ARCHIVE_BUCKETS = {
         9660: "bit",   # Soatmo'minov Asliddin
         11198: "bit",  # Rahmataliyev Muhammadrizo
         13818: "bit",  # Ma'ribjonova Oydinoy
+        5561: "bit",   # Akbarov Davlatjon
+        10690: "bit",  # Rivojiddinova Ruhshona
+        14518: "bit",  # Xalilova Ansora
         17716: "frozen",  # Erkinov Ikromjon
     },
 }

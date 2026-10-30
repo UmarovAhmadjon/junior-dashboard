@@ -111,6 +111,7 @@ for student_id in (18903, 18909):
 # User-confirmed regression cases. These assertions intentionally block a bad
 # auto-update from publishing while still allowing debt to close as paid.
 expected = {
+    5561: {"bit"}, 10690: {"bit"}, 14518: {"bit"},  # Marjona historical fact
     12180: {"paid", "bit", "referral"},       # Boboxonova Rayxona
     19029: {"paid", "bit", "referral"},       # Shahobiddinov Muhammadqodir
     14479: {"paid", "bit", "referral"},       # Bozorboyev Jahongir
