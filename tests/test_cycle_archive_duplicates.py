@@ -84,6 +84,10 @@ class CurrentCycleArchiveDuplicateTests(unittest.TestCase):
         self.assertEqual(latest_date, "2026-10-24")
         self.assertEqual(sum(row["charge_amount"] for row in due_charges), 350000)
 
+    def test_package_sale_accepts_carried_credit_plus_cycle_payment(self):
+        self.assertTrue(dashboard.package_sale_is_covered(990000, 280000, 710000))
+        self.assertFalse(dashboard.package_sale_is_covered(990000, -100000, 710000))
+
 
 if __name__ == "__main__":
     unittest.main()

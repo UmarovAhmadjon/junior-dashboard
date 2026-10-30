@@ -537,6 +537,12 @@ def package_months(tariff, price):
     return 12 if price >= 2500000 else (6 if price >= 1750000 else (3 if price >= 900000 else 0))
 
 
+def package_sale_is_covered(package_price, prior_balance, paid_after):
+    """A package is paid by carried credit plus receipts after its debit."""
+    return (max(0, int(prior_balance or 0)) +
+            max(0, int(paid_after or 0)) >= int(package_price or 0))
+
+
 def load_data():
     analytics_rows = load_analytics_rows()
     analytics_buckets = {int(row["id"]): str(row.get("bucket") or "") for row in analytics_rows}
@@ -576,6 +582,56 @@ def load_data():
             "amount": max(0, int(row.get("paid_amount") or 0)),
             "sale_date": ".".join(str(row.get("paid_date") or "")[:10].split("-")[::-1]),
         })
+    # A package can also be closed partly by positive credit carried into the
+    # cycle.  Looking only at receipts inside the cycle misses such a paid
+    # sale (for example 280k carried credit + 710k receipt for a 990k pack).
+    upsell_ids = {int(row["id"]) for row in upsells}
+    for row in query(
+        "SELECT t.STUDENT_ID sid,s.NAME student_name,t.AMOUNT package_price,"
+        "t.TRANSACTION_DATE charge_date,sub.PRICE_TYPE tariff,"
+        "u.NAME admin_name,u.SURNAME admin_surname,"
+        "(SELECT COALESCE(SUM(CASE WHEN h.ACTION_TYPE='add' THEN h.AMOUNT "
+        "WHEN h.ACTION_TYPE='taken' THEN -h.AMOUNT ELSE 0 END),0) "
+        "FROM transaction_list h WHERE h.ORG_ID=6 AND h.STUDENT_ID=t.STUDENT_ID "
+        "AND h.TRANSACTION_DATE<t.TRANSACTION_DATE) prior_balance,"
+        "(SELECT COALESCE(SUM(p.AMOUNT),0) FROM transaction_list p "
+        "WHERE p.ORG_ID=6 AND p.STUDENT_ID=t.STUDENT_ID AND p.ACTION_TYPE='add' "
+        "AND p.STUDENT_TYPE='student' AND p.TRANSACTION_DATE>=t.TRANSACTION_DATE "
+        f"AND p.TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}') paid_after,"
+        "(SELECT MAX(p.TRANSACTION_DATE) FROM transaction_list p "
+        "WHERE p.ORG_ID=6 AND p.STUDENT_ID=t.STUDENT_ID AND p.ACTION_TYPE='add' "
+        "AND p.STUDENT_TYPE='student' AND p.TRANSACTION_DATE>=t.TRANSACTION_DATE "
+        f"AND p.TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}') paid_date "
+        "FROM transaction_list t JOIN student_list s ON s.ID=t.STUDENT_ID "
+        "LEFT JOIN subscribe_list sub ON sub.ID=(SELECT sub2.ID FROM subscribe_list sub2 "
+        "WHERE sub2.ORG_ID=6 AND sub2.STUDENT_ID=s.ID "
+        "ORDER BY sub2.ACTIVE DESC,sub2.ID DESC LIMIT 1) "
+        "LEFT JOIN group_list g ON g.ID=sub.GROUP_ID LEFT JOIN gl_sys_users u ON u.ID=g.ADMIN_ID "
+        "WHERE t.ORG_ID=6 AND t.ACTION_TYPE='taken' AND t.AMOUNT>=900000 "
+        f"AND t.TRANSACTION_DATE>='{CYCLE_START}' "
+        f"AND t.TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
+        "AND EXISTS (SELECT 1 FROM transaction_list old WHERE old.ORG_ID=6 "
+        "AND old.STUDENT_ID=t.STUDENT_ID AND old.ACTION_TYPE='add' "
+        f"AND old.TRANSACTION_DATE<'{CYCLE_START}')"):
+        sid = int(row["sid"])
+        package_price = max(0, int(row.get("package_price") or 0))
+        if sid in upsell_ids or not package_sale_is_covered(
+                package_price, row.get("prior_balance"), row.get("paid_after")):
+            continue
+        tariff = str(row.get("tariff") or "").strip()
+        full_admin = (str(row.get("admin_name") or "").strip() + " " +
+                      str(row.get("admin_surname") or "").strip()).strip()
+        upsells.append({
+            "id": sid,
+            "name": row.get("student_name") or f"Student {sid}",
+            "curator": short_name(full_admin),
+            "months": package_months(tariff, package_price),
+            "tariff": tariff,
+            "amount": package_price,
+            "sale_date": ".".join(str(row.get("paid_date") or
+                                       row.get("charge_date") or "")[:10].split("-")[::-1]),
+        })
+        upsell_ids.add(sid)
     plan = query("SELECT ID,START_DATE,END_DATE,DATA FROM debtors_plan "
                  "WHERE ORG_ID=6 ORDER BY ID DESC LIMIT 1")[0]
     raw_ids = [int(x) for x in json.loads(plan["DATA"])]

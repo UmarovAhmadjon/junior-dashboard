@@ -68,6 +68,11 @@ if not current_confirmed or status(current_confirmed) != "archive":
         f"Confirmed current-cycle archive regressed: id=14857, status={actual}")
 archive_path = "index-cycle-2026-09-24.html"
 archive = validate(archive_path)
+archive_upsell_ids = {
+    int(row["id"]) for row in embedded_rows(archive_path, "upsell-data")
+}
+if 17036 not in archive_upsell_ids:
+    raise RuntimeError("Carried-credit Upsell sale missing: id=17036")
 if len(archive) != 1426:
     raise RuntimeError(f"Confirmed archive plan changed: {len(archive)} != 1426")
 if 19167 in archive:
