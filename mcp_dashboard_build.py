@@ -546,6 +546,16 @@ def package_sale_is_covered(package_price, prior_balance, paid_after):
             max(0, int(paid_after or 0)) >= int(package_price or 0))
 
 
+def is_demo_student(subscription, student_id, active_trial_ids, student_active=True):
+    """Demo/trial students never belong to debt plan, fact, or gap."""
+    status = str(subscription.get("sub_status") or "").lower()
+    sub_type = str(subscription.get("sub_type") or "").lower()
+    is_active = str(student_active).strip().lower() in {"1", "true"}
+    return (status == "demo" or sub_type == "demo" or
+            (int(student_id) in active_trial_ids and
+             not is_active and status == "archive"))
+
+
 def load_data():
     analytics_rows = load_analytics_rows()
     analytics_buckets = {int(row["id"]): str(row.get("bucket") or "") for row in analytics_rows}
@@ -692,11 +702,12 @@ def load_data():
     subscriptions = {}
     payments = {}
     charges = {}
+    active_trial_ids = set()
     for part in chunks(ids):
         joined = sql_ids(part)
         for row in query(
             "SELECT s.ID sid,s.NAME student_name,s.ACTIVE student_active,s.CURRENT_BALANCE balance,sub.ID sub_id,"
-            "sub.ACTIVE sub_active,sub.STATUS sub_status,sub.PAYMENT_STATUS payment_status,sub.START_DATE sub_start_date,"
+            "sub.ACTIVE sub_active,sub.STATUS sub_status,sub.TYPE sub_type,sub.PAYMENT_STATUS payment_status,sub.START_DATE sub_start_date,"
             "(SELECT MIN(s0.START_DATE) FROM subscribe_list s0 WHERE s0.ORG_ID=6 AND s0.STUDENT_ID=s.ID) first_sub_start,"
             "sub.DAY pay_day,COALESCE(NULLIF(sub.SPECIAL_PRICE,0),NULLIF(sub.STANDARD_PRICE_SNAPSHOT,0),0) price,sub.PRICE_TYPE price_type,sub.GROUP_ID group_id,"
             "g.NAME group_name,g.ADMIN_ID admin_id,u.NAME admin_name,u.SURNAME admin_surname,u.TEAM_ID team_id "
@@ -720,13 +731,40 @@ def load_data():
             f"AND TRANSACTION_DATE>='{CYCLE_START}' AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
             f"AND STUDENT_ID IN ({joined}) ORDER BY STUDENT_ID,ID"):
             charges.setdefault(int(row["sid"]), []).append(row)
+        for row in query(
+            "SELECT DISTINCT STUDENT_ID sid FROM trial_lesson_list "
+            "WHERE ORG_ID=6 AND ACTIVE=1 AND STATUS IN ('active','demo') "
+            f"AND STUDENT_ID IN ({joined})"):
+            active_trial_ids.add(int(row["sid"]))
+
+    # A frozen plan can still contain a student who has since disappeared
+    # from the live debtors source. Detect inactive trial-only students
+    # globally so stale snapshot rows cannot re-enter the gap calculation.
+    inactive_trial_ids = {
+        int(row["sid"]) for row in query(
+            "SELECT DISTINCT tl.STUDENT_ID sid FROM trial_lesson_list tl "
+            "JOIN student_list s ON s.ID=tl.STUDENT_ID AND s.ORG_ID=tl.ORG_ID "
+            "WHERE tl.ORG_ID=6 AND tl.ACTIVE=1 AND tl.STATUS IN ('active','demo') "
+            "AND s.ACTIVE=0 AND NOT EXISTS (SELECT 1 FROM subscribe_list sub "
+            "WHERE sub.ORG_ID=tl.ORG_ID AND sub.STUDENT_ID=tl.STUDENT_ID "
+            "AND sub.ACTIVE=1 AND sub.STATUS IN ('active','freezed'))")
+    }
 
     today = min(CYCLE_END, dt.datetime.now(BUSINESS_TZ).date())
     records = []
     test_excluded = 0
     other_admin_excluded = 0
     first_month_excluded = 0
+    demo_excluded = 0
     expired_package_excluded = 0
+    demo_student_ids = {
+        sid for sid in ids
+        if is_demo_student(subscriptions.get(sid, {}), sid, active_trial_ids,
+                           students.get(sid, {}).get("student_active"))
+    }
+    demo_student_ids.update(inactive_trial_ids)
+    demo_student_ids.difference_update(
+        CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()))
     for sid in ids:
         base = students.get(sid, {})
         sub = subscriptions.get(sid, {})
@@ -736,6 +774,9 @@ def load_data():
             continue
         if admin_id and admin_id not in CURRENT_ADMINS:
             other_admin_excluded += 1
+            continue
+        if sid in demo_student_ids:
+            demo_excluded += 1
             continue
         # Debtors are repeat monthly payers only. A student whose current
         # subscription started inside this cycle is still in month one and
@@ -838,6 +879,10 @@ def load_data():
 
     records, snapshot_path, snapshot_created, previous_cycle_excluded, due_dates_corrected = freeze_cycle_plan(
         records, second_charge_ids)
+    # Frozen cycle membership can contain an earlier monthly row for a student
+    # who is now confirmed as demo/trial. Remove those rows from every current
+    # calculation even when the snapshot still has the stale active status.
+    records = [row for row in records if int(row["id"]) not in demo_student_ids]
     records, archive_duplicates_removed = remove_previous_cycle_archive_duplicates(
         records, snapshot_path)
     records, archived_late_collected = apply_late_payments_to_archived_cycle(records, snapshot_path)
@@ -859,6 +904,7 @@ def load_data():
         "test_excluded": test_excluded,
         "other_admin_excluded": other_admin_excluded,
         "first_month_excluded": first_month_excluded,
+        "demo_excluded": demo_excluded,
         "expired_package_excluded": expired_package_excluded,
         "plan_snapshot": os.path.basename(snapshot_path),
         "plan_snapshot_created": snapshot_created,

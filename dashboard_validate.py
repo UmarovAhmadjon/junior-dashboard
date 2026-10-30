@@ -55,6 +55,8 @@ def validate(path):
 
 
 current = validate("index.html")
+if 20291 in current:
+    raise RuntimeError("Active demo student entered current debt plan: id=20291")
 upsell_ids = {int(row["id"]) for row in embedded_rows("index.html", "upsell-data")}
 for student_id in (11198, 11668):
     if student_id not in upsell_ids:

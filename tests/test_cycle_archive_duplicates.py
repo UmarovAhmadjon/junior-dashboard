@@ -88,6 +88,20 @@ class CurrentCycleArchiveDuplicateTests(unittest.TestCase):
         self.assertTrue(dashboard.package_sale_is_covered(990000, 280000, 710000))
         self.assertFalse(dashboard.package_sale_is_covered(990000, -100000, 710000))
 
+    def test_active_trial_student_is_excluded_from_debt_plan(self):
+        self.assertTrue(dashboard.is_demo_student(
+            {"sub_status": "archive", "sub_type": "monthly", "sub_active": 0},
+            20291, {20291}, False))
+        self.assertTrue(dashboard.is_demo_student(
+            {"sub_status": "demo", "sub_type": "monthly", "sub_active": 1},
+            7, set(), True))
+        self.assertFalse(dashboard.is_demo_student(
+            {"sub_status": "active", "sub_type": "monthly", "sub_active": 1},
+            7, {7}, True))
+        self.assertFalse(dashboard.is_demo_student(
+            {"sub_status": "freezed", "sub_type": "monthly", "sub_active": 1},
+            8, {8}, True))
+
 
 if __name__ == "__main__":
     unittest.main()
