@@ -100,6 +100,10 @@ CONFIRMED_CYCLE_MEMBER_IDS = {
 }
 
 
+def demo_exclusions_enabled(cycle_start):
+    return cycle_start.isoformat() not in LEGACY_ARCHIVE_COMMITS
+
+
 def query(sql):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                        "params": {"name": "query_db", "arguments": {"sql": sql}}}).encode()
@@ -757,14 +761,22 @@ def load_data():
     first_month_excluded = 0
     demo_excluded = 0
     expired_package_excluded = 0
-    demo_student_ids = {
-        sid for sid in ids
-        if is_demo_student(subscriptions.get(sid, {}), sid, active_trial_ids,
-                           students.get(sid, {}).get("student_active"))
-    }
-    demo_student_ids.update(inactive_trial_ids)
-    demo_student_ids.difference_update(
-        CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()))
+    # Demo/trial cleanup belongs to open-cycle planning.  Applying it to a
+    # confirmed legacy archive rewrites that cycle's frozen denominator and
+    # drops valid historical rows merely because CRM changed them later.
+    # Keep the approved archive intact while filtering demos from the current
+    # and all future cycles.
+    if not demo_exclusions_enabled(CYCLE_START):
+        demo_student_ids = set()
+    else:
+        demo_student_ids = {
+            sid for sid in ids
+            if is_demo_student(subscriptions.get(sid, {}), sid, active_trial_ids,
+                               students.get(sid, {}).get("student_active"))
+        }
+        demo_student_ids.update(inactive_trial_ids)
+        demo_student_ids.difference_update(
+            CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()))
     for sid in ids:
         base = students.get(sid, {})
         sub = subscriptions.get(sid, {})

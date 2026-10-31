@@ -9,6 +9,10 @@ import mcp_dashboard_build as dashboard
 
 
 class ArchivedCyclePaymentTests(unittest.TestCase):
+    def test_demo_cleanup_does_not_rewrite_confirmed_legacy_archive(self):
+        self.assertFalse(dashboard.demo_exclusions_enabled(dt.date(2026, 9, 24)))
+        self.assertTrue(dashboard.demo_exclusions_enabled(dt.date(2026, 10, 25)))
+
     def test_late_payment_is_capped_by_frozen_old_debt(self):
         baseline = [{
             "id": 7, "required": 420000, "amount": 20000,
