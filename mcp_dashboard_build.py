@@ -368,6 +368,9 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         live_student_active = bool(row.get("student_active"))
         base = baseline_by_id.get(student_id, {})
         base_bucket = str(base.get("analytics_bucket") or "").lower()
+        base_is_referral = (base_bucket == "referral" or
+                            bool(base.get("is_referral")) or
+                            str(base.get("tariff") or "").strip().upper() == "SARAFAN RADIO")
         # An archive is derived from its end-of-cycle snapshot, not from the
         # student's newer subscription/balance/status. Only a later receipt
         # is allowed to change the archived result.
@@ -413,7 +416,12 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         confirmed_bucket = confirmed_buckets.get(student_id)
         if confirmed_bucket:
             row["analytics_bucket"] = confirmed_bucket
-        elif base_bucket in {"bit", "referral"}:
+        elif base_is_referral:
+            # Referral can be encoded by the frozen tariff rather than the
+            # analytics bucket.  It is still a final cycle result and must
+            # win over a later CRM Bitirdi/archive state.
+            row["analytics_bucket"] = "referral"
+        elif base_bucket == "bit":
             # A completed/referral result is final for its cycle. Later CRM
             # archival, freezing or payment must not lower that cycle's fact.
             row["analytics_bucket"] = base_bucket

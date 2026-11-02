@@ -9,6 +9,26 @@ import mcp_dashboard_build as dashboard
 
 
 class ArchivedCyclePaymentTests(unittest.TestCase):
+    def test_sarafan_referral_remains_referral_after_later_completion(self):
+        baseline = [{
+            "id": 8988, "required": 390000, "amount": 0,
+            "debt_amount": 390000, "paid": False, "partial": False,
+            "payments": 0, "analytics_bucket": "debt",
+            "tariff": "sarafan radio",
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            live = [{**baseline[0], "analytics_bucket": "bit"}]
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, _ = dashboard.apply_late_payments_to_archived_cycle(live, snapshot)
+        self.assertEqual(rows[0]["analytics_bucket"], "referral")
+
     def test_demo_cleanup_does_not_rewrite_confirmed_legacy_archive(self):
         self.assertFalse(dashboard.demo_exclusions_enabled(dt.date(2026, 9, 24)))
         self.assertTrue(dashboard.demo_exclusions_enabled(dt.date(2026, 10, 25)))
