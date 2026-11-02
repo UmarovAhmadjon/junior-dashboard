@@ -91,6 +91,14 @@ CONFIRMED_ARCHIVE_BUCKETS = {
         10690: "bit",  # Rivojiddinova Ruhshona
         14518: "bit",  # Xalilova Ansora
         17716: "frozen",  # Erkinov Ikromjon
+        19033: "referral",  # Xakimov Shahzod
+    },
+}
+# Confirmed receipts from the closed cycle that CRM shows in its ledger but
+# the original frozen snapshot failed to apply to the matching debit.
+CONFIRMED_ARCHIVE_PAYMENTS = {
+    "2026-09-24": {
+        11418: 350000,  # Shavkatova Gulnigor, paid 30.09.2026
     },
 }
 # Students confirmed as members of an open cycle remain in its frozen plan
@@ -357,6 +365,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             payments_by_id.setdefault(int(item["sid"]), []).append(item)
     applied_total = 0
     confirmed_buckets = CONFIRMED_ARCHIVE_BUCKETS.get(CYCLE_START.isoformat(), {})
+    confirmed_payments = CONFIRMED_ARCHIVE_PAYMENTS.get(CYCLE_START.isoformat(), {})
     for row in records:
         student_id = int(row["id"])
         live_cycle_charge = max(0, int(row.get("cycle_charge_amount") or 0))
@@ -447,6 +456,14 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
                 row["student_active"] = False
             else:
                 row["analytics_bucket"] = base_bucket
+        confirmed_payment = int(confirmed_payments.get(student_id) or 0)
+        if confirmed_payment:
+            row["required"] = confirmed_payment
+            row["amount"] = confirmed_payment
+            row["debt_amount"] = 0
+            row["paid"] = True
+            row["partial"] = False
+            row["analytics_bucket"] = "paid"
         old_debt = max(0, int(row.get("debt_amount") or 0))
         all_payments = payments_by_id.get(student_id, [])
         # payment_count is frozen at cycle close. Taking only newly appended
@@ -459,7 +476,7 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
         new_amount = sum(max(0, int(item.get("AMOUNT") or 0)) for item in debt_payments)
         applied = min(old_debt, new_amount)
         row["debt_amount"] = old_debt - applied
-        if not charge_voided:
+        if not charge_voided and not confirmed_payment:
             row["amount"] = min(int(row.get("required") or 0),
                                 max(0, int(base.get("amount") or 0)) + applied)
         row["partial"] = 0 < row["amount"] < int(row.get("required") or 0)

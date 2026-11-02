@@ -9,6 +9,35 @@ import mcp_dashboard_build as dashboard
 
 
 class ArchivedCyclePaymentTests(unittest.TestCase):
+    def test_confirmed_gulnigor_receipt_closes_archived_debt(self):
+        baseline = [{
+            "id": 11418, "required": 390000, "amount": 0,
+            "debt_amount": 390000, "paid": False, "partial": False,
+            "payments": 1, "last_paid": "2026-09-30 00:00:00",
+            "analytics_bucket": "",
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot.json")
+            closing = snapshot.replace(".json", "-closing.json")
+            for path in (snapshot, closing):
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump({"records": baseline}, handle)
+            with (mock.patch.object(dashboard, "REQUESTED_CYCLE", "2026-09-24"),
+                  mock.patch.object(dashboard, "CYCLE_START", dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, "CYCLE_END", dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, "query", return_value=[])):
+                rows, _ = dashboard.apply_late_payments_to_archived_cycle(
+                    [{**baseline[0]}], snapshot)
+        self.assertTrue(rows[0]["paid"])
+        self.assertEqual(rows[0]["amount"], 350000)
+        self.assertEqual(rows[0]["required"], 350000)
+        self.assertEqual(rows[0]["debt_amount"], 0)
+
+    def test_confirmed_shahzod_referral_is_not_in_archived_gap(self):
+        self.assertEqual(
+            dashboard.CONFIRMED_ARCHIVE_BUCKETS["2026-09-24"][19033],
+            "referral")
+
     def test_sarafan_referral_remains_referral_after_later_completion(self):
         baseline = [{
             "id": 8988, "required": 390000, "amount": 0,
