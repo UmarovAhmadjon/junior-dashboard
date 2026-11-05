@@ -1149,7 +1149,7 @@ const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=
                 .replace("__COLLECTION_DATA__", collection_json)
                 .replace("__GENERATED_ISO__", html.escape(audit["generated_iso"]))
                 .replace("__GENERATED__", html.escape(audit["generated"]))
-                .replace("__SITE_LABEL__", html.escape('ТАСДИҚЛАНГАН ПЛАН' if approved_plan else SITE_LABEL))
+                .replace("__SITE_LABEL__", html.escape(SITE_LABEL))
                 .replace("__TODAY__", audit["today"]))
     if approved_plan:
         document = approved_cycle_plan.apply_document(document, approved_plan)

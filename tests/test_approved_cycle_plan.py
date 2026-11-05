@@ -16,11 +16,13 @@ class ApprovedCycleTests(unittest.TestCase):
         self.assertIsNone(approved_cycle_plan.load('2026-09-24', '2026-10-24'))
         self.assertIsNone(approved_cycle_plan.load('2026-11-25', '2026-12-24'))
 
-    def test_cards_open_complete_cycle_or_overdue_subset(self):
+    def test_approved_data_does_not_add_layout_or_styles(self):
         plan = approved_cycle_plan.load('2026-10-25', '2026-11-23')
-        document = approved_cycle_plan.apply_document(
-            '</head><div class="page" id="curatorPage">', plan)
-        for name in plan['expected']:
-            self.assertIn(f'data-curator="{name}" data-week="all"', document)
-        self.assertIn('data-list="overdue" data-week="all">267', document)
-        self.assertIn('data-list="all" data-week="all">1517', document)
+        original = '<style>.panel{color:red}</style></head><div class="page" id="curatorPage"><div class="hero">existing layout</div></div>'
+        self.assertEqual(approved_cycle_plan.apply_document(original, plan), original)
+
+    def test_existing_debt_card_opens_overdue_subset(self):
+        plan = approved_cycle_plan.load('2026-10-25', '2026-11-23')
+        original = '<button data-list="debt" id="debtCard">267</button>'
+        self.assertEqual(approved_cycle_plan.apply_document(original, plan),
+                         '<button data-list="overdue" id="debtCard">267</button>')
