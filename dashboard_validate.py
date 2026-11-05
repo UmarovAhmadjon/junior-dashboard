@@ -26,6 +26,8 @@ def embedded_rows(path, element_id):
 
 
 def status(row):
+    if row.get('approved_status'):
+        return row['approved_status']
     bucket = str(row.get("analytics_bucket") or "").lower()
     if bucket == "bit":
         return "bit"
@@ -49,12 +51,23 @@ def validate(path):
     for row in rows:
         if row.get("paid") and int(row.get("debt_amount") or 0) > 0:
             raise RuntimeError(f"Paid student still has debt in {path}: {row['id']}")
-        if status(row) == "debt" and row.get("subscription_status") == "freezed":
+        if (status(row) == "debt" and row.get("subscription_status") == "freezed"
+                and not row.get('approved_overdue')):
             raise RuntimeError(f"Frozen student shown as debtor in {path}: {row['id']}")
     return {int(row["id"]): row for row in rows}
 
 
 current = validate("index.html")
+approved_current = bool(current) and all('approved_status' in r for r in current.values())
+if approved_current:
+    import approved_cycle_plan
+    approved = approved_cycle_plan.load('2026-10-25', '2026-11-23')
+    if set(current) != {r['id'] for r in approved['records']}:
+        raise RuntimeError('Approved cycle membership changed')
+    for name, (total, debt) in approved['expected'].items():
+        selected = [r for r in current.values() if r['curator'] == name]
+        if len(selected) != total or sum(r['approved_overdue'] for r in selected) != debt:
+            raise RuntimeError(f'Approved curator counts changed: {name}')
 if 20291 in current:
     raise RuntimeError("Active demo student entered current debt plan: id=20291")
 upsell_ids = {int(row["id"]) for row in embedded_rows("index.html", "upsell-data")}
@@ -64,7 +77,7 @@ for student_id in (11198, 11668):
 if 16746 in upsell_ids:
     raise RuntimeError("Ordinary monthly payment incorrectly shown as Upsell: id=16746")
 current_confirmed = current.get(14857)
-if not current_confirmed or status(current_confirmed) != "archive":
+if not approved_current and (not current_confirmed or status(current_confirmed) != "archive"):
     actual = "missing" if not current_confirmed else status(current_confirmed)
     raise RuntimeError(
         f"Confirmed current-cycle archive regressed: id=14857, status={actual}")
@@ -79,7 +92,7 @@ if len(archive) != 1426:
     raise RuntimeError(f"Confirmed archive plan changed: {len(archive)} != 1426")
 if 19167 in archive:
     raise RuntimeError("First-cycle debit incorrectly entered previous cycle: id=19167")
-if 19167 not in current:
+if not approved_current and 19167 not in current:
     raise RuntimeError("Repeat debit missing from current cycle: id=19167")
 for student_id in (19020, 19077):
     if student_id not in archive:

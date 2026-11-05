@@ -1046,6 +1046,13 @@ def cycle_archive_options(path):
 
 
 def render(records, audit, upsells, collections):
+    import approved_cycle_plan
+    approved_plan = approved_cycle_plan.load(CYCLE_START, CYCLE_END)
+    if approved_plan:
+        records = approved_plan['records']
+        collections = approved_plan['collections']
+        audit = {**audit, 'generated_iso': approved_plan['as_of'],
+                 'generated': '05.11.2026 20:21', 'today': '2026-11-05'}
     data_json = json.dumps(records, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     upsell_json = json.dumps(upsells, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     collection_json = json.dumps(collections, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
@@ -1142,8 +1149,10 @@ const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=
                 .replace("__COLLECTION_DATA__", collection_json)
                 .replace("__GENERATED_ISO__", html.escape(audit["generated_iso"]))
                 .replace("__GENERATED__", html.escape(audit["generated"]))
-                .replace("__SITE_LABEL__", html.escape(SITE_LABEL))
+                .replace("__SITE_LABEL__", html.escape('ТАСДИҚЛАНГАН ПЛАН' if approved_plan else SITE_LABEL))
                 .replace("__TODAY__", audit["today"]))
+    if approved_plan:
+        document = approved_cycle_plan.apply_document(document, approved_plan)
     with open(OUT, "w", encoding="utf-8") as handle:
         handle.write(document)
     print(json.dumps({"output": OUT, "audit": audit, "records": len(records)}, ensure_ascii=False, indent=2))
