@@ -28,14 +28,18 @@ class ApprovedCycleTests(unittest.TestCase):
         embedded = lambda key: json.loads(re.search(
             '<script id="'+key+'" type="application/json">(.*?)</script>',page,re.S).group(1))
         self.assertEqual(embedded('collection-data'), live)
-        self.assertEqual(len(embedded('data')), 1517)
+        self.assertEqual(len(embedded('data')), 1518)
         self.assertIn(audit['generated_iso'], page)
 
     def test_user_approved_totals_and_excluded_cases(self):
         plan = approved_cycle_plan.load('2026-10-25', '2026-11-23')
         rows = plan['records']
-        self.assertEqual(len(rows), 1517)
+        self.assertEqual(len(rows), 1518)
         self.assertEqual(sum(r['approved_overdue'] for r in rows), 267)
+        ashurov = next(r for r in rows if r['id'] == 13278)
+        self.assertEqual(ashurov['due'], '2026-11-18')
+        self.assertFalse(ashurov['approved_overdue'])
+        self.assertEqual(ashurov['curator'], 'Marjona')
         self.assertTrue(all(r['subscription_status'] in ('active', 'freezed') for r in rows))
         self.assertFalse({15982, 14857, 19167} & {r['id'] for r in rows})
         self.assertTrue(any(r['subscription_status'] == 'freezed' and r['approved_overdue'] for r in rows))
