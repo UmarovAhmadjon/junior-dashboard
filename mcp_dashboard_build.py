@@ -975,6 +975,7 @@ def load_data():
         "SELECT DATE(TRANSACTION_DATE) paid_date,SUM(AMOUNT) amount "
         "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE='add' AND STUDENT_TYPE='student' "
         f"AND TRANSACTION_DATE>='{CYCLE_START}' AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
+        "AND TRANSACTION_DATE<=NOW() "
         "GROUP BY DATE(TRANSACTION_DATE) ORDER BY paid_date")
     collections = [{"date": str(row["paid_date"])[:10], "amount": int(row["amount"] or 0)}
                    for row in collection_rows]
@@ -1050,9 +1051,8 @@ def render(records, audit, upsells, collections):
     approved_plan = approved_cycle_plan.load(CYCLE_START, CYCLE_END)
     if approved_plan:
         records = approved_plan['records']
-        collections = approved_plan['collections']
-        audit = {**audit, 'generated_iso': approved_plan['as_of'],
-                 'generated': '05.11.2026 20:21', 'today': '2026-11-05'}
+        # Approval freezes the roster/counts, not Student Kassa receipts.
+        # Keep the live collections and their actual refresh timestamp.
     data_json = json.dumps(records, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     upsell_json = json.dumps(upsells, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     collection_json = json.dumps(collections, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")

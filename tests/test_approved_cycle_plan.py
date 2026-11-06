@@ -1,8 +1,36 @@
 import unittest
+import datetime as dt
+import json
+import re
+import tempfile
+from pathlib import Path
+from unittest import mock
 import approved_cycle_plan
+import mcp_dashboard_build as dashboard
 
 
 class ApprovedCycleTests(unittest.TestCase):
+    def test_roster_approval_preserves_live_student_kassa_and_timestamp(self):
+        live = [{'date': '2026-11-06', 'amount': 123456}]
+        audit = {'generated_iso':'2026-11-06T12:14:32+05:00',
+                 'generated':'06.11.2026 12:14', 'today':'2026-11-06'}
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'index.html'
+            with (mock.patch.object(dashboard, 'OUT', str(target)),
+                  mock.patch.object(dashboard, 'CYCLE_START', dt.date(2026,10,25)),
+                  mock.patch.object(dashboard, 'CYCLE_END', dt.date(2026,11,23)),
+                  mock.patch.object(dashboard, 'archive_previous_dashboard'),
+                  mock.patch.object(dashboard, 'ensure_legacy_cycle_archives'),
+                  mock.patch.object(dashboard, 'cycle_archive_options', return_value=''),
+                  mock.patch('builtins.print')):
+                dashboard.render([], audit, [], live)
+            page = target.read_text()
+        embedded = lambda key: json.loads(re.search(
+            '<script id="'+key+'" type="application/json">(.*?)</script>',page,re.S).group(1))
+        self.assertEqual(embedded('collection-data'), live)
+        self.assertEqual(len(embedded('data')), 1517)
+        self.assertIn(audit['generated_iso'], page)
+
     def test_user_approved_totals_and_excluded_cases(self):
         plan = approved_cycle_plan.load('2026-10-25', '2026-11-23')
         rows = plan['records']
