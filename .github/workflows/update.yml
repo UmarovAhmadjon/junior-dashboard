@@ -37,8 +37,17 @@ jobs:
           JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: |
           MCP_TEST_OUT=index.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
-          DASHBOARD_CYCLE_START=2026-09-24 MCP_TEST_OUT=index-cycle-2026-09-24.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
           MCP_TEST_OUT=mcp-test/index.html DASHBOARD_LABEL="MCP TEST" python3 mcp_dashboard_build.py
+
+      # A temporary archived CRM report outage must not block current payments.
+      # On failure the previously published archive remains untouched.
+      - name: Refresh historical archive independently
+        continue-on-error: true
+        env:
+          CRM_PHONE: ${{ secrets.CRM_PHONE }}
+          CRM_PASS: ${{ secrets.CRM_PASS }}
+          JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
+        run: DASHBOARD_CYCLE_START=2026-09-24 MCP_TEST_OUT=index-cycle-2026-09-24.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
 
       - name: Validate confirmed business rules
         run: python3 dashboard_validate.py

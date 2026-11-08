@@ -19,6 +19,7 @@ class ApprovedCycleTests(unittest.TestCase):
             with (mock.patch.object(dashboard, 'OUT', str(target)),
                   mock.patch.object(dashboard, 'CYCLE_START', dt.date(2026,10,25)),
                   mock.patch.object(dashboard, 'CYCLE_END', dt.date(2026,11,23)),
+                  mock.patch.object(approved_cycle_plan, 'refresh_payments', return_value=approved_cycle_plan.load('2026-10-25', '2026-11-23')['records']),
                   mock.patch.object(dashboard, 'archive_previous_dashboard'),
                   mock.patch.object(dashboard, 'ensure_legacy_cycle_archives'),
                   mock.patch.object(dashboard, 'cycle_archive_options', return_value=''),
@@ -58,3 +59,37 @@ class ApprovedCycleTests(unittest.TestCase):
         original = '<button data-list="debt" id="debtCard">267</button>'
         self.assertEqual(approved_cycle_plan.apply_document(original, plan),
                          '<button data-list="overdue" id="debtCard">267</button>')
+
+
+class LiveApprovedPaymentsTests(unittest.TestCase):
+    def plan(self):
+        return {'cycle_start':'2026-10-25', 'cycle_end':'2026-11-23', 'records':[
+            {'id':17040,'curator':'Shaxlo','due':'2026-11-04','required':380000,
+             'paid':False,'approved_status':'debt','approved_overdue':True},
+            {'id':18255,'curator':'Shaxlo','due':'2026-11-05','required':420000,
+             'paid':False,'approved_status':'debt','approved_overdue':True}]}
+
+    def test_real_paid_cases_refresh_without_changing_plan(self):
+        plan=self.plan()
+        def query(sql):
+            self.assertIn('t.TRANSACTION_DATE<=NOW()',sql)
+            return [dict(sid=r['id'],balance=0,amount=r['required'],payments=1,
+                         last_paid='2026-11-06',charged=r['required']) for r in plan['records']]
+        rows=approved_cycle_plan.refresh_payments(plan,query,'2026-11-09')
+        self.assertEqual([r['id'] for r in rows],[17040,18255])
+        self.assertTrue(all(r['paid'] and not r['approved_overdue'] for r in rows))
+        self.assertTrue(all(r['approved_status']=='paid' for r in rows))
+        self.assertTrue(plan['records'][0]['approved_overdue'])
+
+    def test_partial_payment_and_future_zero_balance(self):
+        plan=self.plan();plan['records'][1]['due']='2026-11-18'
+        rows=approved_cycle_plan.refresh_payments(plan,lambda sql:[
+            dict(sid=17040,balance=-180000,amount=200000,payments=1,last_paid='2026-11-06',charged=380000),
+            dict(sid=18255,balance=0,amount=0,payments=0,last_paid=None,charged=0)],'2026-11-09')
+        self.assertEqual(rows[0]['debt_amount'],180000)
+        self.assertTrue(rows[0]['approved_overdue'])
+        self.assertFalse(rows[1]['paid']);self.assertFalse(rows[1]['approved_overdue'])
+
+    def test_incomplete_refresh_fails_closed(self):
+        with self.assertRaises(RuntimeError):
+            approved_cycle_plan.refresh_payments(self.plan(),lambda sql:[],'2026-11-09')

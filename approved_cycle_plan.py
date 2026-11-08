@@ -32,3 +32,53 @@ def apply_document(document, plan):
     document = re.sub(r'<button[^>]*id="debtCard"[^>]*>',
                       lambda m: m[0].replace('data-list="debt"', 'data-list="overdue"'), document)
     return document
+
+
+def refresh_payments(plan, query, today):
+    """Freeze membership and obligations only; read financial state on every build.
+
+    Query all approved IDs directly, including paid students no longer returned
+    by the CRM debtor list. Never publish a partially refreshed roster.
+    """
+    import datetime as dt
+    end = dt.date.fromisoformat(plan['cycle_end']) + dt.timedelta(days=1)
+    live = {}
+    ids = [int(r['id']) for r in plan['records']]
+    for offset in range(0, len(ids), 300):
+        joined = ','.join(map(str, ids[offset:offset + 300]))
+        rows = query(
+            "SELECT s.ID sid,s.CURRENT_BALANCE balance,"
+            "COALESCE(SUM(CASE WHEN t.ACTION_TYPE='add' THEN t.AMOUNT ELSE 0 END),0) amount,"
+            "SUM(CASE WHEN t.ACTION_TYPE='add' THEN 1 ELSE 0 END) payments,"
+            "MAX(CASE WHEN t.ACTION_TYPE='add' THEN t.TRANSACTION_DATE END) last_paid,"
+            "COALESCE(SUM(CASE WHEN t.ACTION_TYPE='taken' THEN t.AMOUNT ELSE 0 END),0) charged "
+            "FROM student_list s LEFT JOIN transaction_list t ON t.STUDENT_ID=s.ID AND t.ORG_ID=s.ORG_ID "
+            f"AND t.TRANSACTION_DATE>='{plan['cycle_start']}' AND t.TRANSACTION_DATE<'{end}' "
+            "AND t.TRANSACTION_DATE<=NOW() "
+            f"WHERE s.ORG_ID=6 AND s.ID IN ({joined}) GROUP BY s.ID,s.CURRENT_BALANCE")
+        live.update({int(r['sid']): r for r in rows})
+    if set(ids) != set(live):
+        raise RuntimeError('Approved roster CRM refresh incomplete; refusing stale publication')
+    result = []
+    for original in plan['records']:
+        row = dict(original)
+        state = live[int(row['id'])]
+        balance = int(state['balance'])
+        amount = int(state['amount'] or 0)
+        required = int(row.get('required') or 0)
+        arrived = row['due'] <= today
+        # Zero balance before the due date alone does not mean prepaid.
+        evidence = (int(state['charged'] or 0) > 0 or
+                    (required > 0 and amount >= required) or original.get('paid', False))
+        paid = balance >= 0 and bool(evidence) and (
+            arrived or original.get('paid', False) or (required > 0 and amount >= required))
+        debt = max(0, -balance) if arrived else max(0, required - max(0, balance))
+        row.update(balance=balance, amount=amount, payments=int(state['payments'] or 0),
+                   last_paid=str(state['last_paid'] or ''), paid=paid,
+                   partial=amount > 0 and not paid, due_arrived=arrived,
+                   debt_amount=0 if paid else debt,
+                   approved_status='paid' if paid else 'debt',
+                   approved_overdue=arrived and not paid and debt > 0,
+                   approved_label='Тўланган' if paid else 'Тўлов кутилмоқда')
+        result.append(row)
+    return result

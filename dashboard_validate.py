@@ -49,7 +49,7 @@ def validate(path):
     if len(ids) != len(set(ids)):
         raise RuntimeError(f"Duplicate students in {path}")
     for row in rows:
-        if row.get("paid") and int(row.get("debt_amount") or 0) > 0:
+        if row.get("paid") and (int(row.get("debt_amount") or 0) > 0 or row.get('approved_overdue')):
             raise RuntimeError(f"Paid student still has debt in {path}: {row['id']}")
         if (status(row) == "debt" and row.get("subscription_status") == "freezed"
                 and not row.get('approved_overdue')):
@@ -66,7 +66,7 @@ if approved_current:
         raise RuntimeError('Approved cycle membership changed')
     for name, (total, debt) in approved['expected'].items():
         selected = [r for r in current.values() if r['curator'] == name]
-        if len(selected) != total or sum(r['approved_overdue'] for r in selected) != debt:
+        if len(selected) != total:
             raise RuntimeError(f'Approved curator counts changed: {name}')
 if 20291 in current:
     raise RuntimeError("Active demo student entered current debt plan: id=20291")

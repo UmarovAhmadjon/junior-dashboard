@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 GATEWAY = os.environ.get("JUNIOR_MCP_GATEWAY", "https://myclinic.agc.uz/new_junior_mcp.php")
 ORG_ID = 6
-BUSINESS_TZ = ZoneInfo("America/Los_Angeles")
+BUSINESS_TZ = ZoneInfo("Asia/Tashkent")
 
 
 def month_end(value):
@@ -503,6 +503,13 @@ def money(value):
 
 def load_analytics_rows():
     """Temporary analytics snapshot for statuses and paid Upsell sales."""
+    import approved_cycle_plan
+    approved = approved_cycle_plan.load(CYCLE_START, CYCLE_END)
+    if approved:
+        # Approved membership does not depend on the optional CRM HTML report.
+        # Financial state is always queried separately from the live ledger.
+        return [{"id": row["id"], "bucket": row.get("analytics_bucket", "")}
+                for row in approved['records']]
     if os.environ.get("CRM_PHONE") and os.environ.get("CRM_PASS"):
         import crm_debtors_update as crm
         rows = crm.table_rows(crm.fetch(crm.crm_session(), CYCLE_START, CYCLE_END))
@@ -1050,7 +1057,7 @@ def render(records, audit, upsells, collections):
     import approved_cycle_plan
     approved_plan = approved_cycle_plan.load(CYCLE_START, CYCLE_END)
     if approved_plan:
-        records = approved_plan['records']
+        records = approved_cycle_plan.refresh_payments(approved_plan, query, audit['today'])
         # Approval freezes the roster/counts, not Student Kassa receipts.
         # Keep the live collections and their actual refresh timestamp.
     data_json = json.dumps(records, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
