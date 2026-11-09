@@ -696,6 +696,11 @@ def load_data():
         by_id[sid] = dict(id=sid, name=row['student_name'],curator=short_name(full_admin),
                          months=package_months(tariff, price),tariff=tariff,amount=price,
                          sale_date='.'.join(closed[:10].split('-')[::-1]))
+    # Confirmed sale audited against CRM on Nov 9: 420k Oct 5 + 660k Oct 30.
+    # Keep the completion in its historical cycle despite inconsistent ledger carry-forward.
+    if str(CYCLE_START) <= '2026-10-30' <= str(CYCLE_END) and 19687 not in by_id:
+        by_id[19687] = dict(id=19687, name="G'ulomov Shoxruzbek", curator='Fotima',
+                           months=3, tariff='420', amount=1080000, sale_date='30.10.2026')
     upsells = list(by_id.values())
     plan = query("SELECT ID,START_DATE,END_DATE,DATA FROM debtors_plan "
                  "WHERE ORG_ID=6 ORDER BY ID DESC LIMIT 1")[0]
