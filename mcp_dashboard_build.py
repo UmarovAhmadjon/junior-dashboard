@@ -663,7 +663,6 @@ def load_data():
         for payment in query(
             "SELECT ID,STUDENT_ID sid,AMOUNT amount,TRANSACTION_DATE paid_date "
             "FROM transaction_list WHERE ORG_ID=6 AND ACTION_TYPE='add' "
-            "AND STUDENT_TYPE='student' "
             f"AND STUDENT_ID IN ({sql_ids(part)}) "
             f"AND TRANSACTION_DATE<'{CYCLE_END + dt.timedelta(days=1)}' "
             "AND TRANSACTION_DATE<=NOW() ORDER BY TRANSACTION_DATE,ID"):
