@@ -635,7 +635,7 @@ def load_data():
     # first date the price is fully covered determines the sale's cycle.
     from upsell_installments import completion_date
     candidates = query(
-        "SELECT t.ID charge_id,t.STUDENT_ID sid,s.NAME student_name,t.AMOUNT package_price,"
+        "SELECT t.ID charge_id,t.STUDENT_ID sid,s.NAME student_name,s.CURRENT_BALANCE live_balance,t.AMOUNT package_price,"
         "t.TRANSACTION_DATE charge_date,sub.PRICE_TYPE tariff,"
         "u.NAME admin_name,u.SURNAME admin_surname,"
         "(SELECT COALESCE(SUM(CASE WHEN h.ACTION_TYPE='add' THEN h.AMOUNT "
@@ -671,7 +671,12 @@ def load_data():
     by_id = {int(row['id']): row for row in upsells}
     for row in candidates:
         sid = int(row['sid'])
-        closed = completion_date(row['package_price'], row['prior_balance'],
+        credit = int(row['prior_balance'] or 0)
+        # Legacy ledgers can omit reversals. A settled authoritative balance
+        # must not resurrect that historical deficit against a paid package.
+        if credit < 0 and int(row['live_balance'] or 0) >= 0:
+            credit = 0
+        closed = completion_date(row['package_price'], credit,
                                  row['charge_date'], receipts.get(sid, []))
         if not closed or not str(CYCLE_START) <= closed[:10] <= str(CYCLE_END):
             continue
