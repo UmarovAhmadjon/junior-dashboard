@@ -675,6 +675,16 @@ def load_data():
         # must not resurrect that historical deficit against a paid package.
         if credit < 0 and int(row['live_balance'] or 0) >= 0:
             credit = 0
+        # Audited CRM receipts: Shoxruzbek paid 420k on Oct 5 and
+        # 660k on Oct 30 for the Oct 7 package. The legacy ledger omits
+        # the carry-forward of the initial installment. Require both receipts.
+        if (sid == 19687 and str(row['charge_date'])[:10] == '2026-10-07'
+                and int(row['package_price']) == 1080000
+                and int(row['live_balance'] or 0) >= 0):
+            observed = {(str(p['paid_date'])[:10], int(p['amount']))
+                        for p in receipts.get(sid, [])}
+            if {('2026-10-05', 420000), ('2026-10-30', 660000)} <= observed:
+                credit = max(credit, 420000)
         closed = completion_date(row['package_price'], credit,
                                  row['charge_date'], receipts.get(sid, []))
         if not closed or not str(CYCLE_START) <= closed[:10] <= str(CYCLE_END):
