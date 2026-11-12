@@ -52,7 +52,8 @@ def validate(path):
         if row.get("paid") and (int(row.get("debt_amount") or 0) > 0 or row.get('approved_overdue')):
             raise RuntimeError(f"Paid student still has debt in {path}: {row['id']}")
         if (status(row) == "debt" and row.get("subscription_status") == "freezed"
-                and not row.get('approved_overdue')):
+                and not row.get('approved_overdue')
+                and not (row.get('november_one_month') and not row.get('due_arrived'))):
             raise RuntimeError(f"Frozen student shown as debtor in {path}: {row['id']}")
     return {int(row["id"]): row for row in rows}
 
