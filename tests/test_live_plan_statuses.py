@@ -28,6 +28,7 @@ class LivePlanStatuses(unittest.TestCase):
         self.assertEqual(self.classify('freezed', freeze_type='Freezing', freeze_reason='Kasal')['approved_status'], 'frozen')
         self.assertEqual(self.classify('freezed', freeze_type='auto', freeze_reason='auto_overdue')['approved_status'], 'debt')
         self.assertEqual(self.classify('freezed', paid=True, freeze_type='auto')['approved_status'], 'paid')
+        self.assertEqual(self.classify('freezed')['approved_status'], 'debt')
 
     def test_referral_renewal_and_new_free_month(self):
         row = dict(id=15232, due='2026-11-12', required=420000, balance=0, paid=False,

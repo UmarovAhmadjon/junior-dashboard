@@ -121,7 +121,9 @@ def refresh_statuses(plan, records, query, today):
             "AND a.STATUS!='planned' AND a.START_DATE<=NOW() "
             "ORDER BY a.ACTIVE DESC,a.ID DESC LIMIT 1) "
             "LEFT JOIN frozen_student_list f ON f.ID=(SELECT f0.ID FROM frozen_student_list f0 "
-            "WHERE f0.STUDENT_ID=s.ID AND f0.SUBSCRIBE_ID=sub.ID AND f0.ACTIVE=1 "
+            "WHERE f0.STUDENT_ID=s.ID AND f0.ACTIVE=1 "
+            "AND EXISTS (SELECT 1 FROM subscribe_list fs WHERE fs.ID=f0.SUBSCRIBE_ID "
+            "AND fs.ORG_ID=6 AND fs.GROUP_ID=sub.GROUP_ID) "
             "AND f0.START_DATE<=NOW() AND (f0.END_DATE IS NULL OR f0.END_DATE>=NOW()) "
             "ORDER BY f0.ID DESC LIMIT 1) "
             "LEFT JOIN frozen_reason fr ON fr.ID=f.REASON_ID "
@@ -146,6 +148,8 @@ def refresh_statuses(plan, records, query, today):
                            end > max(today, row['due']) and row['balance'] >= 0)
         auto_freeze = (str(state.get('freeze_type') or '').lower() == 'auto' or
                        str(state.get('freeze_reason') or '').lower().startswith('auto_overdue'))
+        manual_freeze = (str(state.get('freeze_type') or '').lower() in {'freezing', 'juniorfreezing'}
+                         and not auto_freeze)
         status = row['approved_status']
         if original.get('plan_archived_unpaid'):
             status = 'archive'
@@ -155,7 +159,7 @@ def refresh_statuses(plan, records, query, today):
             status = 'referral'
         elif row['paid']:
             status = 'paid'
-        elif sub_status == 'freezed' and not auto_freeze:
+        elif sub_status == 'freezed' and manual_freeze:
             status = 'frozen'
         else:
             status = 'debt'
