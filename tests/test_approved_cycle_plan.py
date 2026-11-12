@@ -29,19 +29,23 @@ class ApprovedCycleTests(unittest.TestCase):
         embedded = lambda key: json.loads(re.search(
             '<script id="'+key+'" type="application/json">(.*?)</script>',page,re.S).group(1))
         self.assertEqual(embedded('collection-data'), live)
-        self.assertEqual(len(embedded('data')), 1518)
+        self.assertEqual(len(embedded('data')), 1607)
         self.assertIn(audit['generated_iso'], page)
 
     def test_user_approved_totals_and_excluded_cases(self):
         plan = approved_cycle_plan.load('2026-10-25', '2026-11-23')
         rows = plan['records']
-        self.assertEqual(len(rows), 1518)
-        self.assertEqual(sum(r['approved_overdue'] for r in rows), 267)
+        self.assertEqual(len(rows), 1607)
+        self.assertEqual(sum(r['approved_overdue'] for r in rows if not r.get('november_one_month')), 267)
+        self.assertEqual(sum(bool(r.get('november_one_month')) for r in rows), 90)
+        self.assertEqual(sum(bool(r.get('plan_archived_unpaid')) for r in rows), 9)
+        self.assertFalse({15458, 20816, 20826, 20877, 9660, 20787, 13970, 17308, 15084, 10315} & {r['id'] for r in rows})
         ashurov = next(r for r in rows if r['id'] == 13278)
         self.assertEqual(ashurov['due'], '2026-11-18')
         self.assertFalse(ashurov['approved_overdue'])
         self.assertEqual(ashurov['curator'], 'Marjona')
-        self.assertTrue(all(r['subscription_status'] in ('active', 'freezed') for r in rows))
+        self.assertTrue(all(r['subscription_status'] in ('active', 'freezed') or r.get('plan_archived_unpaid') for r in rows))
+        self.assertEqual(ashurov['required'], 420000)
         self.assertFalse({15982, 14857, 19167} & {r['id'] for r in rows})
         self.assertTrue(any(r['subscription_status'] == 'freezed' and r['approved_overdue'] for r in rows))
 
@@ -93,3 +97,44 @@ class LiveApprovedPaymentsTests(unittest.TestCase):
     def test_incomplete_refresh_fails_closed(self):
         with self.assertRaises(RuntimeError):
             approved_cycle_plan.refresh_payments(self.plan(),lambda sql:[],'2026-11-09')
+
+    def campaign(self, balance, amount, *, archive=False, due='2026-11-04', charged=380000, start='2026-10-25'):
+        plan = self.plan()
+        plan['cycle_start'] = start
+        plan['records'] = [dict(plan['records'][0], november_one_month=True,
+                                plan_archived_unpaid=archive, due=due)]
+        return approved_cycle_plan.refresh_payments(plan, lambda sql: [dict(
+            sid=17040, balance=balance, amount=amount, payments=int(amount > 0),
+            last_paid='2026-11-06' if amount else None, charged=charged)], '2026-11-12')[0]
+
+    def test_one_month_payment_completes_campaign_without_erasing_old_crm_debt(self):
+        row = self.campaign(-1520000, 380000)
+        self.assertTrue(row['paid'])
+        self.assertEqual(row['balance'], -1520000)
+        self.assertEqual(row['debt_amount'], 0)
+        self.assertFalse(row['approved_overdue'])
+
+    def test_old_debt_capped_at_one_month_and_partial_payment_deducted_once(self):
+        self.assertEqual(self.campaign(-1900000, 0)['debt_amount'], 380000)
+        row = self.campaign(-1700000, 200000)
+        self.assertEqual(row['debt_amount'], 180000)
+        self.assertTrue(row['partial'])
+        self.assertEqual(self.campaign(-40000, 350000)['debt_amount'], 30000)
+
+    def test_archived_remains_in_plan_but_not_paid_or_collectible(self):
+        row = self.campaign(-1900000, 0, archive=True)
+        self.assertEqual(row['required'], 380000)
+        self.assertEqual(row['approved_status'], 'archive')
+        self.assertFalse(row['paid'])
+        self.assertFalse(row['approved_overdue'])
+        self.assertEqual(row['debt_amount'], 0)
+
+    def test_future_zero_and_missing_charge_are_not_paid(self):
+        self.assertFalse(self.campaign(0, 0, due='2026-11-18')['paid'])
+        self.assertFalse(self.campaign(0, 0, charged=0)['paid'])
+        self.assertTrue(self.campaign(0, 0)['paid'])
+
+    def test_one_off_rule_never_applies_to_other_cycles(self):
+        row = self.campaign(-1520000, 380000, start='2026-11-25')
+        self.assertFalse(row['paid'])
+        self.assertEqual(row['debt_amount'], 1520000)

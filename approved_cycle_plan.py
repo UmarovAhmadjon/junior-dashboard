@@ -80,5 +80,24 @@ def refresh_payments(plan, query, today):
                    approved_status='paid' if paid else 'debt',
                    approved_overdue=arrived and not paid and debt > 0,
                    approved_label='Тўланган' if paid else 'Тўлов кутилмоқда')
+        # Explicit, one-off November roster amendment. Old CRM debt remains
+        # untouched; this campaign collects at most one monthly instalment.
+        if (plan['cycle_start'], plan['cycle_end']) == ('2026-10-25', '2026-11-23') and original.get('november_one_month'):
+            if required <= 0:
+                raise ValueError(f"Missing November monthly price: {row['id']}")
+            settled = arrived and balance >= 0 and int(state['charged'] or 0) > 0
+            paid = amount >= required or settled
+            remaining = max(0, required - amount)
+            if arrived and balance < 0:
+                remaining = min(remaining, -balance)
+            archived = bool(original.get('plan_archived_unpaid'))
+            row.update(
+                paid=paid and not archived,
+                partial=0 < amount < required and not paid and not archived,
+                debt_amount=0 if paid or archived else remaining,
+                approved_status='archive' if archived else ('paid' if paid else 'debt'),
+                approved_overdue=arrived and not paid and not archived and remaining > 0,
+                approved_label='Тўламасдан архивланган' if archived else (
+                    'Тўланган' if paid else 'Бир ойлик тўлов кутилмоқда'))
         result.append(row)
     return result
