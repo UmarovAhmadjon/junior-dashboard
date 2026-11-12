@@ -101,3 +101,78 @@ def refresh_payments(plan, query, today):
                     'Тўланган' if paid else 'Бир ойлик тўлов кутилмоқда'))
         result.append(row)
     return result
+
+
+def refresh_statuses(plan, records, query, today):
+    """Refresh lifecycle evidence without adding/removing approved plan members."""
+    live = {}
+    ids = [int(r['id']) for r in records]
+    for offset in range(0, len(ids), 300):
+        joined = ','.join(map(str, ids[offset:offset + 300]))
+        states = query(
+            "SELECT s.ID sid,sub.ID subscription_id,sub.STATUS subscription_status,"
+            "sub.PRICE_TYPE tariff,sub.START_DATE subscription_start,"
+            "sub.END_OF_SUBSCRIPTION subscription_end,"
+            "f.TYPE freeze_type,fr.REASON freeze_reason,"
+            "CASE WHEN JSON_VALID(l.COMMENT) THEN "
+            "JSON_UNQUOTE(JSON_EXTRACT(l.COMMENT,'$.reason')) ELSE NULL END archive_reason "
+            "FROM student_list s LEFT JOIN subscribe_list sub ON sub.ID=("
+            "SELECT a.ID FROM subscribe_list a WHERE a.ORG_ID=6 AND a.STUDENT_ID=s.ID "
+            "AND a.STATUS!='planned' AND a.START_DATE<=NOW() "
+            "ORDER BY a.ACTIVE DESC,a.ID DESC LIMIT 1) "
+            "LEFT JOIN frozen_student_list f ON f.ID=(SELECT f0.ID FROM frozen_student_list f0 "
+            "WHERE f0.STUDENT_ID=s.ID AND f0.SUBSCRIBE_ID=sub.ID AND f0.ACTIVE=1 "
+            "AND f0.START_DATE<=NOW() AND (f0.END_DATE IS NULL OR f0.END_DATE>=NOW()) "
+            "ORDER BY f0.ID DESC LIMIT 1) "
+            "LEFT JOIN frozen_reason fr ON fr.ID=f.REASON_ID "
+            "LEFT JOIN table_log l ON l.ID=(SELECT l0.ID FROM table_log l0 "
+            "WHERE l0.ITEM_ID=s.ID AND l0.TABLE_NAME IN ('student_list','students') "
+            "AND l0.ACTION='delete_student' AND l0.LOG_DATE<=NOW() ORDER BY l0.ID DESC LIMIT 1) "
+            f"WHERE s.ORG_ID=6 AND s.ID IN ({joined})")
+        live.update({int(s['sid']): s for s in states})
+    if set(live) != set(ids):
+        raise RuntimeError('Approved roster status refresh incomplete; refusing stale publication')
+    result = []
+    for original in records:
+        row = dict(original)
+        state = live[row['id']]
+        sub_status = str(state['subscription_status'] or '').lower()
+        reason = str(state.get('archive_reason') or '').strip()
+        start = str(state.get('subscription_start') or '')[:10]
+        end = str(state.get('subscription_end') or '')[:10]
+        tariff = str(state.get('tariff') or '').strip().lower()
+        # A referral expiring on the renewal date does not pay that renewal.
+        referral_covers = ('sarafan' in tariff and start <= today and
+                           end > max(today, row['due']) and row['balance'] >= 0)
+        auto_freeze = (str(state.get('freeze_type') or '').lower() == 'auto' or
+                       str(state.get('freeze_reason') or '').lower().startswith('auto_overdue'))
+        status = row['approved_status']
+        if original.get('plan_archived_unpaid'):
+            status = 'archive'
+        elif sub_status in {'archive', 'cancelled'}:
+            status = 'finished' if reason.lower() == 'bitirdi' else 'archive'
+        elif referral_covers:
+            status = 'referral'
+        elif row['paid']:
+            status = 'paid'
+        elif sub_status == 'freezed' and not auto_freeze:
+            status = 'frozen'
+        else:
+            status = 'debt'
+        row.update(subscription_status=sub_status, crm_subscription_id=state.get('subscription_id'),
+                   crm_tariff=state.get('tariff'), crm_subscription_start=start,
+                   crm_subscription_end=end, crm_archive_reason=reason,
+                   crm_freeze_reason=state.get('freeze_reason'),
+                   crm_freeze_type=state.get('freeze_type'), status_refreshed_on=today,
+                   approved_status=status, is_referral=status == 'referral',
+                   analytics_bucket={'finished': 'bit', 'archive': 'deleted'}.get(status, status))
+        if status not in {'paid', 'debt'}:
+            row.update(paid=False, partial=False, approved_overdue=False)
+        if status in {'finished', 'referral', 'archive'}:
+            row['debt_amount'] = 0
+        row['approved_label'] = {
+            'paid': 'Тўланган', 'finished': 'Битирган', 'referral': 'Сарафан',
+            'frozen': 'Музлатилган', 'archive': 'Архивланган',
+            'debt': 'Қарздор' if row['approved_overdue'] else 'Тўлов кутилмоқда'}[status]
+        result.append(row)
+    return result

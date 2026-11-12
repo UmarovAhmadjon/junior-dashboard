@@ -20,6 +20,7 @@ class ApprovedCycleTests(unittest.TestCase):
                   mock.patch.object(dashboard, 'CYCLE_START', dt.date(2026,10,25)),
                   mock.patch.object(dashboard, 'CYCLE_END', dt.date(2026,11,23)),
                   mock.patch.object(approved_cycle_plan, 'refresh_payments', return_value=approved_cycle_plan.load('2026-10-25', '2026-11-23')['records']),
+                  mock.patch.object(approved_cycle_plan, 'refresh_statuses', side_effect=lambda plan, rows, query, today: rows),
                   mock.patch.object(dashboard, 'archive_previous_dashboard'),
                   mock.patch.object(dashboard, 'ensure_legacy_cycle_archives'),
                   mock.patch.object(dashboard, 'cycle_archive_options', return_value=''),

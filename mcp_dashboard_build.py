@@ -1079,6 +1079,7 @@ def render(records, audit, upsells, collections):
     approved_plan = approved_cycle_plan.load(CYCLE_START, CYCLE_END)
     if approved_plan:
         records = approved_cycle_plan.refresh_payments(approved_plan, query, audit['today'])
+        records = approved_cycle_plan.refresh_statuses(approved_plan, records, query, audit['today'])
         # Approval freezes the roster/counts, not Student Kassa receipts.
         # Keep the live collections and their actual refresh timestamp.
     data_json = json.dumps(records, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
