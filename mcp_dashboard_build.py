@@ -193,6 +193,10 @@ def freeze_cycle_plan(live_records, mandatory_cycle_ids=None):
     confirmed_restored = 0
     required_ids = (CONFIRMED_CYCLE_MEMBER_IDS.get(CYCLE_START.isoformat(), set()) |
                     mandatory_cycle_ids)
+    if (REQUESTED_CYCLE and CYCLE_END < dt.datetime.now(BUSINESS_TZ).date()
+            and os.path.isfile(snapshot_path.replace('.json', '-closing.json'))):
+        # A later backdated debit must not silently grow a closed plan.
+        required_ids &= baseline_ids
     mandatory_due_corrected = 0
     for student_id in required_ids:
         if student_id not in baseline_ids and student_id in live_by_id:
@@ -510,6 +514,43 @@ def load_analytics_rows():
         # Financial state is always queried separately from the live ledger.
         return [{"id": row["id"], "bucket": row.get("analytics_bucket", "")}
                 for row in approved['records']]
+    # Closed-cycle membership and final results already have a durable source.
+    # Do not require the CRM's current debtors HTML page to serve an old cycle:
+    # that report can become unavailable after the month closes. Read live
+    # archive/graduate corrections directly; financial refresh stays below.
+    snapshot = os.path.join(SNAPSHOT_DIR, f"{CYCLE_START}_{CYCLE_END}.json")
+    if (REQUESTED_CYCLE and CYCLE_END < dt.datetime.now(BUSINESS_TZ).date()
+            and os.path.isfile(snapshot)):
+        with open(snapshot, encoding="utf-8") as handle:
+            frozen = json.load(handle)['records']
+        states = {}
+        for part in chunks([int(row['id']) for row in frozen]):
+            for row in query(
+                "SELECT s.ID sid,sub.STATUS subscription_status,"
+                "CASE WHEN JSON_VALID(l.COMMENT) THEN "
+                "JSON_UNQUOTE(JSON_EXTRACT(l.COMMENT,'$.reason')) ELSE NULL END archive_reason "
+                "FROM student_list s LEFT JOIN subscribe_list sub ON sub.ID=("
+                "SELECT a.ID FROM subscribe_list a WHERE a.ORG_ID=6 AND a.STUDENT_ID=s.ID "
+                "AND a.STATUS!='planned' AND a.START_DATE<=NOW() "
+                "ORDER BY a.ACTIVE DESC,a.ID DESC LIMIT 1) "
+                "LEFT JOIN table_log l ON l.ID=(SELECT l0.ID FROM table_log l0 "
+                "WHERE l0.ITEM_ID=s.ID AND l0.TABLE_NAME IN ('student_list','students') "
+                "AND l0.ACTION='delete_student' AND l0.LOG_DATE<=NOW() "
+                "ORDER BY l0.ID DESC LIMIT 1) "
+                f"WHERE s.ORG_ID=6 AND s.ID IN ({sql_ids(part)})"):
+                states[int(row['sid'])] = row
+        if set(states) != {int(row['id']) for row in frozen}:
+            raise RuntimeError('Archived cycle CRM status refresh incomplete')
+        result = []
+        for row in frozen:
+            state = states[int(row['id'])]
+            bucket = row.get('analytics_bucket', '')
+            if str(state['subscription_status'] or '').lower() in {'archive', 'cancelled'}:
+                reason = str(state.get('archive_reason') or '').strip().lower()
+                bucket = 'bit' if reason == 'bitirdi' else 'deleted'
+            result.append({'id': row['id'], 'bucket': bucket,
+                           'refreshed_subscription_status': state['subscription_status']})
+        return result
     if os.environ.get("CRM_PHONE") and os.environ.get("CRM_PASS"):
         import crm_debtors_update as crm
         rows = crm.table_rows(crm.fetch(crm.crm_session(), CYCLE_START, CYCLE_END))
@@ -950,6 +991,16 @@ def load_data():
     records = [row for row in records if int(row["id"]) not in demo_student_ids]
     records, archive_duplicates_removed = remove_previous_cycle_archive_duplicates(
         records, snapshot_path)
+    # Frozen members can be absent from live_records after their group's
+    # curator changes to someone outside CURRENT_ADMINS. Still apply their
+    # directly verified CRM lifecycle status, retaining the original curator.
+    archive_states = {int(row['id']): row for row in analytics_rows
+                      if 'refreshed_subscription_status' in row}
+    for row in records:
+        state = archive_states.get(int(row['id']))
+        if state:
+            row['analytics_bucket'] = state['bucket']
+            row['subscription_status'] = state['refreshed_subscription_status'] or 'missing'
     records, archived_late_collected = apply_late_payments_to_archived_cycle(records, snapshot_path)
     generated_at = dt.datetime.now(dt.timezone.utc)
     audit = {

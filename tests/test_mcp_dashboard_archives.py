@@ -9,6 +9,49 @@ import mcp_dashboard_build as dashboard
 
 
 class ArchivedCyclePaymentTests(unittest.TestCase):
+    def test_backdated_charge_cannot_grow_closed_plan(self):
+        original = {'id': 19062, 'due': '2026-10-24', 'curator': 'Fotima'}
+        late = {'id': 99999, 'due': '2026-10-24', 'curator': 'Other'}
+        with tempfile.TemporaryDirectory() as directory:
+            for suffix in ('', '-closing'):
+                with open(os.path.join(directory, f'2026-09-24_2026-10-24{suffix}.json'), 'w') as handle:
+                    json.dump({'records': [original]}, handle)
+            with (mock.patch.object(dashboard, 'REQUESTED_CYCLE', '2026-09-24'),
+                  mock.patch.object(dashboard, 'CYCLE_START', dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, 'CYCLE_END', dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, 'SNAPSHOT_DIR', directory)):
+                rows, *_ = dashboard.freeze_cycle_plan([late], {99999})
+        self.assertEqual([r['id'] for r in rows], [19062])
+        self.assertEqual(rows[0]['curator'], 'Fotima')
+
+    def test_closed_cycle_refresh_does_not_need_crm_html(self):
+        frozen = [{'id': 19062, 'analytics_bucket': ''},
+                  {'id': 19064, 'analytics_bucket': ''}]
+        live = [{'sid': 19062, 'subscription_status': 'archive',
+                 'archive_reason': 'Darsga qiziqmadi'},
+                {'sid': 19064, 'subscription_status': 'archive',
+                 'archive_reason': 'Bitirdi'}]
+        with tempfile.TemporaryDirectory() as directory:
+            with open(os.path.join(directory, '2026-09-24_2026-10-24.json'), 'w') as handle:
+                json.dump({'records': frozen}, handle)
+            with (mock.patch.object(dashboard, 'REQUESTED_CYCLE', '2026-09-24'),
+                  mock.patch.object(dashboard, 'CYCLE_START', dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, 'CYCLE_END', dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, 'SNAPSHOT_DIR', directory),
+                  mock.patch.object(dashboard, 'query', return_value=live),
+                  mock.patch('crm_debtors_update.fetch', side_effect=RuntimeError('report unavailable')) as html_fetch):
+                self.assertEqual(dashboard.load_analytics_rows(),
+                                 [{'id': 19062, 'bucket': 'deleted', 'refreshed_subscription_status': 'archive'},
+                                  {'id': 19064, 'bucket': 'bit', 'refreshed_subscription_status': 'archive'}])
+                html_fetch.assert_not_called()
+            with (mock.patch.object(dashboard, 'REQUESTED_CYCLE', '2026-09-24'),
+                  mock.patch.object(dashboard, 'CYCLE_START', dt.date(2026, 9, 24)),
+                  mock.patch.object(dashboard, 'CYCLE_END', dt.date(2026, 10, 24)),
+                  mock.patch.object(dashboard, 'SNAPSHOT_DIR', directory),
+                  mock.patch.object(dashboard, 'query', return_value=live[:1])):
+                with self.assertRaisesRegex(RuntimeError, 'incomplete'):
+                    dashboard.load_analytics_rows()
+
     def test_confirmed_gulnigor_receipt_closes_archived_debt(self):
         baseline = [{
             "id": 11418, "required": 390000, "amount": 0,
