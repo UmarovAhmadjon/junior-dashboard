@@ -1,0 +1,34 @@
+[
+  {
+    "from_start": "2026-10-25",
+    "from_end": "2026-11-23",
+    "to_start": "2026-11-24",
+    "to_end": "2026-12-24",
+    "approved_on": "2026-11-16",
+    "record": {
+      "id": 14034,
+      "name": "Boymurodov Jasur",
+      "admin_id": 14451,
+      "curator": "Marjona",
+      "team": "B",
+      "group": "Senior 10",
+      "due": "2026-11-28",
+      "required": 1080000,
+      "price": 1080000,
+      "tariff": "420",
+      "paid": false,
+      "is_package": false,
+      "is_referral": false,
+      "student_active": true,
+      "subscription_status": "active",
+      "has_subscription": true,
+      "amount": 0,
+      "balance": 0,
+      "payments": 0,
+      "last_paid": "",
+      "partial": false,
+      "delayed": false
+    },
+    "evidence": "CRM subscription 78030: paid package ends 2026-11-28; next renewal uses CRM package price, not the November one-month exception."
+  }
+]

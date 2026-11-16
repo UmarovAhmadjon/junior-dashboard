@@ -34,6 +34,30 @@ def apply_document(document, plan):
     return document
 
 
+def apply_cycle_transfers(records, start, end, query, today):
+    """Apply explicitly approved moves without freezing an entire future roster."""
+    path = Path(__file__).parent / 'approved-plans' / 'cycle-transfers.json'
+    if not path.exists():
+        return records
+    cycle = (str(start), str(end))
+    rows = list(records)
+    for transfer in json.loads(path.read_text(encoding='utf-8')):
+        source = (transfer['from_start'], transfer['from_end'])
+        target = (transfer['to_start'], transfer['to_end'])
+        if cycle not in (source, target):
+            continue
+        seed = dict(transfer['record'])
+        rows = [row for row in rows if row['id'] != seed['id']]
+        if cycle == target:
+            assert str(start) <= seed['due'] <= str(end)
+            # The old paid package is not evidence that its renewal is paid.
+            # Campaign flags and old-cycle receipts never cross this boundary.
+            plan = dict(cycle_start=str(start), cycle_end=str(end), records=[seed])
+            refreshed = refresh_payments(plan, query, today)
+            rows.extend(refresh_statuses(plan, refreshed, query, today))
+    return rows
+
+
 def refresh_payments(plan, query, today):
     """Freeze membership and obligations only; read financial state on every build.
 
