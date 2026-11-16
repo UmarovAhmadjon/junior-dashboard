@@ -674,7 +674,7 @@ def load_data():
         })
     # Include packages paid in installments across cycle boundaries. The
     # first date the price is fully covered determines the sale's cycle.
-    from upsell_installments import completion_date
+    from upsell_installments import completion_date, audited_credit, report_sales
     candidates = query(
         "SELECT t.ID charge_id,t.STUDENT_ID sid,s.NAME student_name,s.CURRENT_BALANCE live_balance,t.AMOUNT package_price,"
         "t.TRANSACTION_DATE charge_date,sub.PRICE_TYPE tariff,"
@@ -726,6 +726,8 @@ def load_data():
                         for p in receipts.get(sid, [])}
             if {('2026-10-05', 420000), ('2026-10-30', 660000)} <= observed:
                 credit = max(credit, 420000)
+        credit = audited_credit(sid, row['charge_date'], row['package_price'],
+                                row['live_balance'], credit, receipts.get(sid, []))
         closed = completion_date(row['package_price'], credit,
                                  row['charge_date'], receipts.get(sid, []))
         if not closed or not str(CYCLE_START) <= closed[:10] <= str(CYCLE_END):
@@ -742,7 +744,7 @@ def load_data():
     if str(CYCLE_START) <= '2026-10-30' <= str(CYCLE_END) and 19687 not in by_id:
         by_id[19687] = dict(id=19687, name="G'ulomov Shoxruzbek", curator='Fotima',
                            months=3, tariff='420', amount=1080000, sale_date='30.10.2026')
-    upsells = list(by_id.values())
+    upsells = report_sales(list(by_id.values()), CYCLE_START, CYCLE_END)
     plan = query("SELECT ID,START_DATE,END_DATE,DATA FROM debtors_plan "
                  "WHERE ORG_ID=6 ORDER BY ID DESC LIMIT 1")[0]
     raw_ids = [int(x) for x in json.loads(plan["DATA"])]

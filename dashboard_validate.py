@@ -72,9 +72,12 @@ if approved_current:
 if 20291 in current:
     raise RuntimeError("Active demo student entered current debt plan: id=20291")
 upsell_ids = {int(row["id"]) for row in embedded_rows("index.html", "upsell-data")}
-for student_id in (11198, 11668):
-    if student_id not in upsell_ids:
-        raise RuntimeError(f"Confirmed Upsell sale missing: id={student_id}")
+if approved_current:
+    current_sales = embedded_rows("index.html", "upsell-data")
+    if any(row['sale_date'][3:] != '11.2026' for row in current_sales):
+        raise RuntimeError('October Upsell returned to November report')
+    if 12193 not in upsell_ids:
+        raise RuntimeError('Confirmed November 5 Upsell missing: id=12193')
 if 16746 in upsell_ids:
     raise RuntimeError("Ordinary monthly payment incorrectly shown as Upsell: id=16746")
 current_confirmed = current.get(14857)
