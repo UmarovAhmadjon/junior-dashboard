@@ -30,15 +30,15 @@ class ApprovedCycleTests(unittest.TestCase):
         embedded = lambda key: json.loads(re.search(
             '<script id="'+key+'" type="application/json">(.*?)</script>',page,re.S).group(1))
         self.assertEqual(embedded('collection-data'), live)
-        self.assertEqual(len(embedded('data')), 1606)
+        self.assertEqual(len(embedded('data')), 1605)
         self.assertIn(audit['generated_iso'], page)
 
     def test_user_approved_totals_and_excluded_cases(self):
         plan = approved_cycle_plan.load('2026-10-25', '2026-11-23')
         rows = plan['records']
-        self.assertEqual(len(rows), 1606)
+        self.assertEqual(len(rows), 1605)
         self.assertEqual(sum(r['approved_overdue'] for r in rows if not r.get('november_one_month')), 267)
-        self.assertEqual(sum(bool(r.get('november_one_month')) for r in rows), 89)
+        self.assertEqual(sum(bool(r.get('november_one_month')) for r in rows), 88)
         self.assertEqual(sum(bool(r.get('plan_archived_unpaid')) for r in rows), 9)
         self.assertFalse({15458, 20816, 20826, 20877, 9660, 20787, 13970, 17308, 15084, 10315} & {r['id'] for r in rows})
         ashurov = next(r for r in rows if r['id'] == 13278)
@@ -143,7 +143,7 @@ class LiveApprovedPaymentsTests(unittest.TestCase):
 
 class CycleTransferTests(unittest.TestCase):
     def test_jasur_removed_only_from_source_cycle(self):
-        rows = [{'id': 14034}, {'id': 999}]
+        rows = [{'id': 14034}, {'id': 20647}, {'id': 999}]
         query = mock.Mock(side_effect=AssertionError('Source needs no CRM write/read'))
         self.assertEqual(approved_cycle_plan.apply_cycle_transfers(
             rows, '2026-10-25', '2026-11-23', query, '2026-11-16'), [{'id': 999}])
@@ -151,9 +151,18 @@ class CycleTransferTests(unittest.TestCase):
             rows, '2026-09-24', '2026-10-24', query, '2026-10-24'), rows)
         self.assertNotIn(14034, {r['id'] for r in approved_cycle_plan.load(
             '2026-10-25', '2026-11-23')['records']})
+        self.assertNotIn(20647, {r['id'] for r in approved_cycle_plan.load(
+            '2026-10-25', '2026-11-23')['records']})
 
     def target(self, amount=0, balance=0, charged=0, today='2026-11-24'):
         def query(sql):
+            if 's.ID IN (20647)' in sql:
+                if 'CURRENT_BALANCE' in sql:
+                    return [dict(sid=20647, balance=0, amount=0, payments=0,
+                                 charged=0, last_paid=None)]
+                return [dict(sid=20647, subscription_id=77791,
+                             subscription_status='active', tariff='420 000',
+                             subscription_start='2026-11-28', subscription_end='2026-12-28')]
             if 'CURRENT_BALANCE' in sql:
                 self.assertIn("t.TRANSACTION_DATE>='2026-11-24'", sql)
                 return [dict(sid=14034, balance=balance, amount=amount,
@@ -163,12 +172,13 @@ class CycleTransferTests(unittest.TestCase):
                          subscription_status='active', tariff='420',
                          subscription_start='2026-08-28', subscription_end='2026-11-28')]
         return approved_cycle_plan.apply_cycle_transfers(
-            [{'id': 14034, 'paid': True, 'november_one_month': True}, {'id': 999}],
+            [{'id': 14034, 'paid': True, 'november_one_month': True},
+             {'id': 20647, 'paid': True, 'november_one_month': True}, {'id': 999}],
             '2026-11-24', '2026-12-24', query, today)
 
     def test_target_includes_once_without_old_paid_or_campaign_flags(self):
         rows = self.target()
-        self.assertEqual(len(rows), 2)
+        self.assertEqual(len(rows), 3)
         jasur = next(r for r in rows if r['id'] == 14034)
         self.assertEqual(jasur['due'], '2026-11-28')
         self.assertEqual(jasur['curator'], 'Marjona')
@@ -176,6 +186,13 @@ class CycleTransferTests(unittest.TestCase):
         self.assertFalse(jasur['approved_overdue'])
         self.assertNotIn('november_one_month', jasur)
         self.assertEqual(jasur['required'], 1080000)
+        ruhshona = next(r for r in rows if r['id'] == 20647)
+        self.assertEqual(ruhshona['due'], '2026-11-28')
+        self.assertEqual(ruhshona['curator'], 'Jasmina')
+        self.assertEqual(ruhshona['required'], 420000)
+        self.assertFalse(ruhshona['paid'])
+        self.assertFalse(ruhshona['approved_overdue'])
+        self.assertNotIn('november_one_month', ruhshona)
 
     def test_target_refresh_preserves_partial_and_full_payment(self):
         partial = next(r for r in self.target(500000, -580000, 1080000, '2026-11-28') if r['id']==14034)

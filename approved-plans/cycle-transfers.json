@@ -30,5 +30,37 @@
       "delayed": false
     },
     "evidence": "CRM subscription 78030: paid package ends 2026-11-28; next renewal uses CRM package price, not the November one-month exception."
+  },
+  {
+    "from_start": "2026-10-25",
+    "from_end": "2026-11-23",
+    "to_start": "2026-11-24",
+    "to_end": "2026-12-24",
+    "approved_on": "2026-11-21",
+    "record": {
+      "id": 20647,
+      "name": "Sobirova Ruhshona",
+      "admin_id": 14974,
+      "curator": "Jasmina",
+      "team": "B",
+      "group": "Junior 96",
+      "required": 420000,
+      "price": 420000,
+      "student_active": true,
+      "subscription_status": "active",
+      "has_subscription": true,
+      "is_package": false,
+      "is_referral": false,
+      "due": "2026-11-28",
+      "tariff": "420 000",
+      "paid": false,
+      "amount": 0,
+      "balance": 0,
+      "payments": 0,
+      "last_paid": "",
+      "partial": false,
+      "delayed": false
+    },
+    "evidence": "User confirmed November 28 renewal. CRM subscription 76711 covers 2026-10-28 through 2026-11-28; renewal 77791 covers 2026-11-28 through 2026-12-28 at 420000 UZS. Balance 0; October 22 payment belongs to prior coverage, not the renewal."
   }
 ]
