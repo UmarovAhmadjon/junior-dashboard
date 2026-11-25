@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Local-only MCP prototype. It never writes to the production dashboard."""
+"""Build the collection dashboard and retain published historical cycles."""
 import datetime as dt
 import calendar
 import glob
@@ -24,6 +24,9 @@ def month_end(value):
 
 
 def cycle_end_for_start(start):
+    if start >= dt.date(2026, 11, 24):
+        next_month = (start.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
+        return next_month.replace(day=23)
     # A cycle contains the last seven days of the previous month and
     # all days of the next month except its final seven days.
     next_month = (start.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
@@ -32,6 +35,10 @@ def cycle_end_for_start(start):
 
 def current_cycle(today=None):
     today = today or dt.datetime.now(BUSINESS_TZ).date()
+    if today >= dt.date(2026, 11, 24):
+        start_month = today if today.day >= 24 else today.replace(day=1) - dt.timedelta(days=1)
+        start = start_month.replace(day=24)
+        return start, cycle_end_for_start(start)
     this_month = today.replace(day=1)
     previous_end = this_month - dt.timedelta(days=1)
     start = previous_end - dt.timedelta(days=6)
@@ -633,9 +640,7 @@ def is_demo_student(subscription, student_id, active_trial_ids, student_active=T
              not is_active and status == "archive"))
 
 
-def load_data():
-    analytics_rows = load_analytics_rows()
-    analytics_buckets = {int(row["id"]): str(row.get("bucket") or "") for row in analytics_rows}
+def load_upsells():
     upsells = []
     # Upsell means package-sized payments made by an existing student in the
     # selected cycle. The payment is authoritative: CRM can keep the package
@@ -745,6 +750,16 @@ def load_data():
         by_id[19687] = dict(id=19687, name="G'ulomov Shoxruzbek", curator='Fotima',
                            months=3, tariff='420', amount=1080000, sale_date='30.10.2026')
     upsells = report_sales(list(by_id.values()), CYCLE_START, CYCLE_END)
+    return upsells
+
+
+def load_data():
+    if CYCLE_START >= dt.date(2026, 11, 24):
+        from crm_cycle_data import load_cycle
+        return load_cycle(query, CYCLE_START, CYCLE_END, SNAPSHOT_DIR)
+    analytics_rows = load_analytics_rows()
+    analytics_buckets = {int(row["id"]): str(row.get("bucket") or "") for row in analytics_rows}
+    upsells = load_upsells()
     plan = query("SELECT ID,START_DATE,END_DATE,DATA FROM debtors_plan "
                  "WHERE ORG_ID=6 ORDER BY ID DESC LIMIT 1")[0]
     raw_ids = [int(x) for x in json.loads(plan["DATA"])]
@@ -1074,6 +1089,8 @@ def short_date(value):
 def archive_previous_dashboard(path):
     if not os.path.isfile(path) or os.path.basename(path) != "index.html":
         return
+    if os.path.basename(os.path.dirname(path)) == 'mcp-test':
+        return
     with open(path, encoding="utf-8") as handle:
         previous = handle.read()
     match = re.search(r"const periods=.*?all.*?[\"'](\d{4}-\d{2}-\d{2})[\"']", previous)
@@ -1083,6 +1100,18 @@ def archive_previous_dashboard(path):
     if not os.path.exists(target):
         shutil.copyfile(path, target)
         print(f"ARCHIVED dashboard cycle {match.group(1)} -> {target}")
+        data = re.search(r'<script id="data" type="application/json">(.*?)</script>', previous, re.S)
+        periods = re.search(r'const periods=(\{.*?\});', previous)
+        if data and periods:
+            period = json.loads(periods.group(1))['all'][:2]
+            closing = os.path.join(SNAPSHOT_DIR, f'{period[0]}_{period[1]}-closing.json')
+            if not os.path.exists(closing):
+                os.makedirs(SNAPSHOT_DIR, exist_ok=True)
+                with open(closing, 'w', encoding='utf-8') as handle:
+                    json.dump(dict(cycle_start=period[0], cycle_end=period[1],
+                                   records=json.loads(data.group(1))), handle,
+                              ensure_ascii=False, separators=(',', ':'))
+                    handle.write('\n')
 
 
 def ensure_legacy_cycle_archives(path):
@@ -1127,6 +1156,22 @@ def cycle_archive_options(path):
     return '<select id="cycleHistory" aria-label="Выберите цикл" onchange="location.href=this.value">' + "".join(options) + '</select>'
 
 
+def refresh_archive_navigation(path):
+    """Archive figures stay unchanged; their selector must link to the live cycle."""
+    if os.path.basename(path) != 'index.html' or os.path.basename(os.path.dirname(path)) == 'mcp-test':
+        return
+    history = cycle_archive_options(path).replace(' selected', '')
+    for archive in glob.glob(os.path.join(os.path.dirname(path), 'index-cycle-*.html')):
+        with open(archive, encoding='utf-8') as handle:
+            old = handle.read()
+        selected = history.replace(f'value="{os.path.basename(archive)}"',
+                                   f'value="{os.path.basename(archive)}" selected')
+        updated = re.sub(r'<select id="cycleHistory".*?</select>', lambda _: selected, old, count=1, flags=re.S)
+        if updated != old:
+            with open(archive, 'w', encoding='utf-8') as handle:
+                handle.write(updated)
+
+
 def render(records, audit, upsells, collections):
     import approved_cycle_plan
     approved_plan = approved_cycle_plan.load(CYCLE_START, CYCLE_END)
@@ -1135,8 +1180,9 @@ def render(records, audit, upsells, collections):
         records = approved_cycle_plan.refresh_statuses(approved_plan, records, query, audit['today'])
         # Approval freezes the roster/counts, not Student Kassa receipts.
         # Keep the live collections and their actual refresh timestamp.
-    records = approved_cycle_plan.apply_cycle_transfers(
-        records, CYCLE_START, CYCLE_END, query, audit['today'])
+    if CYCLE_START < dt.date(2026, 11, 24):
+        records = approved_cycle_plan.apply_cycle_transfers(
+            records, CYCLE_START, CYCLE_END, query, audit['today'])
     data_json = json.dumps(records, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     upsell_json = json.dumps(upsells, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     collection_json = json.dumps(collections, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
@@ -1214,6 +1260,7 @@ const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=
     document = document.replace("d.filter(x=>x.due<=TODAY)", "d.filter(isOverdue)")
     archive_previous_dashboard(OUT)
     ensure_legacy_cycle_archives(OUT)
+    refresh_archive_navigation(OUT)
     cycle_label = f"{short_date(CYCLE_START)}–{short_date(CYCLE_END)}"
     week_labels = [f"{short_date(start)}–{short_date(end)}" for start, end in CYCLE_WEEKS]
     old_labels = ["24.09–24.10", "24.09–30.09", "01.10–07.10", "08.10–14.10", "15.10–24.10"]
@@ -1235,7 +1282,7 @@ const PAGE_BUILD='__GENERATED__';async function checkForUpdate(){try{const text=
                 .replace("__GENERATED__", html.escape(audit["generated"]))
                 .replace("__SITE_LABEL__", html.escape(SITE_LABEL))
                 .replace("__TODAY__", audit["today"]))
-    if approved_plan:
+    if approved_plan or audit.get("source") == "crm_cycle":
         document = approved_cycle_plan.apply_document(document, approved_plan)
     with open(OUT, "w", encoding="utf-8") as handle:
         handle.write(document)

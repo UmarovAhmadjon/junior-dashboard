@@ -53,13 +53,50 @@ def validate(path):
             raise RuntimeError(f"Paid student still has debt in {path}: {row['id']}")
         if (status(row) == "debt" and row.get("subscription_status") == "freezed"
                 and not row.get('approved_overdue')
+                and row.get('due_arrived', True)
                 and not (row.get('november_one_month') and not row.get('due_arrived'))):
             raise RuntimeError(f"Frozen student shown as debtor in {path}: {row['id']}")
     return {int(row["id"]): row for row in rows}
 
 
 current = validate("index.html")
-approved_current = bool(current) and all('approved_status' in r for r in current.values())
+with open("index.html", encoding="utf-8") as handle:
+    document = handle.read()
+period = json.loads(re.search(r"const periods=(\{.*?\});", document)[1])["all"][:2]
+november = period == ['2026-10-25', '2026-11-23']
+new_cycle = period[0] >= '2026-11-24'
+approved_current = november and bool(current) and all('approved_status' in r for r in current.values())
+if new_cycle:
+    import datetime as dt
+    import mcp_dashboard_build as dashboard
+    start, end = map(dt.date.fromisoformat, period)
+    if start.day != 24 or end != dashboard.cycle_end_for_start(start) or end.day != 23:
+        raise RuntimeError(f'Incorrect cycle boundaries: {period}')
+    snapshot = json.load(open(f'cycle-snapshots/{start}_{end}.json', encoding='utf-8'))
+    if set(current) != {r['id'] for r in snapshot['records']}:
+        raise RuntimeError('Current cycle membership differs from snapshot')
+    for row in current.values():
+        if not str(start) <= row['due'] <= str(end):
+            raise RuntimeError(f'Out-of-cycle obligation: {row["id"]}')
+        if row.get('november_one_month') or row.get('plan_archived_unpaid'):
+            raise RuntimeError(f'November-only exception leaked: {row["id"]}')
+        if row['approved_status'] == 'paid' and not row['cycle_charge_amount'] and row['balance'] < row['required']:
+            raise RuntimeError(f'Payment lacks debit/prepayment evidence: {row["id"]}')
+    for sale in embedded_rows('index.html', 'upsell-data'):
+        closed = dt.datetime.strptime(sale['sale_date'], '%d.%m.%Y').date()
+        if not start <= closed <= end or not sale.get('crm_charge_id'):
+            raise RuntimeError(f'Out-of-cycle or unverified Upsell: {sale["id"]}')
+    for cash in embedded_rows('index.html', 'collection-data'):
+        if not str(start) <= cash['date'] <= str(end):
+            raise RuntimeError('Out-of-cycle cash receipt')
+    if str(start) == '2026-11-24':
+        for sid in (14034, 20647):
+            row = current.get(sid, {})
+            if row.get('due') != '2026-11-28' and row.get('obligation_source') != 'crm_debit':
+                raise RuntimeError(f'Confirmed November 28 transfer missing: {sid}')
+    previous = validate('index-cycle-2026-10-25.html')
+    if len(previous) != 1605:
+        raise RuntimeError('Published November archive membership changed')
 if approved_current:
     import approved_cycle_plan
     approved = approved_cycle_plan.load('2026-10-25', '2026-11-23')
@@ -81,7 +118,7 @@ if approved_current:
 if 16746 in upsell_ids:
     raise RuntimeError("Ordinary monthly payment incorrectly shown as Upsell: id=16746")
 current_confirmed = current.get(14857)
-if not approved_current and (not current_confirmed or status(current_confirmed) != "archive"):
+if november and not approved_current and (not current_confirmed or status(current_confirmed) != "archive"):
     actual = "missing" if not current_confirmed else status(current_confirmed)
     raise RuntimeError(
         f"Confirmed current-cycle archive regressed: id=14857, status={actual}")
@@ -96,7 +133,7 @@ if len(archive) != 1426:
     raise RuntimeError(f"Confirmed archive plan changed: {len(archive)} != 1426")
 if 19167 in archive:
     raise RuntimeError("First-cycle debit incorrectly entered previous cycle: id=19167")
-if not approved_current and 19167 not in current:
+if november and not approved_current and 19167 not in current:
     raise RuntimeError("Repeat debit missing from current cycle: id=19167")
 for student_id in (19020, 19077):
     if student_id not in archive:
@@ -124,7 +161,7 @@ for student_id in (14857, 16534, 18921):
 for student_id in (18903, 18909):
     if student_id not in archive:
         raise RuntimeError(f"Previous-cycle student disappeared: id={student_id}")
-    if student_id in current:
+    if november and student_id in current:
         raise RuntimeError(f"Cross-cycle archive duplicate returned: id={student_id}")
 
 # User-confirmed regression cases. These assertions intentionally block a bad

@@ -36,8 +36,14 @@ jobs:
           CRM_PASS: ${{ secrets.CRM_PASS }}
           JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: |
-          MCP_TEST_OUT=index.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
-          MCP_TEST_OUT=mcp-test/index.html DASHBOARD_LABEL="MCP TEST" python3 mcp_dashboard_build.py
+          python3 - <<'PY'
+          import mcp_dashboard_build as dashboard
+          data = dashboard.load_data()
+          for path, label in [('index.html', 'LIVE'), ('mcp-test/index.html', 'MCP TEST')]:
+              dashboard.OUT = path
+              dashboard.SITE_LABEL = label
+              dashboard.render(*data)
+          PY
 
       # A temporary archived CRM report outage must not block current payments.
       # On failure the previously published archive remains untouched.

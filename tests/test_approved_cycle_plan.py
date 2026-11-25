@@ -52,7 +52,7 @@ class ApprovedCycleTests(unittest.TestCase):
 
     def test_snapshot_does_not_override_other_cycles(self):
         self.assertIsNone(approved_cycle_plan.load('2026-09-24', '2026-10-24'))
-        self.assertIsNone(approved_cycle_plan.load('2026-11-25', '2026-12-24'))
+        self.assertIsNone(approved_cycle_plan.load('2026-11-25', '2026-12-23'))
 
     def test_approved_data_does_not_add_layout_or_styles(self):
         plan = approved_cycle_plan.load('2026-10-25', '2026-11-23')
@@ -174,7 +174,7 @@ class CycleTransferTests(unittest.TestCase):
         return approved_cycle_plan.apply_cycle_transfers(
             [{'id': 14034, 'paid': True, 'november_one_month': True},
              {'id': 20647, 'paid': True, 'november_one_month': True}, {'id': 999}],
-            '2026-11-24', '2026-12-24', query, today)
+            '2026-11-24', '2026-12-23', query, today)
 
     def test_target_includes_once_without_old_paid_or_campaign_flags(self):
         rows = self.target()
