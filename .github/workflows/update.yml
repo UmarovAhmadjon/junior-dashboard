@@ -55,14 +55,6 @@ jobs:
           JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
         run: DASHBOARD_CYCLE_START=2026-09-24 MCP_TEST_OUT=index-cycle-2026-09-24.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
 
-      - name: Refresh previous cycle archive (25.10-23.11)
-        continue-on-error: true
-        env:
-          CRM_PHONE: ${{ secrets.CRM_PHONE }}
-          CRM_PASS: ${{ secrets.CRM_PASS }}
-          JUNIOR_MCP_GATEWAY: ${{ secrets.JUNIOR_MCP_GATEWAY || vars.JUNIOR_MCP_GATEWAY }}
-        run: DASHBOARD_CYCLE_START=2026-10-25 MCP_TEST_OUT=index-cycle-2026-10-25.html DASHBOARD_LABEL=LIVE python3 mcp_dashboard_build.py
-
       - name: Validate confirmed business rules
         run: python3 dashboard_validate.py
 
