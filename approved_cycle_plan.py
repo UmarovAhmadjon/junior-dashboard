@@ -75,7 +75,15 @@ def refresh_payments(plan, query, today):
             "COALESCE(SUM(CASE WHEN t.ACTION_TYPE='add' THEN t.AMOUNT ELSE 0 END),0) amount,"
             "SUM(CASE WHEN t.ACTION_TYPE='add' THEN 1 ELSE 0 END) payments,"
             "MAX(CASE WHEN t.ACTION_TYPE='add' THEN t.TRANSACTION_DATE END) last_paid,"
-            "COALESCE(SUM(CASE WHEN t.ACTION_TYPE='taken' THEN t.AMOUNT ELSE 0 END),0) charged "
+            "COALESCE(SUM(CASE WHEN t.ACTION_TYPE='taken' THEN t.AMOUNT ELSE 0 END),0) charged,"
+            "(SELECT COALESCE(SUM(n.AMOUNT),0) FROM transaction_list n WHERE n.ORG_ID=6 "
+            f"AND n.STUDENT_ID=s.ID AND n.ACTION_TYPE='taken' AND n.TRANSACTION_DATE>='{end}') later_charged,"
+            "(SELECT COALESCE(SUM(n.AMOUNT),0) FROM transaction_list n WHERE n.ORG_ID=6 "
+            f"AND n.STUDENT_ID=s.ID AND n.ACTION_TYPE='add' AND n.TRANSACTION_DATE>='{end}' "
+            "AND n.TRANSACTION_DATE<=NOW()) later_added,"
+            "(SELECT MAX(n.TRANSACTION_DATE) FROM transaction_list n WHERE n.ORG_ID=6 "
+            f"AND n.STUDENT_ID=s.ID AND n.ACTION_TYPE='add' AND n.TRANSACTION_DATE>='{end}' "
+            "AND n.TRANSACTION_DATE<=NOW()) later_last_paid "
             "FROM student_list s LEFT JOIN transaction_list t ON t.STUDENT_ID=s.ID AND t.ORG_ID=s.ORG_ID "
             f"AND t.TRANSACTION_DATE>='{plan['cycle_start']}' AND t.TRANSACTION_DATE<'{end}' "
             "AND t.TRANSACTION_DATE<=NOW() "
@@ -83,12 +91,24 @@ def refresh_payments(plan, query, today):
         live.update({int(r['sid']): r for r in rows})
     if set(ids) != set(live):
         raise RuntimeError('Approved roster CRM refresh incomplete; refusing stale publication')
+    # Archived builds cap today at the cycle end.
+    closed = today >= plan['cycle_end']
     result = []
     for original in plan['records']:
         row = dict(original)
         state = live[int(row['id'])]
         balance = int(state['balance'])
         amount = int(state['amount'] or 0)
+        last_paid = str(state['last_paid'] or '')
+        if closed:
+            # A closed cycle is judged without the next cycles' charges;
+            # receipts entered after the close still settle its debt.
+            balance += int(state.get('later_charged') or 0)
+            later_added = int(state.get('later_added') or 0)
+            late = min(later_added, max(0, later_added - balance))
+            if late > 0:
+                amount += late
+                last_paid = str(state.get('later_last_paid') or last_paid)
         required = int(row.get('required') or 0)
         arrived = row['due'] <= today
         # Zero balance before the due date alone does not mean prepaid.
@@ -98,7 +118,7 @@ def refresh_payments(plan, query, today):
             arrived or original.get('paid', False) or (required > 0 and amount >= required))
         debt = max(0, -balance) if arrived else max(0, required - max(0, balance))
         row.update(balance=balance, amount=amount, payments=int(state['payments'] or 0),
-                   last_paid=str(state['last_paid'] or ''), paid=paid,
+                   last_paid=last_paid, paid=paid,
                    partial=amount > 0 and not paid, due_arrived=arrived,
                    debt_amount=0 if paid else debt,
                    approved_status='paid' if paid else 'debt',

@@ -73,6 +73,8 @@ OUT = os.environ.get("MCP_TEST_OUT", os.path.join(os.path.dirname(__file__), "in
 SITE_LABEL = os.environ.get("DASHBOARD_LABEL", "MCP TEST")
 ANALYTICS_URL = "https://umarovahmadjon.github.io/junior-dashboard/index.html"
 SNAPSHOT_DIR = os.path.join(os.path.dirname(__file__), "cycle-snapshots")
+# Archives from this cycle on keep their closing plan unchanged.
+FROZEN_ARCHIVE_PLAN_FROM = dt.date(2026, 10, 25)
 PLAN_FIELDS = (
     "id", "name", "admin_id", "curator", "admin_full", "team", "group", "upsell",
     "due", "required", "price", "tariff", "is_package", "package_months", "package_until",
@@ -349,8 +351,12 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             }, handle, ensure_ascii=False, separators=(",", ":"))
             handle.write("\n")
     baseline_ids = {int(row["id"]) for row in baseline}
-    added_at_rebuild = [dict(row) for row in records
-                        if int(row["id"]) not in baseline_ids]
+    frozen_plan = CYCLE_START >= FROZEN_ARCHIVE_PLAN_FROM
+    if frozen_plan:
+        # The closed plan is final: only later receipts may change the fact.
+        records[:] = [row for row in records if int(row["id"]) in baseline_ids]
+    added_at_rebuild = [] if frozen_plan else [
+        dict(row) for row in records if int(row["id"]) not in baseline_ids]
     if added_at_rebuild:
         baseline.extend(added_at_rebuild)
         with open(closing_path, "w", encoding="utf-8") as handle:
@@ -475,6 +481,16 @@ def apply_late_payments_to_archived_cycle(records, snapshot_path):
             row["paid"] = True
             row["partial"] = False
             row["analytics_bucket"] = "paid"
+        if (frozen_plan and not bool(row.get("paid")) and
+                int(row.get("debt_amount") or 0) <= 0 and
+                str(row.get("analytics_bucket") or "").lower() == "debt"):
+            # Closing snapshot kept a debtor with a zero remainder; the real
+            # outstanding obligation is the unpaid part of the cycle charge.
+            row["debt_amount"] = max(0, int(row.get("required") or 0) -
+                                     max(0, int(row.get("amount") or 0)))
+        if (frozen_plan and not bool(row.get("paid")) and
+                str(row.get("analytics_bucket") or "").lower() == "deleted"):
+            row["subscription_status"] = "archive"
         old_debt = max(0, int(row.get("debt_amount") or 0))
         all_payments = payments_by_id.get(student_id, [])
         # payment_count is frozen at cycle close. Taking only newly appended

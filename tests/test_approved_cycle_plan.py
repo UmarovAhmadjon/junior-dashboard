@@ -95,6 +95,20 @@ class LiveApprovedPaymentsTests(unittest.TestCase):
         self.assertTrue(rows[0]['approved_overdue'])
         self.assertFalse(rows[1]['paid']);self.assertFalse(rows[1]['approved_overdue'])
 
+    def test_closed_cycle_ignores_next_charge_and_counts_late_receipt(self):
+        plan=self.plan()
+        rows=approved_cycle_plan.refresh_payments(plan,lambda sql:[
+            # Paid in cycle, charged again for the next cycle on 26.11.
+            dict(sid=17040,balance=-380000,amount=380000,payments=1,last_paid='2026-11-04',
+                 charged=380000,later_charged=380000,later_added=0,later_last_paid=None),
+            # Owed at close, paid on 25.11 (and no new charge yet).
+            dict(sid=18255,balance=0,amount=0,payments=0,last_paid=None,
+                 charged=420000,later_charged=0,later_added=420000,
+                 later_last_paid='2026-11-25 00:00:00')],'2026-11-23')
+        self.assertEqual([r['approved_status'] for r in rows],['paid','paid'])
+        self.assertEqual(rows[1]['amount'],420000)
+        self.assertEqual(rows[1]['last_paid'],'2026-11-25 00:00:00')
+
     def test_incomplete_refresh_fails_closed(self):
         with self.assertRaises(RuntimeError):
             approved_cycle_plan.refresh_payments(self.plan(),lambda sql:[],'2026-11-09')
