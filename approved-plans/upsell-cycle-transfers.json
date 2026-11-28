@@ -1,0 +1,151 @@
+[
+  {
+    "id": "2026-11-28-november-upsells",
+    "approved_on": "2026-11-28",
+    "from_start": "2026-11-24",
+    "from_end": "2026-12-23",
+    "to_start": "2026-10-25",
+    "to_end": "2026-11-23",
+    "reason": "User requested moving all 13 curator Upsells visible on 2026-11-28 to the cycle ending November 23. Preserve actual payment dates; change only Upsell report attribution.",
+    "sales": [
+      {
+        "id": 12419,
+        "name": "Akramov Behruz",
+        "curator": "Marjona",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "24.11.2026",
+        "crm_charge_id": 247914
+      },
+      {
+        "id": 15165,
+        "name": "Qobilov Imron",
+        "curator": "Jasmina",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "24.11.2026",
+        "crm_charge_id": 248054
+      },
+      {
+        "id": 20486,
+        "name": "Aytmuratov Rasul",
+        "curator": "Jasmina",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "24.11.2026",
+        "crm_charge_id": 247998
+      },
+      {
+        "id": 20672,
+        "name": "Komilov Solih",
+        "curator": "Marjona",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "24.11.2026",
+        "crm_charge_id": 247918
+      },
+      {
+        "id": 23012,
+        "name": "Mansurbekov Jahongir",
+        "curator": "Halima",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "24.11.2026",
+        "crm_charge_id": 248008
+      },
+      {
+        "id": 13738,
+        "name": "Xondamir Dexqonov",
+        "curator": "Jasmina",
+        "months": 3,
+        "tariff": "350-380-390",
+        "amount": 990000,
+        "sale_date": "25.11.2026",
+        "crm_charge_id": 248144
+      },
+      {
+        "id": 18173,
+        "name": "Musurmunqulov Shoxruzbek",
+        "curator": "Halima",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "26.11.2026",
+        "crm_charge_id": 248147
+      },
+      {
+        "id": 18269,
+        "name": "Temirov Iskandar",
+        "curator": "Halima",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "26.11.2026",
+        "crm_charge_id": 248152
+      },
+      {
+        "id": 18276,
+        "name": "Qurolboyev Alibek",
+        "curator": "Halima",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "26.11.2026",
+        "crm_charge_id": 248253
+      },
+      {
+        "id": 14772,
+        "name": "Murodjonov Shamshod",
+        "curator": "Halima",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "27.11.2026",
+        "crm_charge_id": 248259
+      },
+      {
+        "id": 15960,
+        "name": "Faxridinov Sardor",
+        "curator": "Halima",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "27.11.2026",
+        "crm_charge_id": 248559
+      },
+      {
+        "id": 19729,
+        "name": "Xakimov Nuryigit",
+        "curator": "Halima",
+        "months": 3,
+        "tariff": "420",
+        "amount": 1080000,
+        "sale_date": "27.11.2026",
+        "crm_charge_id": 248300
+      },
+      {
+        "id": 11434,
+        "name": "Nuriddinov Firdavs",
+        "curator": "Dilafruz",
+        "months": 3,
+        "tariff": "350-380-390",
+        "amount": 990000,
+        "sale_date": "27.11.2026",
+        "crm_charge_id": 248207
+      }
+    ],
+    "legacy_replacements": [
+      {
+        "id": 14772,
+        "months": 3,
+        "amount": 1080000,
+        "sale_date": "11.11.2026"
+      }
+    ]
+  }
+]

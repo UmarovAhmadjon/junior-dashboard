@@ -63,6 +63,34 @@ current = validate("index.html")
 with open("index.html", encoding="utf-8") as handle:
     document = handle.read()
 period = json.loads(re.search(r"const periods=(\{.*?\});", document)[1])["all"][:2]
+# Source and destination must publish together, including when the archive
+# refresh fails: never drop transferred sales or restore the legacy duplicate.
+import upsell_cycle_transfers
+for transfer in upsell_cycle_transfers.load():
+    target_path = f"index-cycle-{transfer['to_start']}.html"
+    if period == [transfer['to_start'], transfer['to_end']]:
+        target_path = 'index.html'
+    target_sales = embedded_rows(target_path, 'upsell-data')
+    for expected_sale in transfer['sales']:
+        matches = [row for row in target_sales
+                   if upsell_cycle_transfers.sale_key(row) ==
+                   upsell_cycle_transfers.sale_key(expected_sale)]
+        if len(matches) != 1 or any(
+                matches[0].get(key) != value for key, value in expected_sale.items()):
+            raise RuntimeError(f"Approved Upsell transfer missing/changed: {expected_sale['id']}")
+    for alias in transfer.get('legacy_replacements', []):
+        if any(not row.get('crm_charge_id') and
+               all(row.get(key) == value for key, value in alias.items())
+               for row in target_sales):
+            raise RuntimeError(f"Transferred Upsell still duplicated in archive: {alias['id']}")
+    source_path = f"index-cycle-{transfer['from_start']}.html"
+    if period == [transfer['from_start'], transfer['from_end']]:
+        source_path = 'index.html'
+    if os.path.isfile(source_path):
+        moved_keys = {upsell_cycle_transfers.sale_key(row) for row in transfer['sales']}
+        if any(upsell_cycle_transfers.sale_key(row) in moved_keys
+               for row in embedded_rows(source_path, 'upsell-data')):
+            raise RuntimeError('Transferred Upsell returned to its original cycle')
 november = period == ['2026-10-25', '2026-11-23']
 new_cycle = period[0] >= '2026-11-24'
 approved_current = november and bool(current) and all('approved_status' in r for r in current.values())

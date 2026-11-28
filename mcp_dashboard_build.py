@@ -1199,6 +1199,9 @@ def render(records, audit, upsells, collections):
     if CYCLE_START < dt.date(2026, 11, 24):
         records = approved_cycle_plan.apply_cycle_transfers(
             records, CYCLE_START, CYCLE_END, query, audit['today'])
+    # Explicitly approved reporting exceptions retain actual receipt dates.
+    import upsell_cycle_transfers
+    upsells = upsell_cycle_transfers.apply(upsells, CYCLE_START, CYCLE_END)
     # Packages marked «Допродажа 3/6/12» in amoCRM belong to sales managers.
     import sales_upsells
     upsells, excluded_upsells = sales_upsells.exclude(upsells)
