@@ -1199,6 +1199,10 @@ def render(records, audit, upsells, collections):
     if CYCLE_START < dt.date(2026, 11, 24):
         records = approved_cycle_plan.apply_cycle_transfers(
             records, CYCLE_START, CYCLE_END, query, audit['today'])
+    # Packages marked «Допродажа 3/6/12» in amoCRM belong to sales managers.
+    import sales_upsells
+    upsells, excluded_upsells = sales_upsells.exclude(upsells)
+    audit["upsell_excluded_sales"] = excluded_upsells
     data_json = json.dumps(records, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     upsell_json = json.dumps(upsells, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     collection_json = json.dumps(collections, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")

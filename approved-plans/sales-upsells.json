@@ -1,0 +1,464 @@
+[
+{
+"lead_id": 71520803,
+"name": "Sobirjonov Diyorbek",
+"date": "2026-10-01",
+"manager": "Abdulaziz Numonjonov",
+"months": 3
+},
+{
+"lead_id": 71533307,
+"name": "Jumakulov Sardorbek",
+"date": "2026-10-02",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71497995,
+"name": "Ibrogimov David",
+"date": "2026-10-03",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71536157,
+"name": "Muradov Akmal",
+"date": "2026-10-03",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71527723,
+"name": "Umirbekov Po'latbek",
+"date": "2026-10-04",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71532777,
+"name": "Shamsiddinov Azizbek",
+"date": "2026-10-05",
+"manager": "Durdona Abdukodirova",
+"months": 3
+},
+{
+"lead_id": 71533495,
+"name": "G'ulomov Shoxruzbek",
+"date": "2026-10-05",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71537575,
+"name": "Nurov Salmon",
+"date": "2026-10-05",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71539727,
+"name": "Ziyodullayev Javohir",
+"date": "2026-10-05",
+"manager": "Abror Mirboqiyev",
+"months": 12
+},
+{
+"lead_id": 71544307,
+"name": "Muradillayev Islom",
+"date": "2026-10-05",
+"manager": "Abror Mirboqiyev",
+"months": 12
+},
+{
+"lead_id": 71545675,
+"name": "Turdiyev Nodirbek",
+"date": "2026-10-05",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71546919,
+"name": "Tolibova Farida",
+"date": "2026-10-05",
+"manager": "Abdulaziz Numonjonov",
+"months": 3
+},
+{
+"lead_id": 71537635,
+"name": "Sultonov Shohjaxon",
+"date": "2026-10-07",
+"manager": "Shohrux Ismatov",
+"months": 3
+},
+{
+"lead_id": 71547721,
+"name": "Saidrahmonov Saidmalik",
+"date": "2026-10-07",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71568009,
+"name": "Raxmatullayeva Zarina",
+"date": "2026-10-07",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71529195,
+"name": "Zokirjonov A'zam",
+"date": "2026-10-10",
+"manager": "Abror Mirboqiyev",
+"months": 12
+},
+{
+"lead_id": 71592783,
+"name": "Kasimov Seyran",
+"date": "2026-10-10",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71607151,
+"name": "Ibrohimova Aziza",
+"date": "2026-10-11",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71598567,
+"name": "Miraziz Mirxalilov Mirsodiq ogli",
+"date": "2026-10-12",
+"manager": "Shohrux Ismatov",
+"months": 3
+},
+{
+"lead_id": 71611635,
+"name": "Qodirjonov Boburshoh",
+"date": "2026-10-13",
+"manager": "Asilbek Fozilov",
+"months": 12
+},
+{
+"lead_id": 71552223,
+"name": "Zokirov Sarvarbek",
+"date": "2026-10-15",
+"manager": "Abror Mirboqiyev",
+"months": 12
+},
+{
+"lead_id": 71635763,
+"name": "Maqsudov Bayel",
+"date": "2026-10-16",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71636155,
+"name": "Abdullayeva Jahona",
+"date": "2026-10-16",
+"manager": "Asilbek Fozilov",
+"months": 6
+},
+{
+"lead_id": 71581695,
+"name": "Yunusjonov Komronbek",
+"date": "2026-10-17",
+"manager": "Abdulaziz Numonjonov",
+"months": 12
+},
+{
+"lead_id": 71633389,
+"name": "Kalbayeva Sadoqat",
+"date": "2026-10-17",
+"manager": "Durdona Abdukodirova",
+"months": 3
+},
+{
+"lead_id": 71607077,
+"name": "Elmurodov Abdulfayz",
+"date": "2026-10-18",
+"manager": "Durdona Abdukodirova",
+"months": 3
+},
+{
+"lead_id": 71645301,
+"name": "To'raboyev Abdulmajid",
+"date": "2026-10-19",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71646485,
+"name": "Sayfiddinov Sardorbek",
+"date": "2026-10-19",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71631099,
+"name": "Ilashbayev Kamronbek",
+"date": "2026-10-20",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71608909,
+"name": "Orifjonova Feruza",
+"date": "2026-10-21",
+"manager": "Shohrux Ismatov",
+"months": 3
+},
+{
+"lead_id": 71649333,
+"name": "Umarov Odiljon",
+"date": "2026-10-21",
+"manager": "Shohrux Ismatov",
+"months": 6
+},
+{
+"lead_id": 71487699,
+"name": "Shermahamedova Sarvaroy",
+"date": "2026-10-23",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71683841,
+"name": "Xusanov Abdulaziz",
+"date": "2026-10-23",
+"manager": "Shohrux Ismatov",
+"months": 6
+},
+{
+"lead_id": 71652123,
+"name": "Shoimqulov Shohjahon",
+"date": "2026-10-24",
+"manager": "Shohrux Ismatov",
+"months": 12
+},
+{
+"lead_id": 71665819,
+"name": "Qadamov  Ulug'bek",
+"date": "2026-10-24",
+"manager": "Durdona Abdukodirova",
+"months": 3
+},
+{
+"lead_id": 71685643,
+"name": "Nazirova Shirin",
+"date": "2026-10-25",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71680511,
+"name": "Shavkatov Ulug'bek",
+"date": "2026-10-26",
+"manager": "Durdona Abdukodirova",
+"months": 6
+},
+{
+"lead_id": 71702277,
+"name": "Xakimnazarov Abdulloh",
+"date": "2026-10-26",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71691961,
+"name": "Xoldarov Firdavs",
+"date": "2026-10-27",
+"manager": "Durdona Abdukodirova",
+"months": 3
+},
+{
+"lead_id": 71685985,
+"name": "Botirqulova Bahora",
+"date": "2026-10-28",
+"manager": "Durdona Abdukodirova",
+"months": 3
+},
+{
+"lead_id": 71684853,
+"name": "Asadov Habibullo",
+"date": "2026-10-30",
+"manager": "Shohrux Ismatov",
+"months": 6
+},
+{
+"lead_id": 71702061,
+"name": "Jo'rayev Islom",
+"date": "2026-10-30",
+"manager": "Shohrux Ismatov",
+"months": 3
+},
+{
+"lead_id": 71731923,
+"name": "Axtamov Alibek",
+"date": "2026-11-02",
+"manager": "Shohrux Ismatov",
+"months": 3
+},
+{
+"lead_id": 71756857,
+"name": "Abdurahmonova Oisha",
+"date": "2026-11-02",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71720755,
+"name": "Ostonova Sanobarbonu",
+"date": "2026-11-03",
+"manager": "Javohir Ne'matov",
+"months": 3
+},
+{
+"lead_id": 71647833,
+"name": "Tolibov Amirbek",
+"date": "2026-11-04",
+"manager": "Shohrux Ismatov",
+"months": 3
+},
+{
+"lead_id": 71732923,
+"name": "Djamalov Aliasqar",
+"date": "2026-11-04",
+"manager": "Shohrux Ismatov",
+"months": 3
+},
+{
+"lead_id": 71745469,
+"name": "Ozodboyev Asadbek",
+"date": "2026-11-07",
+"manager": "Maftuna Xabibullayeva",
+"months": 3
+},
+{
+"lead_id": 71788419,
+"name": "Asrorqulov Nurmuhammad",
+"date": "2026-11-07",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71793205,
+"name": "Inomjonov Islom",
+"date": "2026-11-08",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71812101,
+"name": "Abduraximova Shirin",
+"date": "2026-11-10",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71784677,
+"name": "Sobirova Durdona",
+"date": "2026-11-11",
+"manager": "Maftuna Xabibullayeva",
+"months": 3
+},
+{
+"lead_id": 71805881,
+"name": "Ziyodullayeva Ziyodaxon",
+"date": "2026-11-11",
+"manager": "Abror Mirboqiyev",
+"months": 12
+},
+{
+"lead_id": 71816179,
+"name": "Azamov Azamxon",
+"date": "2026-11-11",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71804885,
+"name": "Akbaraliyev Davlatbek",
+"date": "2026-11-12",
+"manager": "Shohrux Ismatov",
+"months": 6
+},
+{
+"lead_id": 71795897,
+"name": "Imamberdiyeva Niso",
+"date": "2026-11-13",
+"manager": "Abdulaziz Numonjonov",
+"months": 3
+},
+{
+"lead_id": 71834363,
+"name": "Mirzaraxmatova Muslima",
+"date": "2026-11-13",
+"manager": "Abdulaziz Numonjonov",
+"months": 3
+},
+{
+"lead_id": 71810561,
+"name": "Bayhanova Diyora",
+"date": "2026-11-15",
+"manager": "Durdona Abdukodirova",
+"months": 3
+},
+{
+"lead_id": 71831451,
+"name": "Musurmanov Saidkomilxon",
+"date": "2026-11-18",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71802137,
+"name": "Rafiqov Sunnat",
+"date": "2026-11-19",
+"manager": "Abdulaziz Numonjonov",
+"months": 12
+},
+{
+"lead_id": 71828467,
+"name": "Rahmatullayev Abdulboriy",
+"date": "2026-11-19",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71837867,
+"name": "Nabiyev Shohrux",
+"date": "2026-11-20",
+"manager": "Abdulaziz Numonjonov",
+"months": 12
+},
+{
+"lead_id": 71846645,
+"name": "Abdug'ofurjonov Muhammadyusuf",
+"date": "2026-11-21",
+"manager": "Abdulaziz Numonjonov",
+"months": 3
+},
+{
+"lead_id": 71886619,
+"name": "Ahmadova Mushtariy",
+"date": "2026-11-25",
+"manager": "Abror Mirboqiyev",
+"months": 3
+},
+{
+"lead_id": 71918333,
+"name": "Abduraimov Mehriddin",
+"date": "2026-11-27",
+"manager": "Asilbek Fozilov",
+"months": 3
+},
+{
+"lead_id": 71893261,
+"name": "Alimov Yusuf",
+"date": "2026-11-28",
+"manager": "Shohrux Ismatov",
+"months": 3
+}
+]

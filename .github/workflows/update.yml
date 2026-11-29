@@ -70,7 +70,7 @@ jobs:
         run: |
           git config user.name "dashboard-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add index.html mcp-test/index.html cycle-snapshots/ index-cycle-*.html
+          git add index.html mcp-test/index.html cycle-snapshots/ index-cycle-*.html approved-plans/sales-upsells.json
           if git diff --cached --quiet; then
             echo "No changes - skip commit"
           else
